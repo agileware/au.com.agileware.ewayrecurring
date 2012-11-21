@@ -50,7 +50,8 @@ function process_recurring_payments($payment_processor) {
   foreach ($pending_contributions as $pending_contribution) {
     // Process payment
     echo "Processing payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
-    $amount_in_cents = str_replace('.', '', $pending_contribution['contribution']['total_amount']);
+    $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
+				    $pending_contribution['contribution']['total_amount']);
     $result = process_eway_payment(
 				   $token_client,
 				   $pending_contribution['contribution_recur']->processor_id,
@@ -86,7 +87,8 @@ function process_recurring_payments($payment_processor) {
   foreach ($scheduled_contributions as $contribution) {
     // Process payment
     echo "Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
-    $amount_in_cents = str_replace('.', '', $contribution->amount);
+    $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
+				    $contribution->amount);
     $result = process_eway_payment(
 				   $token_client,
 				   $contribution->processor_id,
