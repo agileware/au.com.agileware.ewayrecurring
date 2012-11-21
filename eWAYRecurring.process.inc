@@ -123,7 +123,7 @@ function process_recurring_payments($payment_processor) {
     send_receipt_email($new_contribution_record->id);
 
     echo "Updating recurring contribution\n";
-    $contribution->next_sched_contribution = CRM_Utils_Date::isoToMysql(date('Y-m-d 00:00:00', strtotime("+1 month")));
+    $contribution->next_sched_contribution = CRM_Utils_Date::isoToMysql(date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}")));
     $contribution->save();
     echo "Finished processing recurring contribution ID: " . $contribution->id . "\n";
   }
