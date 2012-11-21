@@ -236,7 +236,22 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
                 $managed_customer_id
             );
 
-            /* And we're done - this payment will staying in a pending state until it's processed
+	    CRM_Core_DAO::setFieldValue(
+		'CRM_Contribute_DAO_ContributionRecur',
+		$params['contributionRecurID'],
+		'create_date',
+		date('Y-m-d H:i:s')
+	    );
+					
+	    CRM_Core_DAO::setFieldValue(
+		'CRM_Contribute_DAO_ContributionRecur',
+		$params['contributionRecurID'],
+		'modified_date',
+		date('Y-m-d H:i:s')
+	    );
+					
+
+            /* AND we're done - this payment will staying in a pending state until it's processed
              * by the cronjob
              */
         }
