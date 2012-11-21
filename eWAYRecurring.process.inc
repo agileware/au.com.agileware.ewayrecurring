@@ -24,12 +24,8 @@
 */
 
 // TODO: Remove hacky hardcoded constants
-// The full path to your CiviCRM directory
-//define('CIVICRM_DIRECTORY', '/home/antar/public_html/sites/all/modules/civicrm');
 // The ID for contributions in a pending status
 define('PENDING_CONTRIBUTION_STATUS_ID', 2);
-// The ID of your CiviCRM eWay recurring payment processor
-//define('PAYMENT_PROCESSOR_ID', 10);
 define('RECEIPT_SUBJECT_TITLE', 'Monthly Donation');
 
 function process_recurring_payments($payment_processor) {
@@ -37,8 +33,6 @@ function process_recurring_payments($payment_processor) {
   $pending_contributions = get_pending_recurring_contributions();
 
   // Create eWay token client
-  // $payment_processor = CRM_Core_BAO_PaymentProcessor::getPayment(PAYMENT_PROCESSOR_ID, 'live');
-
   $token_client = eway_token_client(
 				    $payment_processor['url_recur'],
 				    $payment_processor['subject'],
