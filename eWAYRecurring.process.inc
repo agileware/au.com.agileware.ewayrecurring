@@ -75,7 +75,10 @@ function process_recurring_payments($payment_processor) {
     complete_contribution($pending_contribution['contribution']['id']);
 
     echo "Updating recurring contribution\n";
-    $pending_contribution['contribution_recur']->next_sched_contribution = CRM_Utils_Date::isoToMysql(date('Y-m-d 00:00:00', strtotime("+1 month")));
+    $pending_contribution['contribution_recur']->next_sched_contribution = 
+      CRM_Utils_Date::isoToMysql
+      (date ('Y-m-d 00:00:00',
+	     strtotime("+{$pending_contribution['contribution_recur']->frequency_interval} {$pending_contribution['contribution_recur']->frequency_unit}")));
     $pending_contribution['contribution_recur']->save();
     echo "Finished processing contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
   }
@@ -109,7 +112,7 @@ function process_recurring_payments($payment_processor) {
     echo "Creating contribution record\n";
     $new_contribution_record = new CRM_Contribute_BAO_Contribution();
     $new_contribution_record->contact_id = $contribution->contact_id;
-    $new_contribution_record->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d 00:00:00'));
+    $new_contribution_record->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
     $new_contribution_record->total_amount = $contribution->amount;
     $new_contribution_record->contribution_recur_id = $contribution->id;
     $new_contribution_record->contribution_status_id = 1; // TODO: Remove hardcoded hack
@@ -182,7 +185,7 @@ function get_pending_recurring_contributions()
 function get_scheduled_contributions()
 {
     $scheduled_today = new CRM_Contribute_BAO_ContributionRecur();
-    $scheduled_today->whereAdd("`next_sched_contribution` = '" . date('Y-m-d 00:00:00') . "'");
+    $scheduled_today->whereAdd("`next_sched_contribution` <= '" . date('Y-m-d 00:00:00') . "'");
     // Don't get cancelled contributions
     $scheduled_today->whereAdd("`contribution_status_id` != 3");
     // Or test transactions
@@ -195,7 +198,7 @@ function get_scheduled_contributions()
         // Check that there's no existing contribution record for today
         $contribution = new CRM_Contribute_BAO_Contribution();
         $contribution->contribution_recur_id = $scheduled_today->id;
-        $contribution->whereAdd("`receive_date` = '" . date('Y-m-d 00:00:00') . "'");
+        $contribution->whereAdd("`receive_date` >= '" . date('Y-m-d 00:00:00') . "'");
 
         if ($contribution->find() == 0) {
             $scheduled_contributions[] = $scheduled_today;
