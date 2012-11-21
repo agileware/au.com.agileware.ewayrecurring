@@ -25,58 +25,45 @@
 
 // TODO: Remove hacky hardcoded constants
 // The full path to your CiviCRM directory
-define('CIVICRM_DIRECTORY', '/home/antar/public_html/sites/all/modules/civicrm');
+//define('CIVICRM_DIRECTORY', '/home/antar/public_html/sites/all/modules/civicrm');
 // The ID for contributions in a pending status
 define('PENDING_CONTRIBUTION_STATUS_ID', 2);
 // The ID of your CiviCRM eWay recurring payment processor
-define('PAYMENT_PROCESSOR_ID', 10);
+//define('PAYMENT_PROCESSOR_ID', 10);
 define('RECEIPT_SUBJECT_TITLE', 'Monthly Donation');
 
-// Initialise CiviCRM
-chdir(CIVICRM_DIRECTORY);
-require 'civicrm.config.php';
-require 'CRM/Core/Config.php';
-$config = CRM_Core_Config::singleton();
+function process_recurring_payments($payment_processor) {
+  // Get pending contributions
+  $pending_contributions = get_pending_recurring_contributions();
 
-require_once 'api/api.php';
-require_once 'CRM/Contribute/BAO/ContributionRecur.php';
-require_once 'CRM/Contribute/BAO/Contribution.php';
-require_once 'CRM/Core/BAO/PaymentProcessor.php';
-require_once 'CRM/Utils/Date.php';
-require_once 'CRM/Core/BAO/MessageTemplates.php';
-require_once 'CRM/Contact/BAO/Contact/Location.php';
-require_once 'CRM/Core/BAO/Domain.php';
+  // Create eWay token client
+  // $payment_processor = CRM_Core_BAO_PaymentProcessor::getPayment(PAYMENT_PROCESSOR_ID, 'live');
 
-// Get pending contributions
-$pending_contributions = get_pending_recurring_contributions();
+  $token_client = eway_token_client(
+				    $payment_processor['url_recur'],
+				    $payment_processor['subject'],
+				    $payment_processor['user_name'],
+				    $payment_processor['password']
+				    );
 
-// Create eWay token client
-$payment_processor = CRM_Core_BAO_PaymentProcessor::getPayment(PAYMENT_PROCESSOR_ID, 'live');
-$token_client = eway_token_client(
-    $payment_processor['url_recur'],
-    $payment_processor['subject'],
-    $payment_processor['user_name'],
-    $payment_processor['password']
-);
-
-echo "Processing " . count($pending_contributions) . " pending contributions\n";
-foreach ($pending_contributions as $pending_contribution) {
+  echo "Processing " . count($pending_contributions) . " pending contributions\n";
+  foreach ($pending_contributions as $pending_contribution) {
     // Process payment
     echo "Processing payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
     $amount_in_cents = str_replace('.', '', $pending_contribution['contribution']['total_amount']);
     $result = process_eway_payment(
-        $token_client,
-        $pending_contribution['contribution_recur']->processor_id,
-        $amount_in_cents,
-        $pending_contribution['contribution']['invoice_id'],
-        $pending_contribution['contribution']['contribution_source']
-    );
+				   $token_client,
+				   $pending_contribution['contribution_recur']->processor_id,
+				   $amount_in_cents,
+				   $pending_contribution['contribution']['invoice_id'],
+				   $pending_contribution['contribution']['contribution_source']
+				   );
 
     // Bail if the transaction fails
     if ($result->ewayTrxnStatus != 'True') {
-        echo 'ERROR: Failed to process transaction for managed customer: ' . $pending_contribution['contribution_recur']->processor_id . "\n";
-        echo 'eWay response: ' . $result->ewayTrxnError . "\n";
-        continue;
+      echo 'ERROR: Failed to process transaction for managed customer: ' . $pending_contribution['contribution_recur']->processor_id . "\n";
+      echo 'eWay response: ' . $result->ewayTrxnError . "\n";
+      continue;
     }
     echo "Successfully processed payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
 
@@ -90,30 +77,30 @@ foreach ($pending_contributions as $pending_contribution) {
     $pending_contribution['contribution_recur']->next_sched_contribution = CRM_Utils_Date::isoToMysql(date('Y-m-d 00:00:00', strtotime("+1 month")));
     $pending_contribution['contribution_recur']->save();
     echo "Finished processing contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
-}
+  }
 
-// Process today's scheduled contributions
-$scheduled_contributions = get_scheduled_contributions();
+  // Process today's scheduled contributions
+  $scheduled_contributions = get_scheduled_contributions();
 
-echo "Processing " . count($scheduled_contributions) . " scheduled contributions\n";
-foreach ($scheduled_contributions as $contribution) {
+  echo "Processing " . count($scheduled_contributions) . " scheduled contributions\n";
+  foreach ($scheduled_contributions as $contribution) {
     // Process payment
     echo "Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
     $amount_in_cents = str_replace('.', '', $contribution->amount);
     $result = process_eway_payment(
-        $token_client,
-        $contribution->processor_id,
-        $amount_in_cents,
-        $contribution->invoice_id,
-        ''
-    );
+				   $token_client,
+				   $contribution->processor_id,
+				   $amount_in_cents,
+				   $contribution->invoice_id,
+				   ''
+				   );
 
     // Bail if the transaction fails
     if ($result->ewayTrxnStatus != 'True') {
-        echo 'ERROR: Failed to process transaction for managed customer: ' . $contribution->processor_id;
-        echo 'eWay response: ' . $result->ewayTrxnError;
-        // TODO: Mark transaction as failed
-        continue;
+      echo 'ERROR: Failed to process transaction for managed customer: ' . $contribution->processor_id;
+      echo 'eWay response: ' . $result->ewayTrxnError;
+      // TODO: Mark transaction as failed
+      continue;
     }
     echo "Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
 
@@ -134,6 +121,7 @@ foreach ($scheduled_contributions as $contribution) {
     $contribution->next_sched_contribution = CRM_Utils_Date::isoToMysql(date('Y-m-d 00:00:00', strtotime("+1 month")));
     $contribution->save();
     echo "Finished processing recurring contribution ID: " . $contribution->id . "\n";
+  }
 }
 
 /**

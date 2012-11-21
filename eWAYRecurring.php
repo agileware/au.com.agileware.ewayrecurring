@@ -72,6 +72,7 @@
 */
 
 require_once 'CRM/Core/Payment.php';
+require_once 'eWAYRecurring.process.inc';
 
 class org_civicrm_ewayrecurring extends CRM_Core_Payment
 {
@@ -588,11 +589,10 @@ The CiviCRM eWAY Payment Processor Module
         CRM_Utils_Mail::send( $params );
     }
 
-    // Will need to be updated when we get cron working again.
-    /*
-    function processRecur($params,$paymentDate,$paymentTransaction)
-    {
-        The code found in the eWayEmailprocessor should be here, but I was getting cron errors. These may have been fixed now and the code can be moved back into this function again.
+    function handlePaymentCron() {
+
+      return process_recurring_payments($this->_paymentProcessor);
+      
     }
-    */
+
 } // end class CRM_Core_Payment_eWAYRecurring
