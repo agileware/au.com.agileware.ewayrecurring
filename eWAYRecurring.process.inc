@@ -72,7 +72,9 @@ function process_recurring_payments($payment_processor) {
     send_receipt_email($pending_contribution['contribution']['id']);
 
     echo "Marking contribution as complete\n";
-    complete_contribution($pending_contribution['contribution']['id']);
+
+    complete_contribution($pending_contribution['contribution']['id'],
+			  $result->ewayTrxnNumber);
 
     echo "Updating recurring contribution\n";
     $pending_contribution['contribution_recur']->next_sched_contribution = 
@@ -117,6 +119,10 @@ function process_recurring_payments($payment_processor) {
     $new_contribution_record->contribution_recur_id = $contribution->id;
     $new_contribution_record->contribution_status_id = 1; // TODO: Remove hardcoded hack
     $new_contribution_record->contribution_type_id = $contribution->contribution_type_id;
+    $new_contribution_record->payment_instrument_id = $contribution->payment_instrument_id;
+    $new_contribution_record->source = 'eWAY Recurring Payment';
+    $new_contribution_record->trxn_id = $result->ewayTrxnNumber;
+
     $new_contribution_record->save();
 
     echo "Sending receipt\n";
@@ -272,14 +278,17 @@ function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cen
  * @param string $contribution_id The ID of the contribution to mark as complete
  * @return object The contribution object
  */
-function complete_contribution($contribution_id)
+function complete_contribution($contribution_id, $trxn_id = NULL)
 {
     // Mark the contribution as complete
     $contribution = new CRM_Contribute_BAO_Contribution();
     $contribution->id = $contribution_id;
     $contribution->find(true);
+
     $contribution->contribution_status_id = 1;
     $contribution->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
+    if($trxn_id)
+      $contribution->trxn_id = $trxn_id;
 
     return $contribution->save();
 }
