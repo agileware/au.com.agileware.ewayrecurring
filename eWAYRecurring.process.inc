@@ -212,7 +212,8 @@ function get_scheduled_contributions()
         // Check that there's no existing contribution record for today
         $contribution = new CRM_Contribute_BAO_Contribution();
         $contribution->contribution_recur_id = $scheduled_today->id;
-        $contribution->whereAdd("`receive_date` >= '" . date('Y-m-d 00:00:00') . "'");
+        $contribution->whereAdd
+	  ("`receive_date` >= '{$scheduled_today->next_sched_contribution}'");
 
         if ($contribution->find() == 0) {
             $scheduled_contributions[] = $scheduled_today;
