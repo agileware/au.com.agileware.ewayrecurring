@@ -70,16 +70,22 @@ function process_recurring_payments($payment_processor) {
     complete_contribution($pending_contribution['contribution']['id'],
 			  $result->ewayTrxnNumber);
 
+    
     echo "Updating recurring contribution\n";
     /* Schedule next contribution */
+    $next_sched = strtotime
+      ("+{$pending_contribution['contribution_recur']->frequency_interval} " .
+       "{$pending_contribution['contribution_recur']->frequency_unit}");
+
     CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-				 $contribution->id,
+				 $pending_contribution['contribution_recur']->id,
 				 'next_sched_contribution',
-				 CRM_Utils_Date::isoToMysql (date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}"))));
+				 CRM_Utils_Date::isoToMysql (date('Y-m-d 00:00:00',
+								  $next_sched)));
 
     /* Update status for reporting */
     CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-				 $contribution->id,
+				 $pending_contribution['contribution_recur']->id,
 				 'contribution_status_id',
 				 5 );
 
