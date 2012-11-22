@@ -71,11 +71,18 @@ function process_recurring_payments($payment_processor) {
 			  $result->ewayTrxnNumber);
 
     echo "Updating recurring contribution\n";
-    $pending_contribution['contribution_recur']->next_sched_contribution = 
-      CRM_Utils_Date::isoToMysql
-      (date ('Y-m-d 00:00:00',
-	     strtotime("+{$pending_contribution['contribution_recur']->frequency_interval} {$pending_contribution['contribution_recur']->frequency_unit}")));
-    $pending_contribution['contribution_recur']->save();
+    /* Schedule next contribution */
+    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+				 $contribution->id,
+				 'next_sched_contribution',
+				 CRM_Utils_Date::isoToMysql (date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}"))));
+
+    /* Update status for reporting */
+    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+				 $contribution->id,
+				 'contribution_status_id',
+				 5 );
+
     echo "Finished processing contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
   }
 
@@ -88,11 +95,14 @@ function process_recurring_payments($payment_processor) {
     echo "Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
 				    $contribution->amount);
+
+    $invoice_id = substr(md5(uniqid(rand(), TRUE)), 0, 16);
+
     $result = process_eway_payment(
 				   $token_client,
 				   $contribution->processor_id,
 				   $amount_in_cents,
-				   $contribution->invoice_id,
+				   $invoice_id,
 				   ''
 				   );
 
@@ -117,14 +127,18 @@ function process_recurring_payments($payment_processor) {
     $new_contribution_record->source = 'eWAY Recurring Payment';
     $new_contribution_record->trxn_id = $result->ewayTrxnNumber;
 
+    $new_contribution_record->invoice_id = $invoice_id;
     $new_contribution_record->save();
 
     echo "Sending receipt\n";
     send_receipt_email($new_contribution_record->id);
 
-    echo "Updating recurring contribution\n";
-    $contribution->next_sched_contribution = CRM_Utils_Date::isoToMysql(date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}")));
-    $contribution->save();
+    /* Schedule next contribution */
+    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+				 $contribution->id,
+				 'next_sched_contribution',
+				 CRM_Utils_Date::isoToMysql (date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}"))));
+        
     echo "Finished processing recurring contribution ID: " . $contribution->id . "\n";
   }
 }
