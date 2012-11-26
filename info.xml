@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<extension key="org.civicrm.ewayrecurring" type="payment">
+<extension key="org.civicrm.ewayrecurring" type="module">
   <file>eWAYRecurring</file>
   <name>eWay_Recurring</name>
   <description>Recurring payments payment processor for eWay</description>
@@ -14,8 +14,8 @@
     <author>Melbourne CiviCRM</author>
     <email>noreply@civicrm.org</email>
   </maintainer>
-  <releaseDate>2012-04-23</releaseDate>
-  <version>0.0.5</version>
+  <releaseDate>2012-11-21</releaseDate>
+  <version>0.1.2</version>
   <develStage>beta</develStage>
   <compatibility><ver>4.2</ver></compatibility>
   <comments></comments>

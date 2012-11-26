@@ -604,3 +604,35 @@ The CiviCRM eWAY Payment Processor Module
     }
 
 } // end class CRM_Core_Payment_eWAYRecurring
+
+function ewayrecurring_civicrm_buildForm ($formName, &$form) {
+  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
+    $form->addElement('text', 'recur_cycleday', ts('Day to process recurring payments on'));
+  }
+}
+
+function ewayrecurring_civicrm_postProcess ($formName, &$form) {
+  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
+    
+  }
+}
+
+function ewayrecurring_civicrm_config(&$config) {
+  $template =& CRM_Core_Smarty::singleton();
+
+  $ewayrecurringRoot =
+    dirname(__FILE__) . DIRECTORY_SEPARATOR;
+  
+  $ewayrecurringDir = $ewayrecurringRoot . 'templates';
+  
+  if (is_array($template->template_dir)) {
+    array_unshift($template->template_dir, $ewayrecurringDir);
+  }
+  else {
+    $template->template_dir = array($ewayrecurringDir, $template->template_dir);
+  }
+  
+  // also fix php include path
+  $include_path = $ewayrecurringRoot . PATH_SEPARATOR . get_include_path();
+  set_include_path($include_path);
+}
