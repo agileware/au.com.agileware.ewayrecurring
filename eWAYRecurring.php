@@ -198,9 +198,9 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
                 'State' => $params['state_province'],
                 'Company' => '',
                 'PostCode' => $params['postal_code'],
-                // 'Country' => $params['country'],
+                'Country' => strtolower($params['country']),
                 // TODO: Remove this hardcoded hack
-                'Country' => 'au',
+                // 'Country' => 'au',
                 'Email' => $params['email'],
                 'Fax' => '',
                 'Phone' => '',
@@ -213,6 +213,7 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
                 'CCNameOnCard' => $credit_card_name,
                 'CCExpiryMonth' => $expireMonth,
                 'CCExpiryYear' => $expireYear
+		
             );
 
             // Hook to allow customer info to be changed before submitting it
@@ -240,16 +241,8 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
 		'CRM_Contribute_DAO_ContributionRecur',
 		$params['contributionRecurID'],
 		'create_date',
-		date('Y-m-d H:i:s')
+		CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'))
 	    );
-					
-	    CRM_Core_DAO::setFieldValue(
-		'CRM_Contribute_DAO_ContributionRecur',
-		$params['contributionRecurID'],
-		'modified_date',
-		date('Y-m-d H:i:s')
-	    );
-					
 
             /* AND we're done - this payment will staying in a pending state until it's processed
              * by the cronjob

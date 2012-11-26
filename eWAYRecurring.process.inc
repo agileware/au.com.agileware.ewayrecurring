@@ -102,6 +102,14 @@ function process_recurring_payments($payment_processor) {
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
 				    $contribution->amount);
 
+    $addresses = civicrm_api('Address', 'get',
+			     array('version' => '3',
+				   'contact_id' => $contribution->contact_id));
+
+    print_r($addresses);
+
+    $billing_address = array_shift($addresses['values']);
+
     $invoice_id = substr(md5(uniqid(rand(), TRUE)), 0, 16);
 
     $result = process_eway_payment(
@@ -132,7 +140,7 @@ function process_recurring_payments($payment_processor) {
     $new_contribution_record->payment_instrument_id = $contribution->payment_instrument_id;
     $new_contribution_record->source = 'eWAY Recurring Payment';
     $new_contribution_record->trxn_id = $result->ewayTrxnNumber;
-
+    $new_contribution_record->address_id = $billing_address['id'];
     $new_contribution_record->invoice_id = $invoice_id;
     $new_contribution_record->save();
 
@@ -318,6 +326,7 @@ function complete_contribution($contribution_id, $trxn_id = NULL)
  */
 function send_receipt_email($contribution_id)
 {
+  return true; // Delete me: stall email sending during testing.
     $contribution = new CRM_Contribute_BAO_Contribution();
     $contribution->id = $contribution_id;
     $contribution->find(true);
