@@ -76,7 +76,7 @@ require_once 'eWAYRecurring.process.inc';
 
 class org_civicrm_ewayrecurring extends CRM_Core_Payment
 {
-    const CHARSET  = 'UTF-8'; # (not used, implicit in the API, might need to convert?)
+  // const CHARSET  = 'UTF-8'; # (not used, implicit in the API, might need to convert?)
 
     /**
      * We only need one instance of this object. So we use the singleton
@@ -199,8 +199,6 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
                 'Company' => '',
                 'PostCode' => $params['postal_code'],
                 'Country' => strtolower($params['country']),
-                // TODO: Remove this hardcoded hack
-                // 'Country' => 'au',
                 'Email' => $params['email'],
                 'Fax' => '',
                 'Phone' => '',
@@ -213,7 +211,7 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
                 'CCNameOnCard' => $credit_card_name,
                 'CCExpiryMonth' => $expireMonth,
                 'CCExpiryYear' => $expireYear
-		
+
             );
 
             // Hook to allow customer info to be changed before submitting it
@@ -242,6 +240,24 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
 		$params['contributionRecurID'],
 		'create_date',
 		CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'))
+	    );
+
+	    $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
+
+	    if($params['contributionPageID']) {
+	      $cycle_day = CRM_Core_DAO::singleValueQuery
+		($cd_sql,
+		 array(1 => array($params['contributionPageID'], 'Int')));
+	    }
+
+	    if(!$cycle_day)
+	      $cycle_day = 0;
+
+	    CRM_Core_DAO::setFieldValue(
+		'CRM_Contribute_DAO_ContributionRecur',
+		$params['contributionRecurID'],
+		'cycle_day',
+		$cycle_day
 	    );
 
             /* AND we're done - this payment will staying in a pending state until it's processed
@@ -600,38 +616,128 @@ The CiviCRM eWAY Payment Processor Module
     function handlePaymentCron() {
 
       return process_recurring_payments($this->_paymentProcessor);
-      
+
+    }
+
+    function changeSubscriptionAmount(&$message = '', $params = array()) {
+      // Process Schedule updates here.
+      if($params['next_scheduled_date']){
+	$submitted_nsd = strtotime($params['next_scheduled_date'] . ' ' . $params['next_scheduled_date_time']);
+	CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+				     $params['id'],
+				     'next_sched_contribution',
+				     date('YmdHis', $submitted_nsd) );
+      }
+      return TRUE;
+    }
+
+    function cancelSubscription(&$message = '', $params = array()) {
+      // TODO: Implement this - request token deletion from eWAY?
+      return TRUE;
     }
 
 } // end class CRM_Core_Payment_eWAYRecurring
 
 function ewayrecurring_civicrm_buildForm ($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
-    $form->addElement('text', 'recur_cycleday', ts('Day to process recurring payments on'));
+    if(!($page_id = $form->getVar('_id')))
+      return;
+    $form->addElement('text', 'recur_cycleday', ts('Recurring Payment Date'));
+    $sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
+    $default_cd = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($page_id, 'Int')));
+    if($default_cd) {
+      $form->setDefaults(array('recur_cycleday' => $default_cd));
+    }
+  } elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
+    $paymentProcessor = $form->getVar('_paymentProcessorObj');
+    if(($paymentProcessor instanceof org_civicrm_ewayrecurring)){
+      $crid = $form->getVar('_crid');
+      $sql = 'SELECT next_sched_contribution FROM civicrm_contribution_recur WHERE id = %1';
+      $form->addDateTime('next_scheduled_date', ts('Next Scheduled Date'), FALSE, array('formatType' => 'activityDateTime'));
+      if($default_nsd = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($crid, 'Int')))){
+	list($defaults['next_scheduled_date'],
+	     $defaults['next_scheduled_date_time']) = CRM_Utils_Date::setDateDefaults($default_nsd);
+	$form->setDefaults($defaults);
+      }
+    }
+  }
+}
+
+function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
+  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
+    $cycle_day = CRM_Utils_Array::value('recur_cycleday', $fields);
+    if($cycle_day == '')
+      return;
+    if (!CRM_Utils_Type::validate($cycle_day, 'Int', FALSE) || $cycle_day < 1 || $cycle_day > 31) {
+      $errors['recur_cycleday'] = ts('Recurring Payment Date must be a number between 1 and 31');
+    }
+  } elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
+
+    $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
+
+    $crid = $form->getVar('_crid');
+
+    $sql = 'SELECT UNIX_TIMESTAMP(MAX(receive_date)) FROM civicrm_contribution WHERE contribution_recur_id = %1';
+    $current_nsd = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($crid, 'Int')));
+    $form->setVar('_currentNSD', $current_nsd);
+
+    if($submitted_nsd < $current_nsd)
+      $errors['next_scheduled_date'] = ts('Cannot schedule next contribution date before latest received date');
+    elseif ($submitted_nsd < time())
+      $errors['next_scheduled_date'] = ts('Cannot schedule next contribution in the past');
   }
 }
 
 function ewayrecurring_civicrm_postProcess ($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
-    
+    $page_id = $form->getVar('_id')
+      or CRM_Core_Error::fatal("Attempt to process a contribution page form with no id");
+    $cycle_day = $form->getSubmitValue('recur_cycleday');
+    $is_recur = $form->getSubmitValue('is_recur');
+    /* Do not continue if this is not a recurring payment */
+    if (!$is_recur)
+      return;
+    if(!$cycle_day){
+      $sql = 'DELETE FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
+      $cycle_day = 0;
+      CRM_Core_DAO::executeQuery($sql, array(1 => array($page_id, 'Int')));
+    }  else {
+      // Relies on a MySQL extension.
+      $sql = 'REPLACE INTO civicrm_contribution_page_recur_cycle (page_id, cycle_day) VALUES (%1, %2)';
+      CRM_Core_DAO::executeQuery($sql, array(1 => array($page_id, 'Int'),
+					     2 => array($cycle_day, 'Int')));
+    }
+
+    /* Update existing recurring contributions for this page */
+    $sql = 'UPDATE civicrm_contribution_recur ccr,
+                     civicrm_contribution cc
+                 SET ccr.cycle_day = %2
+               WHERE ccr.invoice_id = cc.invoice_id
+                 AND cc.contribution_page_id = %1';
+    CRM_Core_DAO::executeQuery($sql, array(1 => array($page_id, 'Int'),
+					   2 => array($cycle_day, 'Int')));
   }
 }
 
+/*
+ * Implements hook_civicrm_config()
+ *
+ * Include path for our overloaded templates */
 function ewayrecurring_civicrm_config(&$config) {
   $template =& CRM_Core_Smarty::singleton();
 
   $ewayrecurringRoot =
     dirname(__FILE__) . DIRECTORY_SEPARATOR;
-  
+
   $ewayrecurringDir = $ewayrecurringRoot . 'templates';
-  
+
   if (is_array($template->template_dir)) {
     array_unshift($template->template_dir, $ewayrecurringDir);
   }
   else {
     $template->template_dir = array($ewayrecurringDir, $template->template_dir);
   }
-  
+
   // also fix php include path
   $include_path = $ewayrecurringRoot . PATH_SEPARATOR . get_include_path();
   set_include_path($include_path);

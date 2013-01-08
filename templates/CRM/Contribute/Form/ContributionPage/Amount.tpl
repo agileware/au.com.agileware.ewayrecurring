@@ -41,7 +41,7 @@
             <p>{ts}NOTE: Alternatively, you can enable the <strong>Pay Later</strong> option below without setting up a payment processor. All users will then be asked to submit payment offline (e.g. mail in a check, call in a credit card, etc.).{/ts}</p>
         </div>
     {/if}
-    <table class="form-layout-compressed">  
+    <table class="form-layout-compressed">
         <tr class="crm-contribution-contributionpage-amount-form-block-is_monetary"><th scope="row" class="label" width="20%">{$form.is_monetary.label}</th>
           <td>{$form.is_monetary.html}<br />
           <span class="description">{ts}Uncheck this box if you are using this contribution page for free membership signup ONLY, or to solicit in-kind / non-monetary donations such as furniture, equipment.. etc.{/ts}</span></td>
@@ -49,7 +49,7 @@
 	      <tr class="crm-contribution-contributionpage-amount-form-block-currency"><th scope="row" class="label" width="20%">{$form.currency.label}</th>
           <td>{$form.currency.html}<br />
           <span class="description">{ts}Select the currency to be used for contributions submitted from this contribution page.{/ts}</span></td>
-        </tr>	
+        </tr>
         {if $paymentProcessor}
           <tr class="crm-contribution-contributionpage-amount-form-block-payment_processor"><th scope="row" class="label" width="20%">{$form.payment_processor.label}</th>
             <td>{$form.payment_processor.html}<br />
@@ -65,7 +65,7 @@
             <table class="form-layout">
                 <tr class="crm-contribution-contributionpage-amount-form-block-pay_later_text"><th scope="row" class="label">{$form.pay_later_text.label} <span class="marker" title="This field is required.">*</span> {if $action == 2}{include file='CRM/Core/I18n/Dialog.tpl' table='civicrm_contribution_page' field='pay_later_text' id=$contributionPageID}{/if}</th>
                 <td>{$form.pay_later_text.html|crmReplace:class:big}<br />
-                    <span class="description">{ts}Text displayed next to the checkbox for the 'pay later' option on the contribution form.{/ts}</span></td></tr> 
+                    <span class="description">{ts}Text displayed next to the checkbox for the 'pay later' option on the contribution form.{/ts}</span></td></tr>
                 <tr class="crm-contribution-contributionpage-amount-form-block-pay_later_receipt"><th scope="row" class="label">{$form.pay_later_receipt.label} <span class="marker" title="This field is required.">*</span> {if $action == 2}{include file='CRM/Core/I18n/Dialog.tpl' table='civicrm_contribution_page' field='pay_later_receipt' id=$contributionPageID}{/if}</th>
                 <td>{$form.pay_later_receipt.html|crmReplace:class:big}<br />
                     <span class="description">{ts}Instructions added to Confirmation and Thank-you pages, as well as the confirmation email, when the user selects the 'pay later' option (e.g. 'Mail your check to ... within 3 business days.').{/ts}</span></td></tr>
@@ -86,15 +86,15 @@
 	        {/if}
         </tr>
     </table>
-   
+
     <div id="recurringFields">
         <table class="form-layout-compressed">
-       	
+
 
 	{if $recurringPaymentProcessor}
         <tr id="recurringContribution" class="crm-contribution-form-block-is_recur"><th scope="row" class="label" width="20%">{$form.is_recur.label}</th>
                <td>{$form.is_recur.html}<br />
-                  <span class="description">{ts}Check this box if you want to give users the option to make recurring contributions. This feature requires that you use a payment processor which supports recurring billing / subscriptions functionality.{/ts} {ts}Hopefully this should add more text{/ts}{docURL page="user/contributions/payment-processors"}</span>
+                  <span class="description">{ts}Check this box if you want to give users the option to make recurring contributions. This feature requires that you use a payment processor which supports recurring billing / subscriptions functionality.{/ts} {docURL page="user/contributions/payment-processors"}</span>
                </td>
         </tr>
         <tr id="recurFields" class="crm-contribution-form-block-recurFields"><td>&nbsp;</td>
@@ -103,7 +103,7 @@
             <tr class="crm-contribution-form-block-recur_frequency_unit"><th scope="row" class="label">{$form.recur_frequency_unit.label}<span class="marker" title="This field is required.">*</span></th>
                         <td>{$form.recur_frequency_unit.html}<br />
                         <span class="description">{ts}Select recurring units supported for recurring payments.{/ts}</span></td>
-                    </tr> 
+                    </tr>
                     <tr class="crm-contribution-form-block-is_recur_interval"><th scope="row" class="label">{$form.is_recur_interval.label}</th>
                         <td>{$form.is_recur_interval.html}<br />
                         <span class="description">{ts}Can users also set an interval (e.g. every '3' months)?{/ts}</span></td>
@@ -113,7 +113,7 @@
                   </table>
                 </td>
         </tr>
-        {/if}  
+        {/if}
 
         </table>
     </div>
@@ -121,7 +121,7 @@
 
     <div id="amountFields">
         <table class="form-layout-compressed">
-            {* handle CiviPledge fields *} 
+            {* handle CiviPledge fields *}
             {if $civiPledge}
             <tr class="crm-contribution-form-block-is_pledge_active"><th scope="row" class="label" width="20%">{$form.is_pledge_active.label}</th>
                 <td>{$form.is_pledge_active.html}<br />
@@ -147,14 +147,14 @@
                             <span class="label">{ts}reminders for each scheduled payment.{/ts}</span></td>
                     </tr>
                     <tr class="crm-contribution-form-block-additional_reminder_day"><th scope="row" class="label">{$form.additional_reminder_day.label}</th>
-                        <td>{$form.additional_reminder_day.html}	
+                        <td>{$form.additional_reminder_day.html}
                             <span class="label">{ts}days after the last one sent, up to the maximum number of reminders.{/ts}</span></td>
                     </tr>
                 </table>
                 </td>
             </tr>
             {/if}
-	
+
             <tr class="crm-contribution-form-block-is_allow_other_amount"><th scope="row" class="label" width="20%">{$form.is_allow_other_amount.label}</th>
             <td>{$form.is_allow_other_amount.html}<br />
             <span class="description">{ts}Check this box if you want to give users the option to enter their own contribution amount. Your page will then include a text field labeled <strong>Other Amount</strong>.{/ts}</span></td></tr>
@@ -162,15 +162,15 @@
             <tr id="minMaxFields" class="crm-contribution-form-block-minMaxFields"><td>&nbsp;</td><td>
                <table class="form-layout-compressed">
                 <tr class="crm-contribution-form-block-min_amount"><th scope="row" class="label">{$form.min_amount.label}</th>
-                <td>{$form.min_amount.html|crmMoney}</td></tr> 
+                <td>{$form.min_amount.html|crmMoney}</td></tr>
                 <tr class="crm-contribution-form-block-max_amount"><th scope="row" class="label">{$form.max_amount.label}</th>
                 <td>{$form.max_amount.html|crmMoney}<br />
                 <span class="description">{ts 1=5|crmMoney}If you have chosen to <strong>Allow Other Amounts</strong>, you can use the fields above to control minimum and/or maximum acceptable values (e.g. don't allow contribution amounts less than %1).{/ts}</span></td></tr>
                </table>
             </td></tr>
-            
+
             <tr><td colspan="2">
-                <fieldset><legend>{ts}Fixed Contribution Options{/ts}</legend>	
+                <fieldset><legend>{ts}Fixed Contribution Options{/ts}</legend>
                     {ts}Use the table below to enter up to ten fixed contribution amounts. These will be presented as a list of radio button options. Both the label and dollar amount will be displayed.{/ts}{if $isQuick}{ts} Click <a  id = 'quickconfig' href='#'>here</a> if you want to configure the Fixed Contribution Options below as part of a Price Set, with the added flexibility and complexity that entails.{/ts}{/if}<br />
                     <table id="map-field-table">
                         <tr class="columnheader" ><th scope="column">{ts}Contribution Label{/ts}</th><th scope="column">{ts}Amount{/ts}</th><th scope="column">{ts}Default?{/ts}<br /><span class="crm-clear-link">(<a href="#" title="unselect" onclick="unselectRadio('default', 'Amount'); return false;" >{ts}clear{/ts}</a>)</span></th></tr>
@@ -196,7 +196,7 @@
            {/literal}{/foreach}
        {/if}
      {literal}
-    cj( document ).ready( function( ) {    
+    cj( document ).ready( function( ) {
     cj("#popupContainer").hide();
         function checked_payment_processors() {
             var ids = [];
@@ -211,9 +211,9 @@
 
         // show/hide recurring block
         cj('.crm-contribution-contributionpage-amount-form-block-payment_processor input[type="checkbox"]').change(function(){
-            showRecurring( checked_payment_processors() ) 
+            showRecurring( checked_payment_processors() )
         });
-        showRecurring( checked_payment_processors() ) 
+        showRecurring( checked_payment_processors() )
     });
 	var element_other_amount = document.getElementsByName('is_allow_other_amount');
   	if (! element_other_amount[0].checked) {
@@ -221,16 +221,16 @@
 	}
 	var amount_block = document.getElementsByName('amount_block_is_active');
 	var priceSetID = {/literal}'{$priceSetID}'{literal};
-  	
+
 	if ( ! amount_block[0].checked || priceSetID ) {
-	   if ( !priceSetID ) hide('priceSet', 'table-row' ); 
+	   if ( !priceSetID ) hide('priceSet', 'table-row' );
 	   hide('amountFields', 'block');
         }
 	var pay_later = document.getElementsByName('is_pay_later');
   	if ( ! pay_later[0].checked) {
 	    hide('payLaterFields', 'table-row');
         }
-	
+
 	function minMax(chkbox) {
            if (chkbox.checked) {
 	     show('minMaxFields', 'table-row');
@@ -240,7 +240,7 @@
 		 document.getElementById("max_amount").value = '';
 	  }
 	}
-		
+
 	function payLater(chkbox) {
            if (chkbox.checked) {
 	       show('payLaterFields',  'table-row');
@@ -249,7 +249,7 @@
 	   }
         }
 
-	function showHideAmountBlock( element, elementName ) 
+	function showHideAmountBlock( element, elementName )
         {
 	   // show / hide when amount section is active check/uncheck.
 
@@ -263,8 +263,8 @@
 		       	  show('amountFields', 'block');
 		       }
 		       cj("#amount_block_is_active").attr( 'checked', true );
-		  break;   	
-	   	  
+		  break;
+
 		  case 'is_pledge_active' :
 		  case 'is_allow_other_amount' :
 		       if ( element.checked ) {
@@ -272,16 +272,16 @@
 		     	  show('amountFields', 'block');
 	               }
 		       cj("#amount_block_is_active").attr( 'checked', true );
-		  break;			
-	   	  
+		  break;
+
 	   	  case 'amount_block_is_active' :
 		       if ( element.checked ) {
 		       	  if ( priceSetID ) {
 			     hide('amountFields', 'block' );
-			     cj( "#price_set_id" ).val( priceSetID );  
+			     cj( "#price_set_id" ).val( priceSetID );
 			  } else {
 			     show('amountFields', 'block');
-			     cj( "#price_set_id" ).val( '' ); 
+			     cj( "#price_set_id" ).val( '' );
 			  }
 			  show('priceSet', 'table-row' );
 		    	  show( 'recurringFields', 'block' );
@@ -297,9 +297,9 @@
 
 	function showRecurInterval( ) {
 		 if ( cj("#is_recur").attr( 'checked' ) ) {
-		     cj("#is_recur_interval").attr( 'checked', true );    
+		     cj("#is_recur_interval").attr( 'checked', true );
 		 } else {
-		     cj("#is_recur_interval").attr( 'checked', false ); 
+		     cj("#is_recur_interval").attr( 'checked', false );
 		 }
 	}
 
@@ -324,20 +324,20 @@
 </script>
 {/literal}
 {if $form.is_recur}
-{include file="CRM/common/showHideByFieldValue.tpl" 
+{include file="CRM/common/showHideByFieldValue.tpl"
     trigger_field_id    ="is_recur"
     trigger_value       ="true"
-    target_element_id   ="recurFields" 
+    target_element_id   ="recurFields"
     target_element_type ="table-row"
     field_type          ="radio"
     invert              = "false"
 }
 {/if}
 {if $civiPledge}
-{include file="CRM/common/showHideByFieldValue.tpl" 
+{include file="CRM/common/showHideByFieldValue.tpl"
     trigger_field_id    = "is_pledge_active"
     trigger_value       = "true"
-    target_element_id   = "pledgeFields" 
+    target_element_id   = "pledgeFields"
     target_element_type = "table-row"
     field_type          = "radio"
     invert              = "false"
@@ -359,7 +359,7 @@ cj("#popupContainer").dialog({
             	   opacity: 0.5,
              	   background: "black"
         },
-        buttons: { 
+        buttons: {
                    "Ok": function() {
 		   var dataUrl  = {/literal}'{crmURL p="civicrm/ajax/rest" h=0 q="className=CRM_Core_Page_AJAX&fnName=setIsQuickConfig&context=civicrm_contribution_page&id=$contributionPageID" }';
 		    var redirectUrl = '{crmURL p="civicrm/admin/price/field" h=0 q="reset=1&action=browse&sid=" }';
@@ -372,13 +372,13 @@ cj("#popupContainer").dialog({
 			  if (result) {
 			    window.location= redirectUrl+eval(result);
 			  }
-			}	
+			}
 		   });
                    },
-		   "Close": function() { 
+		   "Close": function() {
                      cj(this).dialog("close");
                    }
-	}	
+	}
 });
 return false;
 });

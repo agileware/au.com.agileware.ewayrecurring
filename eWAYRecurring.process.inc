@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM                                                            |
  +--------------------------------------------------------------------+
- | Copyright Henare Degan (C) 2012                                    |
+ | Copyright Henare Degan (C) 2012, Agileware (C) 2012                |
  +--------------------------------------------------------------------+
  |                                                                    |
  | CiviCRM is free software; you can copy, modify, and distribute it  |
@@ -23,10 +23,15 @@
  +--------------------------------------------------------------------+
 */
 
-// TODO: Remove hacky hardcoded constants
-// The ID for contributions in a pending status
+// Contribution status IDs.
+define('COMPLETED_CONTRIBUTION_STATUS_ID', 1);
 define('PENDING_CONTRIBUTION_STATUS_ID', 2);
-define('RECEIPT_SUBJECT_TITLE', 'Monthly Donation');
+define('CANCELLED_CONTRIBUTION_STATUS_ID', 3);
+define('FAILED_CONTRIBUTION_STATUS_ID', 4);
+define('IN_PROGRESS_CONTRIBUTION_STATUS_ID', 5);
+
+// TODO:  Variable receipt title based on interval and unit?
+define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
 function process_recurring_payments($payment_processor) {
   // Get pending contributions
@@ -40,10 +45,17 @@ function process_recurring_payments($payment_processor) {
 				    $payment_processor['password']
 				    );
 
-  echo "Processing " . count($pending_contributions) . " pending contributions\n";
+  // echo "Processing " . count($pending_contributions) . " pending contributions\n";
   foreach ($pending_contributions as $pending_contribution) {
+    if ($pending_contribution['contribution_recur']->contribution_status_id == CANCELLED_CONTRIBUTION_STATUS_ID) {
+      complete_contribution($pending_contribution['contribution']['id'],
+			    '',
+			    CANCELLED_CONTRIBUTION_STATUS_ID,
+			    strtotime($pending_contribution['contribution_recur']->cancel_date));
+      continue;
+    }
     // Process payment
-    echo "Processing payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
+    // echo "Processing payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
 				    $pending_contribution['contribution']['total_amount']);
     $result = process_eway_payment(
@@ -54,51 +66,71 @@ function process_recurring_payments($payment_processor) {
 				   $pending_contribution['contribution']['contribution_source']
 				   );
 
-    // Bail if the transaction fails
     if ($result->ewayTrxnStatus != 'True') {
-      echo 'ERROR: Failed to process transaction for managed customer: ' . $pending_contribution['contribution_recur']->processor_id . "\n";
-      echo 'eWay response: ' . $result->ewayTrxnError . "\n";
-      continue;
+      // echo 'ERROR: Failed to process transaction for managed customer: ' . $pending_contribution['contribution_recur']->processor_id . "\n";
+      // echo 'eWay response: ' . $result->ewayTrxnError . "\n";
+      // Mark the transaction as failed and move on.
+      complete_contribution($pending_contribution['contribution']['id'],
+			    $result->ewayTrxnNumber,
+			    FAILED_CONTRIBUTION_STATUS_ID);
+      $pending_contribution['contribution_recur']->failure_count++;
+    } else {
+      // echo "Successfully processed payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
+
+      // echo "Sending receipt\n";
+      send_receipt_email($pending_contribution['contribution']['id']);
+
+      // echo "Marking contribution as complete\n";
+
+      complete_contribution($pending_contribution['contribution']['id'],
+			    $result->ewayTrxnNumber);
     }
-    echo "Successfully processed payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
 
-    echo "Sending receipt\n";
-    send_receipt_email($pending_contribution['contribution']['id']);
-
-    echo "Marking contribution as complete\n";
-
-    complete_contribution($pending_contribution['contribution']['id'],
-			  $result->ewayTrxnNumber);
+    // echo "Updating recurring contribution\n";
 
     
-    echo "Updating recurring contribution\n";
     /* Schedule next contribution */
-    $next_sched = strtotime
-      ("+{$pending_contribution['contribution_recur']->frequency_interval} " .
-       "{$pending_contribution['contribution_recur']->frequency_unit}");
+
+    if (($cd = $pending_contribution['contribution_recur']->cycle_day) > 0 &&
+	$pending_contribution['contribution_recur']->frequency_unit == 'month'){
+      $c_recur =& $pending_contribution['contribution_recur'];
+      $d_now = new DateTime();
+      $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
+      $d_next->modify("+{$c_recur->frequency_interval} " .
+		      "{$c_recur->frequency_unit}s");
+      $next_m = ($d_now->format('m') + $c_recur->frequency_interval - 1) % 12 + 1;
+      if ($next_m != $d_next->format('m')) {
+	$daysover = $d_next->format('d');
+	$d_next->modify("-{$daysover} days");
+      }
+      $next_sched = $d_next->format('Y-m-d 00:00:00');
+    } else {
+      $next_sched = date('Y-m-d 00:00:00',
+			 strtotime("+{$c_recur->frequency_interval} " .
+				   "{$c_recur->frequency_unit}s"));
+    }
 
     CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
 				 $pending_contribution['contribution_recur']->id,
 				 'next_sched_contribution',
-				 CRM_Utils_Date::isoToMysql (date('Y-m-d 00:00:00',
-								  $next_sched)));
+				 CRM_Utils_Date::isoToMysql ($next_sched) );
 
     /* Update status for reporting */
     CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
 				 $pending_contribution['contribution_recur']->id,
 				 'contribution_status_id',
-				 5 );
+				 IN_PROGRESS_CONTRIBUTION_STATUS_ID );
 
-    echo "Finished processing contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
+    // echo "Finished processing contribution ID: " . $pending_contribution['contribution']['id'] . "\n";
   }
 
   // Process today's scheduled contributions
   $scheduled_contributions = get_scheduled_contributions();
 
-  echo "Processing " . count($scheduled_contributions) . " scheduled contributions\n";
+  // echo "Processing " . count($scheduled_contributions) . " scheduled contributions\n";
   foreach ($scheduled_contributions as $contribution) {
     // Process payment
-    echo "Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
+    // echo "Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
 				    $contribution->amount);
 
@@ -106,55 +138,74 @@ function process_recurring_payments($payment_processor) {
 			     array('version' => '3',
 				   'contact_id' => $contribution->contact_id));
 
-    print_r($addresses);
-
     $billing_address = array_shift($addresses['values']);
 
-    $invoice_id = substr(md5(uniqid(rand(), TRUE)), 0, 16);
+    $invoice_id = md5(uniqid(rand(), TRUE));
 
     $result = process_eway_payment(
 				   $token_client,
 				   $contribution->processor_id,
 				   $amount_in_cents,
-				   $invoice_id,
+				   substr($invoice_id, 0, 16),
 				   ''
 				   );
 
-    // Bail if the transaction fails
-    if ($result->ewayTrxnStatus != 'True') {
-      echo 'ERROR: Failed to process transaction for managed customer: ' . $contribution->processor_id;
-      echo 'eWay response: ' . $result->ewayTrxnError;
-      // TODO: Mark transaction as failed
-      continue;
-    }
-    echo "Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
-
-    echo "Creating contribution record\n";
+    // echo "Creating contribution record\n";
     $new_contribution_record = new CRM_Contribute_BAO_Contribution();
     $new_contribution_record->contact_id = $contribution->contact_id;
     $new_contribution_record->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
     $new_contribution_record->total_amount = $contribution->amount;
     $new_contribution_record->contribution_recur_id = $contribution->id;
-    $new_contribution_record->contribution_status_id = 1; // TODO: Remove hardcoded hack
+    $new_contribution_record->contribution_status_id = COMPLETED_CONTRIBUTION_STATUS_ID; // TODO: Remove hardcoded hack
     $new_contribution_record->contribution_type_id = $contribution->contribution_type_id;
     $new_contribution_record->payment_instrument_id = $contribution->payment_instrument_id;
     $new_contribution_record->source = 'eWAY Recurring Payment';
     $new_contribution_record->trxn_id = $result->ewayTrxnNumber;
     $new_contribution_record->address_id = $billing_address['id'];
     $new_contribution_record->invoice_id = $invoice_id;
-    $new_contribution_record->save();
+    $new_contribution_record->campaign_id = $contribution->campaign_id;
 
-    echo "Sending receipt\n";
-    send_receipt_email($new_contribution_record->id);
+    if ($result->ewayTrxnStatus != 'True') {
+      // Mark transaction as failed
+      $new_contribution_record->contribution_status_id = FAILED_CONTRIBUTION_STATUS_ID;
+      $contribution->failure_count++;
+
+    } else {
+      // echo "Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
+
+      // echo "Sending receipt\n";
+      send_receipt_email($new_contribution_record->id);
+    }
 
     /* Schedule next contribution */
+
+    if (($cd = $contribution->cycle_day) > 0 &&
+	$contribution->frequency_unit == 'month'){
+      $d_now = new DateTime();
+      $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
+      $d_next->modify("+{$contribution->frequency_interval} " .
+		      "{$contribution->frequency_unit}s");
+      $next_m = ($d_now->format('m') + $contribution->frequency_interval - 1) % 12 + 1;
+      if ($next_m != $d_next->format('m')) {
+	$daysover = $d_next->format('d');
+	$d_next->modify("-{$daysover} days");
+      }
+      $next_sched = $d_next->format('Y-m-d 00:00:00');
+    } else {
+      $next_sched = date('Y-m-d 00:00:00',
+			 strtotime("+{$contribution->frequency_interval} " .
+				     "{$contribution->frequency_unit}s"));
+    }
+
     CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
 				 $contribution->id,
 				 'next_sched_contribution',
-				 CRM_Utils_Date::isoToMysql (date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}"))));
-        
-    echo "Finished processing recurring contribution ID: " . $contribution->id . "\n";
+				 CRM_Utils_Date::isoToMysql ($next_sched) );
+
+    $new_contribution_record->save();
+
   }
+
 }
 
 /**
@@ -170,7 +221,7 @@ function process_recurring_payments($payment_processor) {
 function get_pending_recurring_contributions()
 {
     // Get pending contributions
-    // TODO: Stop using the stupid API. For consistency we should use BAOs so we get objects back
+    // TODO: Stop using the API. For consistency we should use BAOs so we get objects back
     $params = array(
         'version' => 3,
         // TODO: Statuses are customisable so this configuration should be read from the DB
@@ -301,15 +352,23 @@ function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cen
  * @param string $contribution_id The ID of the contribution to mark as complete
  * @return object The contribution object
  */
-function complete_contribution($contribution_id, $trxn_id = NULL)
+function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = COMPLETED_CONTRIBUTION_STATUS_ID, $c_date = NULL)
 {
-    // Mark the contribution as complete
+    // Mark the contribution as complete  
     $contribution = new CRM_Contribute_BAO_Contribution();
     $contribution->id = $contribution_id;
     $contribution->find(true);
 
-    $contribution->contribution_status_id = 1;
-    $contribution->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
+    if(!$c_date)
+      $c_date = time();
+
+    $contribution->contribution_status_id = $status_id;
+
+    if ($status_id == COMPLETED_CONTRIBUTION_STATUS_ID)
+      $contribution->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'), $c_date);
+    elseif ($status_id == CANCELLED_CONTRIBUTION_STATUS_ID)
+      $contribution->cancel_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'), $c_date);
+
     if($trxn_id)
       $contribution->trxn_id = $trxn_id;
 
@@ -326,7 +385,6 @@ function complete_contribution($contribution_id, $trxn_id = NULL)
  */
 function send_receipt_email($contribution_id)
 {
-  return true; // Delete me: stall email sending during testing.
     $contribution = new CRM_Contribute_BAO_Contribution();
     $contribution->id = $contribution_id;
     $contribution->find(true);
