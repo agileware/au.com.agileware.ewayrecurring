@@ -91,9 +91,10 @@ function process_recurring_payments($payment_processor) {
     
     /* Schedule next contribution */
 
+    $c_recur =& $pending_contribution['contribution_recur'];
+
     if (($cd = $pending_contribution['contribution_recur']->cycle_day) > 0 &&
 	$pending_contribution['contribution_recur']->frequency_unit == 'month'){
-      $c_recur =& $pending_contribution['contribution_recur'];
       $d_now = new DateTime();
       $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
       $d_next->modify("+{$c_recur->frequency_interval} " .

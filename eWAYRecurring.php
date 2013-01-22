@@ -244,7 +244,10 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
 
 	    $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
 
-	    if($params['contributionPageID']) {
+	    $cycle_day = 0;
+
+	    if(CRM_Utils_Type::validate($params['contributionPageID'],
+					'Int', FALSE, ts('Contribution Page'))) {
 	      $cycle_day = CRM_Core_DAO::singleValueQuery
 		($cd_sql,
 		 array(1 => array($params['contributionPageID'], 'Int')));
@@ -668,7 +671,7 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
     $cycle_day = CRM_Utils_Array::value('recur_cycleday', $fields);
     if($cycle_day == '')
       return;
-    if (!CRM_Utils_Type::validate($cycle_day, 'Int', FALSE) || $cycle_day < 1 || $cycle_day > 31) {
+    if (!CRM_Utils_Type::validate($cycle_day, 'Int', FALSE, ts('Cycle day')) || $cycle_day < 1 || $cycle_day > 31) {
       $errors['recur_cycleday'] = ts('Recurring Payment Date must be a number between 1 and 31');
     }
   } elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
