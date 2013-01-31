@@ -807,3 +807,41 @@ function ewayrecurring_civicrm_config(&$config) {
   $include_path = $ewayrecurringRoot . PATH_SEPARATOR . get_include_path();
   set_include_path($include_path);
 }
+
+function ewayrecurring_civicrm_install() {
+  ewayrecurring_civicrm_upgrade('enqueue');
+}
+
+function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
+  $sql = "SELECT schema_version FROM civicrm_extension WHERE full_name = 'org.civicrm.ewayrecurring'";
+  $schemaVersion = intval(CRM_Core_DAO::singleValueQuery($sql, array()));
+
+  if ($op == 'check') {
+    if ($schemaVersion < 4) {
+      return array(TRUE);
+    }
+  } elseif ($op == 'enqueue') {
+    $upgrades = array("UPDATE civicrm_extension SET schema_version = '4'
+		       WHERE full_name='org.civicrm.ewayrecurring'");
+    if($schemaVersion < 4) {
+      array_unshift($upgrades,
+		    "CREATE TABLE `civicrm_ewayrecurring` (
+		       `processor_id` int(10) NOT NULL,
+		       `cycle_day` int(2) DEFAULT NULL,
+		       PRIMARY KEY(`processor_id`)
+		       ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+    }
+    if($schemaVersion < 3) {
+      array_unshift($upgrades,
+		    "CREATE TABLE `civicrm_contribution_page_recur_cycle` (
+		       `page_id` int(10) NOT NULL DEFAULT '0',
+		       `cycle_day` int(2) DEFAULT NULL,
+		       PRIMARY KEY (`page_id`)
+		       ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+    }
+
+    foreach($upgrades as $st){
+      CRM_Core_DAO::executeQuery($st, array());
+    }
+  }
+}
