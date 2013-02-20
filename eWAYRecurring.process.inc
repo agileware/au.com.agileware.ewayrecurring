@@ -365,10 +365,10 @@ function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = C
 
     $contribution->contribution_status_id = $status_id;
 
-    if ($status_id == COMPLETED_CONTRIBUTION_STATUS_ID)
-      $contribution->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'), $c_date);
-    elseif ($status_id == CANCELLED_CONTRIBUTION_STATUS_ID)
+    if ($status_id == CANCELLED_CONTRIBUTION_STATUS_ID)
       $contribution->cancel_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'), $c_date);
+    else
+      $contribution->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'), $c_date);
 
     if($trxn_id)
       $contribution->trxn_id = $trxn_id;
