@@ -242,18 +242,17 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
 		CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'))
 	    );
 
+	    // For monthly payments, set the cycle day according to the submitting page or processor default
 	    $cycle_day = 0;
 
-	    if($params['contributionPageID']){
+	    if(!empty($params['contributionPageID']) &&
+	       CRM_Utils_Type::validate($params['contributionPageID'],
+					'Int', FALSE, ts('Contribution Page'))){
 	      $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
 
-	      if(CRM_Utils_Type::validate($params['contributionPageID'],
-					  'Int', FALSE, ts('Contribution Page'))) {
-		$cycle_day = CRM_Core_DAO::singleValueQuery
-		  ($cd_sql,
-		   array(1 => array($params['contributionPageID'], 'Int')));
-	      }
-
+	      $cycle_day = CRM_Core_DAO::singleValueQuery
+		($cd_sql,
+		 array(1 => array($params['contributionPageID'], 'Int')));
 	    } else {
 	      $cd_sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
 
