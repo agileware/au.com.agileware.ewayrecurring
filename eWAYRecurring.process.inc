@@ -281,8 +281,8 @@ function get_scheduled_contributions()
         $contribution->whereAdd
 	  ("`receive_date` >= '{$scheduled_today->next_sched_contribution}'");
 
-        if ($contribution->find() == 0) {
-            $scheduled_contributions[] = $scheduled_today;
+        if (!($contribution->find())) {
+            $scheduled_contributions[] = clone $scheduled_today;
         }
     }
 
