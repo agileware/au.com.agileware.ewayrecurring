@@ -123,6 +123,31 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
         return self::$_singleton[$processorName];
     }
 
+    function createCustomerToken( &$customerinfo ) {
+      $gateway_URL = $this->_paymentProcessor['url_recur'];    // eWAY Gateway URL
+
+      $soap_client = new SoapClient($gateway_URL);
+
+      // Set up SOAP headers
+      $headers = array(
+        'eWAYCustomerID' => $this->_paymentProcessor['subject'],   // eWAY Client ID
+        'Username'       => $this->_paymentProcessor['user_name'],
+        'Password'       => $this->_paymentProcessor['password']
+      );
+
+      $header = new SoapHeader('https://www.eway.com.au/gateway/managedpayment', 'eWAYHeader', $headers);
+      $soap_client->__setSoapHeaders($header);
+
+      // Hook to allow customer info to be changed before submitting it
+      CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $customerinfo );
+
+      // Create the customer via the API
+      $result = $soap_client->CreateCustomer($customerinfo);
+
+      // We've created the customer successfully
+      return $result->CreateCustomerResult;
+    }
+
     /**********************************************************
     * This function sends request and receives response from
     * eWAY payment process
@@ -175,19 +200,6 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
 
         // Was the recurring payment check box checked?
         if ($params['is_recur'] == true) {
-            $gateway_URL = $this->_paymentProcessor['url_recur'];    // eWAY Gateway URL
-
-            $soap_client = new SoapClient($gateway_URL);
-
-            // Set up SOAP headers
-            $headers = array(
-                'eWAYCustomerID' => $ewayCustomerID,
-                'Username'       => $this->_paymentProcessor['user_name'],
-                'Password'       => $this->_paymentProcessor['password']
-            );
-            $header = new SoapHeader('https://www.eway.com.au/gateway/managedpayment', 'eWAYHeader', $headers);
-            $soap_client->__setSoapHeaders($header);
-
             // Add eWay customer
             $customerinfo = array(
                 'Title' => 'Mr.', // Crazily eWay makes this a mandatory field with fixed values
@@ -214,18 +226,12 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
 
             );
 
-            // Hook to allow customer info to be changed before submitting it
-            CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $customerinfo );
-
-            // Create the customer via the API
-            try{
-                $result = $soap_client->CreateCustomer($customerinfo);
-            }catch(Exception $e){
-                return self::errorExit(9010, $e->getMessage());
+            try {
+              $managed_customer_id = $this->createCustomerToken( $customerinfo );
             }
-
-            // We've created the customer successfully
-            $managed_customer_id = $result->CreateCustomerResult;
+            catch(Exception $e) {
+              return self::errorExit(9010, $e->getMessage());
+            }
 
             // Save the eWay customer token in the recurring contribution's processor_id field
             CRM_Core_DAO::setFieldValue(
