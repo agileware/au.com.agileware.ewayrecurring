@@ -123,10 +123,10 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
         return self::$_singleton[$processorName];
     }
 
-    function createCustomerToken( &$customerinfo ) {
+    function createCustomerToken( &$customerinfo, $params = array() ) {
       $gateway_URL = $this->_paymentProcessor['url_recur'];    // eWAY Gateway URL
 
-      $soap_client = new SoapClient($gateway_URL);
+      $soap_client = new SoapClient($gateway_URL/*, array('trace' => 1) /* Trace soap requests for debugging */);
 
       // Set up SOAP headers
       $headers = array(
@@ -141,8 +141,17 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
       // Hook to allow customer info to be changed before submitting it
       CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $customerinfo );
 
-      // Create the customer via the API
-      $result = $soap_client->CreateCustomer($customerinfo);
+      // Debugging commented out.
+      //try {
+          // Create the customer via the API
+          $result = $soap_client->CreateCustomer($customerinfo);
+	  /*}
+      catch(Exception $e) {
+          CRM_Core_Error::debug_log_message("Create Customer, failed request:\n" . $soap_client->__getLastRequest());
+          throw $e;
+      }
+
+      CRM_Core_Error::debug_log_message("Create Customer, successful request:\n" . $soap_client->__getLastRequest());*/
 
       // We've created the customer successfully
       return $result->CreateCustomerResult;
@@ -211,23 +220,23 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
                 'Company' => '',
                 'PostCode' => $params['postal_code'],
                 'Country' => strtolower($params['country']),
-                'Email' => $params['email'],
+                'Email' => ($params['email']? $params['email']: ''),
                 'Fax' => '',
                 'Phone' => '',
                 'Mobile' => '',
                 'CustomerRef' => '',
-                'JobDesc' => $params['description'],
+                'JobDesc' => ($params['description']? $params['description']: ''),
                 'Comments' => '',
                 'URL' => '',
                 'CCNumber' => $params['credit_card_number'],
                 'CCNameOnCard' => $credit_card_name,
                 'CCExpiryMonth' => $expireMonth,
-                'CCExpiryYear' => $expireYear
-
+                'CCExpiryYear' => $expireYear,
             );
 
+
             try {
-              $managed_customer_id = $this->createCustomerToken( $customerinfo );
+              $managed_customer_id = $this->createCustomerToken( $customerinfo, $params );
             }
             catch(Exception $e) {
               return self::errorExit(9010, $e->getMessage());
