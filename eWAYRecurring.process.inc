@@ -175,7 +175,7 @@ function process_recurring_payments($payment_processor) {
       // echo "Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n";
 
       // echo "Sending receipt\n";
-      send_receipt_email($new_contribution_record->id);
+      // send_receipt_email($new_contribution_record->id);
     }
 
     /* Schedule next contribution */
