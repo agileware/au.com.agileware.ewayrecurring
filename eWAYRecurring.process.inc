@@ -430,8 +430,12 @@ function send_receipt_email($contribution_id)
             'amount' => $contribution->total_amount,
             'title' => RECEIPT_SUBJECT_TITLE,
             'is_recur' => true,
+	    'is_monetary' => true,
+	    'is_pay_later' => false,
             'billingName' => $name,
-            'email' => $email
+            'email' => $email,
+	    'trxn_id' => $contribution->trxn_id,
+            'receive_date' => CRM_Utils_Date::format($contribution->receive_date),
         ),
         'from' => $receiptFrom,
         'toName' => $name,
