@@ -80,13 +80,13 @@ function process_recurring_payments($payment_processor) {
     } else {
       // $log->log("Successfully processed payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n", PEAR_LOG_DEBUG);
 
-      // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
-      send_receipt_email($pending_contribution['contribution']['id']);
-
       // $log->log("Marking contribution as complete\n", PEAR_LOG_DEBUG);
 
       complete_contribution($pending_contribution['contribution']['id'],
 			    $result->ewayTrxnNumber);
+
+      // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
+      send_receipt_email($pending_contribution['contribution']['id']);
     }
 
     // $log->log("Updating recurring contribution\n", PEAR_LOG_DEBUG);
@@ -425,17 +425,17 @@ function send_receipt_email($contribution_id)
         'valueName' => 'contribution_online_receipt',
         'contactId' => $contribution->contact_id,
         'tplParams' => array(
-            'contributeMode' => 'directIPN', // Tells the person to contact us for cancellations
-            'receiptFromEmail' => $receiptFromEmail,
-            'amount' => $contribution->total_amount,
-            'title' => RECEIPT_SUBJECT_TITLE,
-            'is_recur' => true,
-	    'is_monetary' => true,
-	    'is_pay_later' => false,
-            'billingName' => $name,
-            'email' => $email,
-	    'trxn_id' => $contribution->trxn_id,
-            'receive_date' => CRM_Utils_Date::format($contribution->receive_date),
+          'contributeMode' => 'directIPN', // Tells the person to contact us for cancellations
+          'receiptFromEmail' => $receiptFromEmail,
+          'amount' => $contribution->total_amount,
+          'title' => RECEIPT_SUBJECT_TITLE,
+          'is_recur' => true,
+          'is_monetary' => true,
+          'is_pay_later' => false,
+          'billingName' => $name,
+          'email' => $email,
+          'trxn_id' => $contribution->trxn_id,
+          'receive_date' => $contribution->receive_date,
         ),
         'from' => $receiptFrom,
         'toName' => $name,
