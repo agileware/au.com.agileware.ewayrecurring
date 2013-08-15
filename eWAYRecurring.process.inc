@@ -194,7 +194,7 @@ function process_recurring_payments($payment_processor) {
 				     );
     }
     catch(Exception $e) {
-      $log->log("Processing payment {$contribution->id} for $contribution:" . $e->getMessage(), PEAR_LOG_ERROR);
+      $log->log("Processing payment {$contribution->id} for {$contribution->contact_id}:" . $e->getMessage(), PEAR_LOG_ERROR);
     }
 
     // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
@@ -215,6 +215,9 @@ function process_recurring_payments($payment_processor) {
     if ($result->ewayTrxnStatus != 'True') {
       // Mark transaction as failed
       $new_contribution_record->contribution_status_id = FAILED_CONTRIBUTION_STATUS_ID;
+      if(isset($result->ewayTrxnError)){
+	$new_contribution_record->note = $result->ewayTrxnError;
+      }
       $contribution->failure_count++;
 
     }
@@ -425,17 +428,17 @@ function send_receipt_email($contribution_id)
         'valueName' => 'contribution_online_receipt',
         'contactId' => $contribution->contact_id,
         'tplParams' => array(
-          'contributeMode' => 'directIPN', // Tells the person to contact us for cancellations
-          'receiptFromEmail' => $receiptFromEmail,
-          'amount' => $contribution->total_amount,
-          'title' => RECEIPT_SUBJECT_TITLE,
-          'is_recur' => true,
-          'is_monetary' => true,
-          'is_pay_later' => false,
-          'billingName' => $name,
-          'email' => $email,
-          'trxn_id' => $contribution->trxn_id,
-          'receive_date' => $contribution->receive_date,
+            'contributeMode' => 'directIPN', // Tells the person to contact us for cancellations
+            'receiptFromEmail' => $receiptFromEmail,
+            'amount' => $contribution->total_amount,
+            'title' => RECEIPT_SUBJECT_TITLE,
+            'is_recur' => true,
+	    'is_monetary' => true,
+	    'is_pay_later' => false,
+            'billingName' => $name,
+            'email' => $email,
+	    'trxn_id' => $contribution->trxn_id,
+            'receive_date' => CRM_Utils_Date::format($contribution->receive_date),
         ),
         'from' => $receiptFrom,
         'toName' => $name,
