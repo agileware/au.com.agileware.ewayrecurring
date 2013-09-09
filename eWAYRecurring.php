@@ -184,7 +184,7 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
         $expireYear    = substr ($params['year'], 2, 2);
         $expireMonth   = sprintf('%02d', (int) $params['month']); // Pad month with zeros
         $txtOptions    = "";
-        $amountInCents = round(((float) $params['amount']) * 100);
+        $amountInCents = round(((float) preg_replace('/[\s,]/', '', $params['amount'])) * 100);
         $credit_card_name  = $params['first_name'] . " ";
         if (strlen($params['middle_name']) > 0 ) {
             $credit_card_name .= $params['middle_name'] . " ";
