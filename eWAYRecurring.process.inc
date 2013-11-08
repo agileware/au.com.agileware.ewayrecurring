@@ -30,6 +30,8 @@ define('CANCELLED_CONTRIBUTION_STATUS_ID', 3);
 define('FAILED_CONTRIBUTION_STATUS_ID', 4);
 define('IN_PROGRESS_CONTRIBUTION_STATUS_ID', 5);
 
+define('CONTRIBUTION_FAILURE_THRESHOLD', 3);
+
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
@@ -61,6 +63,7 @@ function process_recurring_payments($payment_processor) {
     // $log->log("Processing payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n", PEAR_LOG_DEBUG);
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
 				    $pending_contribution['contribution']['total_amount']);
+
     $result = process_eway_payment(
 				   $token_client,
 				   $pending_contribution['contribution_recur']->processor_id,
@@ -166,11 +169,6 @@ function process_recurring_payments($payment_processor) {
 				   "{$contribution->frequency_unit}s"));
     }
 
-    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-				 $contribution->id,
-				 'next_sched_contribution',
-				 CRM_Utils_Date::isoToMysql ($next_sched) );
-
     // Process payment
     // $log->log("Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
@@ -192,45 +190,75 @@ function process_recurring_payments($payment_processor) {
 				     substr($invoice_id, 0, 16),
 				     ''
 				     );
-    }
-    catch(Exception $e) {
-      $log->log("Processing payment {$contribution->id} for {$contribution->contact_id}:" . $e->getMessage(), PEAR_LOG_ERROR);
-    }
 
-    // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
-    $new_contribution_record = new CRM_Contribute_BAO_Contribution();
-    $new_contribution_record->contact_id = $contribution->contact_id;
-    $new_contribution_record->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
-    $new_contribution_record->total_amount = $contribution->amount;
-    $new_contribution_record->contribution_recur_id = $contribution->id;
-    $new_contribution_record->contribution_status_id = COMPLETED_CONTRIBUTION_STATUS_ID; // TODO: Remove hardcoded hack
-    $new_contribution_record->contribution_type_id = $contribution->contribution_type_id;
-    $new_contribution_record->payment_instrument_id = $contribution->payment_instrument_id;
-    $new_contribution_record->source = 'eWAY Recurring Payment';
-    $new_contribution_record->trxn_id = $result->ewayTrxnNumber;
-    $new_contribution_record->address_id = $billing_address['id'];
-    $new_contribution_record->invoice_id = $invoice_id;
-    $new_contribution_record->campaign_id = $contribution->campaign_id;
 
-    if ($result->ewayTrxnStatus != 'True') {
-      // Mark transaction as failed
-      $new_contribution_record->contribution_status_id = FAILED_CONTRIBUTION_STATUS_ID;
+      CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+        $contribution->id,
+        'next_sched_contribution',
+        CRM_Utils_Date::isoToMysql ($next_sched) );
+
+      CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+        $contribution->id, 'failure_count', 0);
+
+      // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
+      $new_contribution_record = new CRM_Contribute_BAO_Contribution();
+      $new_contribution_record->contact_id = $contribution->contact_id;
+      $new_contribution_record->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
+      $new_contribution_record->total_amount = $contribution->amount;
+      $new_contribution_record->contribution_recur_id = $contribution->id;
+      $new_contribution_record->contribution_status_id = COMPLETED_CONTRIBUTION_STATUS_ID; // TODO: Remove hardcoded hack
+      $new_contribution_record->contribution_type_id = $contribution->contribution_type_id;
+      $new_contribution_record->payment_instrument_id = $contribution->payment_instrument_id;
+      $new_contribution_record->source = 'eWAY Recurring Payment';
+      $new_contribution_record->trxn_id = $result->ewayTrxnNumber;
+      $new_contribution_record->address_id = $billing_address['id'];
+      $new_contribution_record->invoice_id = $invoice_id;
+      $new_contribution_record->campaign_id = $contribution->campaign_id;
+      $new_contribution_record->financial_type_id = 5;
+
+      if ($result->ewayTrxnStatus != 'True') {
+        // Mark transaction as failed
+        $new_contribution_record->contribution_status_id = FAILED_CONTRIBUTION_STATUS_ID;
+      }
+      else {
+        // $log->log("Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
+
+        // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
+        // send_receipt_email($new_contribution_record->id);
+      }
+
+      $new_contribution_record->save();
+
       if(isset($result->ewayTrxnError)){
 	$new_contribution_record->note = $result->ewayTrxnError;
       }
-      $contribution->failure_count++;
 
-    }
-    else {
-      // $log->log("Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
-
-      // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
-      // send_receipt_email($new_contribution_record->id);
-    }
 
     // $log->log("Save contribution with trxn_id {$new_contribution_record->trxn_id}", PEAR_LOG_DEBUG);
 
-    $new_contribution_record->save();
+    }
+    catch(Exception $e) {
+      $log->log("Processing payment {$contribution->id} for {$contribution->contact_id}: " . $e->getMessage(), PEAR_LOG_WARNING);
+
+      $contribution->failure_count++;
+
+      if ($contribution->failure_count < CONTRIBUTION_FAILURE_THRESHOLD){
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+          $contribution->id,
+          'failure_count',
+          $contribution->failure_count);
+      } else {
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+          $contribution->id,
+          'contribution_status_id',
+          FAILED_CONTRIBUTION_STATUS_ID
+        );
+
+        $log->log("Marked payment {$contribution->id} as failed");
+      }
+    }
+
+    unset($result);
 
   }
 
@@ -293,8 +321,8 @@ function get_scheduled_contributions()
 {
     $scheduled_today = new CRM_Contribute_BAO_ContributionRecur();
     $scheduled_today->whereAdd("`next_sched_contribution` <= now()");
-    // Don't get cancelled contributions
-    $scheduled_today->whereAdd("`contribution_status_id` != 3");
+    // Don't get cancelled or failed contributions
+    $scheduled_today->whereAdd("`contribution_status_id` NOT IN (3, 4)");
     // Or test transactions
     $scheduled_today->whereAdd("`is_test` != 1");
     $scheduled_today->find();
@@ -357,19 +385,30 @@ function eway_token_client($gateway_url, $eway_customer_id, $username, $password
  * @throws SoapFault exceptions
  * @return object eWay response object
  */
-function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cents, $invoice_reference, $invoice_description)
-{
-    $paymentinfo = array(
-        'managedCustomerID' => $managed_customer_id,
-        'amount' => $amount_in_cents,
-        'InvoiceReference' => $invoice_reference,
-        'InvoiceDescription' => $invoice_description
+function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cents, $invoice_reference, $invoice_description) {
+
+  static $prev_response = NULL;
+
+  $paymentinfo = array(
+    'managedCustomerID' => $managed_customer_id,
+    'amount' => $amount_in_cents,
+    'InvoiceReference' => $invoice_reference,
+    'InvoiceDescription' => $invoice_description
+  );
+
+  $result = $soap_client->ProcessPayment($paymentinfo);
+  $eway_response = & $result->ewayResponse;
+
+  if ($prev_response->ewayTrxnNumber == $eway_response->ewayTrxnNumber) {
+    throw new Exception (
+      'eWAY ProcessPayment returned duplicate transaction number: ' .
+      $prev_response->ewayTrxnNumber . ' vs ' . $eway_response->ewayTrxnNumber
     );
+  }
 
-    $result = $soap_client->ProcessPayment($paymentinfo);
-    $eway_response = $result->ewayResponse;
+  $prev_response = & $eway_response;
 
-    return $eway_response;
+  return $eway_response;
 }
 
 /**
