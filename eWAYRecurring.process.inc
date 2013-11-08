@@ -230,7 +230,15 @@ function process_recurring_payments($payment_processor) {
       $new_contribution_record->save();
 
       if(isset($result->ewayTrxnError)){
-	$new_contribution_record->note = $result->ewayTrxnError;
+        $note = new CRM_Core_BAO_Note();
+
+        $note->entity_table = 'civicrm_contribution';
+        $note->contact_id = $contribution->contact_id;
+        $note->entity_id = $new_contribution_record->id;
+        $note->subject = ts('Transaction Error');
+        $note->note = $result->ewayTrxnError;
+
+        $note->save();
       }
 
 
