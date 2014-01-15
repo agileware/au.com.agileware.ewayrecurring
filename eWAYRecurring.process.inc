@@ -183,6 +183,11 @@ function process_recurring_payments($payment_processor) {
     $invoice_id = md5(uniqid(rand(), TRUE));
 
     try {
+      CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+        $contribution->id,
+        'next_sched_contribution',
+        CRM_Utils_Date::isoToMysql ($next_sched) );
+
       $result = process_eway_payment(
 				     $token_client,
 				     $contribution->processor_id,
@@ -190,12 +195,6 @@ function process_recurring_payments($payment_processor) {
 				     substr($invoice_id, 0, 16),
 				     ''
 				     );
-
-
-      CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-        $contribution->id,
-        'next_sched_contribution',
-        CRM_Utils_Date::isoToMysql ($next_sched) );
 
       CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
         $contribution->id, 'failure_count', 0);
