@@ -822,40 +822,94 @@ function ewayrecurring_civicrm_config(&$config) {
   set_include_path($include_path);
 }
 
+function ewayrecurring_civicrm_managed(&$entities) {
+   $entities[] = array(
+     'module' => 'org.civicrm.ewayrecurring',
+     'name' => 'eWay_Recurring',
+     'entity' => 'PaymentProcessorType',
+     'params' => array(
+       'version' => 3,
+       'name' => 'eWay_Recurring',
+       'title' => 'eWay Recurring',
+       'description' => 'Recurring payments payment processor for eWay',
+       'class_name' => 'org_civicrm_ewayrecurring',
+       'user_name_label' => 'Username',
+       'password_label' => 'Password',
+       'signature_label' => '',
+       'subject_label' => 'Customer ID',
+       'url_site_default' => 'https://www.eway.com.au/gateway_cvn/xmlpayment.asp',
+       //'url_api_default' => '',
+       'url_recur_default' => 'https://www.eway.com.au/gateway/ManagedPaymentService/managedCreditCardPayment.asmx?WSDL',
+       'url_site_test_default' => 'https://www.eway.com.au/gateway_cvn/xmltest/testpage.asp',
+       //'url_api_test_default' => '',
+       'url_recur_test_default' => 'https://www.eway.com.au/gateway/ManagedPaymentService/test/managedcreditcardpayment.asmx?WSDL',
+       //'url_button_default' => '',
+       'billing_mode' => 'form',
+       'is_recur' => '1',
+       'payment_type' => '1',
+     ),
+   );
+}
+
 function ewayrecurring_civicrm_install() {
-  ewayrecurring_civicrm_upgrade('enqueue');
+  $queue = CRM_Queue_Service::singleton()->create(array(
+             'type' => 'Sql',
+             'name' => 'ewayrecurring-install-schema',
+           ));
+
+}
+
+function ewayrecurring_civicrm_uninstall() {
+  $drops = array('DROP TABLE `civicrm_ewayrecurring`',
+		 'DROP TABLE `civicrm_contribution_page_recur_cycle`');
+
+  foreach($drops as $st) {
+    CRM_Core_DAO::executeQuery($st, array());
+  }
 }
 
 function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
-  $sql = "SELECT schema_version FROM civicrm_extension WHERE full_name = 'org.civicrm.ewayrecurring'";
-  $schemaVersion = intval(CRM_Core_DAO::singleValueQuery($sql, array()));
+  $schemaVersion = intval(CRM_Core_BAO_Extension::getSchemaVersion('org.civicrm.ewayrecurring'));
+  $upgrades = array();
 
   if ($op == 'check') {
     if ($schemaVersion < 4) {
       return array(TRUE);
     }
   } elseif ($op == 'enqueue') {
-    $upgrades = array("UPDATE civicrm_extension SET schema_version = '4'
-		       WHERE full_name='org.civicrm.ewayrecurring'");
-    if($schemaVersion < 4) {
-      array_unshift($upgrades,
-		    "CREATE TABLE `civicrm_ewayrecurring` (
-		       `processor_id` int(10) NOT NULL,
-		       `cycle_day` int(2) DEFAULT NULL,
-		       PRIMARY KEY(`processor_id`)
-		       ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+    if(NULL == $queue) {
+      return CRM_Core_Error::fatal('org.civicrm.ewayrecurring: No Queue supplied for upgrade');
     }
     if($schemaVersion < 3) {
-      array_unshift($upgrades,
-		    "CREATE TABLE `civicrm_contribution_page_recur_cycle` (
-		       `page_id` int(10) NOT NULL DEFAULT '0',
-		       `cycle_day` int(2) DEFAULT NULL,
-		       PRIMARY KEY (`page_id`)
-		       ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
-    }
+      $queue->createItem(
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
+            3,
+	    "CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
+          ),
+          'Install page_recur_cycle table'
+        )
+      );
 
-    foreach($upgrades as $st){
-      CRM_Core_DAO::executeQuery($st, array());
     }
+    if($schemaVersion < 4) {
+      $queue->createItem(
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
+            4,
+            "CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
+          ),
+          'Install cycle_day table'
+        )
+      );
+    }
+  }
+}
+
+function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st, $params = array()) {
+  $result = CRM_Core_DAO::executeQuery($st, $params);
+  if (!is_a($result, 'DB_Error')) {
+    CRM_Core_BAO_Extension::setSchemaVersion('org.civicrm.ewayrecurring', $schema);
+    return CRM_Queue_Task::TASK_SUCCESS;
+  } else {
+    return CRM_Queue_Task::TASK_FAIL;
   }
 }

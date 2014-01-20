@@ -14,12 +14,12 @@
     <author>Agileware</author>
     <email>support@agileware.com.au</email>
   </maintainer>
-  <releaseDate>2013-01-31</releaseDate>
-  <version>0.1.4</version>
+  <releaseDate>2014-01-20</releaseDate>
+  <version>0.1.5</version>
   <develStage>beta</develStage>
-  <compatibility><ver>4.2</ver></compatibility>
+  <compatibility><ver>4.3</ver></compatibility>
   <comments></comments>
-  <typeInfo>
+  <!-- typeInfo>
    <userNameLabel>Username</userNameLabel>
    <passwordLabel>Password</passwordLabel>
    <signatureLabel></signatureLabel>
@@ -35,5 +35,5 @@
    <billingMode>form</billingMode>
    <isRecur>1</isRecur>
    <paymentType>1</paymentType>
-  </typeInfo>
+  </typeInfo -->
 </extension>
