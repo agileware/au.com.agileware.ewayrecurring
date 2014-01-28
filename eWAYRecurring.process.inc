@@ -36,11 +36,11 @@ define('CONTRIBUTION_FAILURE_THRESHOLD', 3);
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
 function process_recurring_payments($payment_processor) {
-  // Get pending contributions
-  $pending_contributions = get_pending_recurring_contributions();
-
   // Create log handler
   $log = CRM_Core_Error::createDebugLogger();
+
+  // Get pending contributions
+  $pending_contributions = get_pending_recurring_contributions($log);
 
   // Create eWay token client
   $token_client = eway_token_client(
@@ -149,24 +149,26 @@ function process_recurring_payments($payment_processor) {
     }
 
     /* Schedule next contribution */
-
-    if (($cd = $contribution->cycle_day) > 0 &&
-	$contribution->frequency_unit == 'month'){
-      $d_now = new DateTime();
-      $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
-      $d_next->modify("+{$contribution->frequency_interval} " .
-		      "{$contribution->frequency_unit}s");
-      $next_m = ($d_now->format('m') + $contribution->frequency_interval - 1) % 12 + 1;
-      if ($next_m != $d_next->format('m')) {
-	$daysover = $d_next->format('d');
-	$d_next->modify("-{$daysover} days");
+    if ($contribution->installments != 1){
+      if(($cd = $contribution->cycle_day) && ($contribution->frequency_unit == 'month' || $contribution->frequency_unit == 'year')){
+        $d_now = new DateTime();
+        $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
+        $d_next->modify("+{$contribution->frequency_interval} " .
+          "{$contribution->frequency_unit}s");
+        $next_m = ($d_now->format('m') + $contribution->frequency_interval - 1) % 12 + 1;
+        if ($next_m != $d_next->format('m')) {
+          $daysover = $d_next->format('d');
+          $d_next->modify("-{$daysover} days");
+        }
+        $next_sched = $d_next->format('Y-m-d 00:00:00');
       }
-      $next_sched = $d_next->format('Y-m-d 00:00:00');
-    }
-    else {
-      $next_sched = date('Y-m-d 00:00:00',
-			 strtotime("+{$contribution->frequency_interval} " .
-				   "{$contribution->frequency_unit}s"));
+      else {
+        $next_sched = date('Y-m-d 00:00:00',
+                      strtotime("+{$contribution->frequency_interval} " .
+                        "{$contribution->frequency_unit}s"));
+      }
+    } else {
+      $next_sched = NULL;
     }
 
     // Process payment
@@ -183,10 +185,25 @@ function process_recurring_payments($payment_processor) {
     $invoice_id = md5(uniqid(rand(), TRUE));
 
     try {
-      CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-        $contribution->id,
-        'next_sched_contribution',
-        CRM_Utils_Date::isoToMysql ($next_sched) );
+      if($next_sched){
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+          $contribution->id,
+          'next_sched_contribution',
+          CRM_Utils_Date::isoToMysql ($next_sched) );
+      } else {
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribution_DAO_ContributionRecur',
+          $contribution->id,
+          'contribution_status_id',
+          COMPLETED_CONTRIBUTION_STATUS_ID);
+      }
+
+      if ($contribution->installments >= 1) {
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribution_DAO_ContributionRecur',
+          $contribution->id,
+          'installments',
+          ($contribution->installments - 1)
+        );
+      }
 
       $result = process_eway_payment(
 				     $token_client,
@@ -281,38 +298,45 @@ function process_recurring_payments($payment_processor) {
  *
  * @return array An array of associative arrays containing contribution arrays & contribtion_recur objects
  */
-function get_pending_recurring_contributions()
+function get_pending_recurring_contributions($log)
 {
     // Get pending contributions
     // TODO: Stop using the API. For consistency we should use BAOs so we get objects back
     $params = array(
         'version' => 3,
-        // TODO: Statuses are customisable so this configuration should be read from the DB
-        'contribution_status_id' => PENDING_CONTRIBUTION_STATUS_ID
+        'contribution_status_id' => PENDING_CONTRIBUTION_STATUS_ID,
+        'rowCount' => 100,
+        'offset' => 0,
     );
-    $pending_contributions = civicrm_api('contribution', 'get', $params);
 
     $result = array();
 
-    foreach ($pending_contributions['values'] as $contribution) {
+    $pending_contributions = civicrm_api('Contribution', 'get', $params);
+
+    while($pending_contributions['count'] > 0) {
+      foreach ($pending_contributions['values'] as $contribution) {
         // Only process those with recurring contribution records
         if ($contribution['contribution_recur_id']) {
-            // Find the recurring contribution record for this contribution
-            $recurring = new CRM_Contribute_BAO_ContributionRecur();
-            $recurring->id = $contribution['contribution_recur_id'];
+          // Find the recurring contribution record for this contribution
+          $recurring = new CRM_Contribute_BAO_ContributionRecur();
+          $recurring->id = $contribution['contribution_recur_id'];
 
-            // Only process records that have a recurring record with
-            // a processor ID, i.e. an eWay token
-            if ($recurring->find(true) && $recurring->processor_id) {
-                // TODO: Return the same type of results
-                // This is a bit nasty, contribution is an array and
-                // contribution_recur is an object
-                $result[] = array(
-                    'contribution' => $contribution,
-                    'contribution_recur' => $recurring
-                );
-            }
+          // Only process records that have a recurring record with
+          // a processor ID, i.e. an eWay token
+          if ($recurring->find(true) && $recurring->processor_id) {
+            // TODO: Return the same type of results
+            // This is a bit nasty, contribution is an array and
+            // contribution_recur is an object
+            $result[$contribution['contribution_recur_id']] = array(
+              'contribution' => $contribution,
+              'contribution_recur' => $recurring
+            );
+          }
         }
+      }
+
+      $params['offset'] += $params['rowCount'];
+      $pending_contributions = civicrm_api('Contribution', 'get', $params);
     }
     return $result;
 }
@@ -329,7 +353,7 @@ function get_scheduled_contributions()
     $scheduled_today = new CRM_Contribute_BAO_ContributionRecur();
     $scheduled_today->whereAdd("`next_sched_contribution` <= now()");
     // Don't get cancelled or failed contributions
-    $scheduled_today->whereAdd("`contribution_status_id` NOT IN (3, 4)");
+    $scheduled_today->whereAdd("`contribution_status_id` IN (2, 5)");
     // Or test transactions
     $scheduled_today->whereAdd("`is_test` != 1");
     $scheduled_today->find();
