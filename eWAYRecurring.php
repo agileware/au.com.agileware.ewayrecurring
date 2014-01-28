@@ -263,11 +263,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
 }
 
 function ewayrecurring_civicrm_install() {
-  $queue = CRM_Queue_Service::singleton()->create(array(
-             'type' => 'Sql',
-             'name' => 'ewayrecurring-install-schema',
-           ));
-
+  // Do nothing here because the schema version can't be set during this hook.
 }
 
 function ewayrecurring_civicrm_uninstall() {
