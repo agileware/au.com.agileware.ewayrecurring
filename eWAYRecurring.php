@@ -251,12 +251,12 @@ function ewayrecurring_civicrm_managed(&$entities) {
      'entity' => 'Job',
      'params' => array (
        'version' => 3,
-       'run_frequency' => 'Daily',
+       'run_frequency' => 'Always',
        'name' => 'eWAY Recurring Payments',
        'description' => 'Process pending and scheduled payments in the eWay_Recurring processor',
        'api_entity' => 'Job',
        'api_action' => 'run_payment_cron',
-       'parameters' => "processor_name=eWay_Recurring\r\nmode=test",
+       'parameters' => "processor_name=eWay_Recurring",
        'is_active' => '0'
      ),
    );
