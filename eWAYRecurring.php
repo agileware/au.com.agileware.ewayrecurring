@@ -74,7 +74,7 @@ function ewayrecurring_civicrm_buildForm ($formName, &$form) {
     $paymentProcessor = $form->getVar('_paymentProcessorObj');
     if(($paymentProcessor instanceof org_civicrm_ewayrecurring)){
       $crid = $form->getVar('_crid');
-      $sql = 'SELECT next_sched_contribution FROM civicrm_contribution_recur WHERE id = %1';
+      $sql = 'SELECT next_sched_contribution_date FROM civicrm_contribution_recur WHERE id = %1';
       $form->addDateTime('next_scheduled_date', ts('Next Scheduled Date'), FALSE, array('formatType' => 'activityDateTime'));
       if($default_nsd = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($crid, 'Int')))){
 	list($defaults['next_scheduled_date'],

@@ -651,7 +651,7 @@ The CiviCRM eWAY Payment Processor Module
 	$submitted_nsd = strtotime($params['next_scheduled_date'] . ' ' . $params['next_scheduled_date_time']);
 	CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
 				     $params['id'],
-				     'next_sched_contribution',
+				     'next_sched_contribution_date',
 				     date('YmdHis', $submitted_nsd) );
       }
       return TRUE;

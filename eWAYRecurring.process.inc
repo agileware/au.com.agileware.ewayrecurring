@@ -40,7 +40,7 @@ function process_recurring_payments($payment_processor) {
   $log = CRM_Core_Error::createDebugLogger();
 
   // Get pending contributions
-  $pending_contributions = get_pending_recurring_contributions($log);
+  $pending_contributions = get_pending_recurring_contributions($log, $payment_processor);
 
   // Create eWay token client
   $token_client = eway_token_client(
@@ -50,7 +50,7 @@ function process_recurring_payments($payment_processor) {
 				    $payment_processor['password']
 				    );
 
-  $log->log("Processing " . count($pending_contributions) . " pending contributions", PEAR_LOG_INFO);
+  $log->log("Processing " . count($pending_contributions) . " pending contributions for processor " . $payment_processor['id'], PEAR_LOG_INFO);
   foreach ($pending_contributions as $pending_contribution) {
     if ($pending_contribution['contribution_recur']->contribution_status_id == CANCELLED_CONTRIBUTION_STATUS_ID) {
       complete_contribution($pending_contribution['contribution']['id'],
@@ -119,7 +119,7 @@ function process_recurring_payments($payment_processor) {
 
     CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
 				 $pending_contribution['contribution_recur']->id,
-				 'next_sched_contribution',
+				 'next_sched_contribution_date',
 				 CRM_Utils_Date::isoToMysql ($next_sched) );
 
     /* Update status for reporting */
@@ -132,14 +132,17 @@ function process_recurring_payments($payment_processor) {
   }
 
   // Process today's scheduled contributions.
-  $scheduled_contributions = get_scheduled_contributions();
+  $scheduled_contributions = get_scheduled_contributions($payment_processor);
 
-  $log->log("Processing " . count($scheduled_contributions) . " scheduled contributions", PEAR_LOG_INFO);
+  $log->log("Processing " . count($scheduled_contributions) . " scheduled contributions for processor " . $payment_processor['id'], PEAR_LOG_INFO);
   foreach ($scheduled_contributions as $contribution) {
+    if ($contribution->payment_processor_id != $payment_processor['id'])
+      continue;
+
     // Re-check schedule time, in case contribution already processed.
     $next_sched = CRM_Core_DAO::getFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
 					       $contribution->id,
-					       'next_sched_contribution',
+					       'next_sched_contribution_date',
 					       'id',
 					       TRUE);
 
@@ -188,7 +191,7 @@ function process_recurring_payments($payment_processor) {
       if($next_sched){
         CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution->id,
-          'next_sched_contribution',
+          'next_sched_contribution_date',
           CRM_Utils_Date::isoToMysql ($next_sched) );
       } else {
         CRM_Core_DAO::setFieldValue( 'CRM_Contribution_DAO_ContributionRecur',
@@ -230,7 +233,7 @@ function process_recurring_payments($payment_processor) {
       $new_contribution_record->address_id = $billing_address['id'];
       $new_contribution_record->invoice_id = $invoice_id;
       $new_contribution_record->campaign_id = $contribution->campaign_id;
-      $new_contribution_record->financial_type_id = 5;
+      $new_contribution_record->financial_type_id = $contribution->financial_type_id;
 
       if ($result->ewayTrxnStatus != 'True') {
         // Mark transaction as failed
@@ -298,7 +301,7 @@ function process_recurring_payments($payment_processor) {
  *
  * @return array An array of associative arrays containing contribution arrays & contribtion_recur objects
  */
-function get_pending_recurring_contributions($log)
+function get_pending_recurring_contributions($log, $payment_processor)
 {
     // Get pending contributions
     // TODO: Stop using the API. For consistency we should use BAOs so we get objects back
@@ -323,7 +326,8 @@ function get_pending_recurring_contributions($log)
 
           // Only process records that have a recurring record with
           // a processor ID, i.e. an eWay token
-          if ($recurring->find(true) && $recurring->processor_id) {
+          if ($recurring->find(true) && $recurring->processor_id
+	      && ($recurring->payment_processor_id == $payment_processor['id'])) {
             // TODO: Return the same type of results
             // This is a bit nasty, contribution is an array and
             // contribution_recur is an object
@@ -348,10 +352,10 @@ function get_pending_recurring_contributions($log)
  *
  * @return array An array of contribtion_recur objects
  */
-function get_scheduled_contributions()
+function get_scheduled_contributions($payment_processor)
 {
     $scheduled_today = new CRM_Contribute_BAO_ContributionRecur();
-    $scheduled_today->whereAdd("`next_sched_contribution` <= now()");
+    $scheduled_today->whereAdd("`next_sched_contribution_date` <= now()");
     // Don't get cancelled or failed contributions
     $scheduled_today->whereAdd("`contribution_status_id` IN (2, 5)");
     // Or test transactions
@@ -361,15 +365,18 @@ function get_scheduled_contributions()
     $scheduled_contributions = array();
 
     while ($scheduled_today->fetch()) {
-        // Check that there's no existing contribution record for today
-        $contribution = new CRM_Contribute_BAO_Contribution();
-        $contribution->contribution_recur_id = $scheduled_today->id;
-        $contribution->whereAdd
-	  ("`receive_date` >= '{$scheduled_today->next_sched_contribution}'");
+      if($scheduled_today->payment_processor_id != $payment_processor['id']){
+	continue;
+      }
+      // Check that there's no existing contribution record for today
+      $contribution = new CRM_Contribute_BAO_Contribution();
+      $contribution->contribution_recur_id = $scheduled_today->id;
+      $contribution->whereAdd
+	("`receive_date` >= '{$scheduled_today->next_sched_contribution_date}'");
 
-        if (!($contribution->find())) {
-            $scheduled_contributions[] = clone $scheduled_today;
-        }
+      if (!($contribution->find())) {
+	$scheduled_contributions[] = clone $scheduled_today;
+      }
     }
 
     return $scheduled_contributions;
@@ -516,7 +523,7 @@ function send_receipt_email($contribution_id)
         'isTest' => $contribution->is_test
     );
 
-    list($sent, $subject, $message, $html) = CRM_Core_BAO_MessageTemplates::sendTemplate($params);
+    list($sent, $subject, $message, $html) = CRM_Core_BAO_MessageTemplate::sendTemplate($params);
 
     return $sent;
 }
