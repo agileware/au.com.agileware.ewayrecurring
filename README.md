@@ -8,4 +8,4 @@ In addition to the support offered by the original extension, this version
 allows you to specify a particular day of the month to process all recurring payments together.
 
 Agileware's development of this extension was sponsored by Stephen Garrett of
-[GoodReason](www.goodreason.com.au)
+[GoodReason](http://www.goodreason.com.au)
