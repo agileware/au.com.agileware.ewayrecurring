@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<extension key="org.civicrm.ewayrecurring" type="module">
+<extension key="au.com.agileware.ewayrecurring" type="module">
   <file>eWAYRecurring</file>
   <name>eWay_Recurring</name>
   <description>Recurring payments payment processor for eWay</description>

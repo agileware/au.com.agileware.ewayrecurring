@@ -74,7 +74,7 @@
 require_once 'CRM/Core/Payment.php';
 require_once 'eWAYRecurring.process.inc';
 
-class org_civicrm_ewayrecurring extends CRM_Core_Payment
+class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 {
   // const CHARSET  = 'UTF-8'; # (not used, implicit in the API, might need to convert?)
 
@@ -118,7 +118,7 @@ class org_civicrm_ewayrecurring extends CRM_Core_Payment
     {
         $processorName = $paymentProcessor['name'];
         if (self::$_singleton[$processorName] === null ) {
-            self::$_singleton[$processorName] = new org_civicrm_ewayrecurring( $mode, $paymentProcessor );
+            self::$_singleton[$processorName] = new au_com_agileware_ewayrecurring( $mode, $paymentProcessor );
         }
         return self::$_singleton[$processorName];
     }
