@@ -9,3 +9,7 @@ allows you to specify a particular day of the month to process all recurring pay
 
 Agileware's development of this extension was sponsored by Stephen Garrett of
 [Good Reason](http://www.goodreason.com.au)
+
+You can contact Agileware at https://agileware.com.au/contact
+
+Agileware Pty Ltd. https://agileware.com.au
