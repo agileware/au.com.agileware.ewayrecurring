@@ -467,8 +467,8 @@ function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cen
   $paymentinfo = array(
     'managedCustomerID' => $managed_customer_id,
     'amount' => $amount_in_cents,
-    'InvoiceReference' => $invoice_reference,
-    'InvoiceDescription' => $invoice_description
+    'invoiceReference' => $invoice_reference,
+    'invoiceDescription' => $invoice_description
   );
 
   $result = $soap_client->ProcessPayment($paymentinfo);
