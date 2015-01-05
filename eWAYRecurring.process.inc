@@ -64,12 +64,21 @@ function process_recurring_payments($payment_processor) {
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
 				    $pending_contribution['contribution']['total_amount']);
 
+
+    $financial_type = civicrm_api3(
+      'FinancialType', 'getsingle', array(
+        'sequential' => 1,
+        'return' => "name",
+        'id' => $pending_contribution['contribution']['financial_type_id'],
+      ));
+
     $result = process_eway_payment(
 				   $token_client,
 				   $pending_contribution['contribution_recur']->processor_id,
 				   $amount_in_cents,
 				   $pending_contribution['contribution']['invoice_id'],
-				   $pending_contribution['contribution']['contribution_source']
+				   $financial_type['name'] . ($pending_contribution['contribution']['contribution_source']?
+                                     ":\n" . $pending_contribution['contribution']['contribution_source'] : '')
 				   );
 
     if ($result->ewayTrxnStatus != 'True') {
@@ -208,12 +217,40 @@ function process_recurring_payments($payment_processor) {
         );
       }
 
+      $contributions = civicrm_api3(
+        'Contribution', 'get', array(
+          'sequential' => 1,
+          'contribution_recur_id' => $contribution->id,
+          'options' => array('sort' => "id ASC"),
+        )
+      );
+
+      $precedent = reset($contributions['values']);
+
+      if(empty($precedent)) {
+        $precedent = array ('contribution_source' => '');
+      }
+
+      $financial_type = civicrm_api3(
+        'FinancialType', 'getsingle', array(
+          'sequential' => 1,
+          'return' => "name",
+          'id' => $contribution->financial_type_id,
+        ));
+
+      if (!isset($financial_type['name'])) {
+        throw new Exception (
+          "Financial type could not be loaded for {$contribution->id}";
+        );
+      }
+
       $result = process_eway_payment(
 				     $token_client,
 				     $contribution->processor_id,
 				     $amount_in_cents,
 				     substr($invoice_id, 0, 16),
-				     ''
+				     $financial_type['name'] . ($precedent['contribution_source']?
+                                       ":\n" . $precedent['contribution_source'] : '')
 				     );
 
       CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
