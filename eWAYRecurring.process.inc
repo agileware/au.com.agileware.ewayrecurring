@@ -240,7 +240,7 @@ function process_recurring_payments($payment_processor) {
 
       if (!isset($financial_type['name'])) {
         throw new Exception (
-          "Financial type could not be loaded for {$contribution->id}";
+          "Financial type could not be loaded for {$contribution->id}"
         );
       }
 
@@ -396,7 +396,7 @@ function get_scheduled_contributions($payment_processor)
     // Don't get cancelled or failed contributions
     $scheduled_today->whereAdd("`contribution_status_id` IN (2, 5)");
     // Or test transactions
-    $scheduled_today->whereAdd("`is_test` != 1");
+    // $scheduled_today->whereAdd("`is_test` != 1");
     $scheduled_today->find();
 
     $scheduled_contributions = array();
