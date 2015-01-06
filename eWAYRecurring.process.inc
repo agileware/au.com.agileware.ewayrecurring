@@ -203,14 +203,18 @@ function process_recurring_payments($payment_processor) {
           'next_sched_contribution_date',
           CRM_Utils_Date::isoToMysql ($next_sched) );
       } else {
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribution_DAO_ContributionRecur',
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution->id,
           'contribution_status_id',
           COMPLETED_CONTRIBUTION_STATUS_ID);
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+          $contribution->id,
+          'end_date',
+          CRM_Utils_Date::isoToMysql ($d_now) );
       }
 
       if ($contribution->installments >= 1) {
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribution_DAO_ContributionRecur',
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution->id,
           'installments',
           ($contribution->installments - 1)
