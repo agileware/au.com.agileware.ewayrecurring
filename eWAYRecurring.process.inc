@@ -65,12 +65,22 @@ function process_recurring_payments($payment_processor) {
 				    $pending_contribution['contribution']['total_amount']);
 
 
-    $financial_type = civicrm_api3(
-      'FinancialType', 'getsingle', array(
-        'sequential' => 1,
-        'return' => "name",
-        'id' => $pending_contribution['contribution']['financial_type_id'],
-      ));
+    // Attempt to get the Financial Type using the API.
+    try {
+      $financial_type = civicrm_api3(
+        'FinancialType', 'getsingle', array(
+          'sequential' => 1,
+          'return' => "name",
+          'id' => $pending_contribution['contribution']['financial_type_id'],
+        ));
+    }
+    catch(CiviCRM_API3_Exception $e) { // Most likely due to FinancialType API not being available in < 4.5 - try DAO directly
+      $ft_bao = new CRM_Financial_BAO_FinancialType();
+      $ft_bao->id = $pending_contribution['contribution']['financial_type_id'];
+      $ft_bao->find(true);
+
+      $financial_type = (array) $ft_bao;
+    }
 
     $result = process_eway_payment(
 				   $token_client,
@@ -235,12 +245,22 @@ function process_recurring_payments($payment_processor) {
         $precedent = array ('contribution_source' => '', 'is_test' => 0);
       }
 
-      $financial_type = civicrm_api3(
-        'FinancialType', 'getsingle', array(
-          'sequential' => 1,
-          'return' => "name",
-          'id' => $contribution->financial_type_id,
-        ));
+      try {
+        $financial_type = civicrm_api3(
+          'FinancialType', 'getsingle', array(
+            'sequential' => 1,
+            'return' => "name",
+            'id' => $contribution->financial_type_id,
+          ));
+      }
+      catch(CiviCRM_API3_Exception $e) { // Most likely due to FinancialType API not being available in < 4.5 - try DAO directly
+        $ft_bao = new CRM_Financial_BAO_FinancialType();
+        $ft_bao->id = $contribution->financial_type_id;
+        $found = $ft_bao->find(true);
+
+        $financial_type = (array) $ft_bao;
+      }
+
 
       if (!isset($financial_type['name'])) {
         throw new Exception (
