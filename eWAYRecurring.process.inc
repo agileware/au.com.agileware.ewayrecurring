@@ -235,7 +235,7 @@ function process_recurring_payments($payment_processor) {
         'Contribution', 'get', array(
           'sequential' => 1,
           'contribution_recur_id' => $contribution->id,
-          'options' => array('sort' => "id DESC"),
+          'options' => array('sort' => "id ASC"),
         )
       );
 
