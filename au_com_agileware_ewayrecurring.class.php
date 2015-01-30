@@ -114,7 +114,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
      * @static
      *
      */
-    static function &singleton( $mode, &$paymentProcessor )
+    static function &singleton( $mode, &$paymentProcessor, &$paymentForm = NULL, $force = FALSE )
     {
         $processorName = $paymentProcessor['name'];
         if (self::$_singleton[$processorName] === null ) {
