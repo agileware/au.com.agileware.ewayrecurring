@@ -170,8 +170,14 @@ function process_recurring_payments($payment_processor) {
       break;  // Assume parallel cron job called, exit loop.
     }
 
+    /* Get the number of Contributions already recorded for this Schedule. */
+    $ccount = civicrm_api3('Contribution', 'getcount', array(
+                'options' => array('limit' => 0),
+                'contribution_recur_id' => $contribution->id,
+              ));
+
     /* Schedule next contribution */
-    if ($contribution->installments != 1){
+    if (($contribution->installments <= 0) || ($contribution->installments > $ccount + 1)) {
       if(($cd = $contribution->cycle_day) && ($contribution->frequency_unit == 'month' || $contribution->frequency_unit == 'year')){
         $d_now = new DateTime();
         $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
@@ -191,6 +197,14 @@ function process_recurring_payments($payment_processor) {
       }
     } else {
       $next_sched = NULL;
+      /* Mark recurring contribution as complteted*/
+      civicrm_api(
+        'ContributionRecur', 'create',
+        array(
+          'version' => '3',
+          'id' => $contribution->id,
+          'contribution_recur_status_id' => COMPLETED_CONTRIBUTION_STATUS_ID)
+      );
     }
 
     // Process payment
@@ -223,13 +237,6 @@ function process_recurring_payments($payment_processor) {
           CRM_Utils_Date::isoToMysql ($d_now) );
       }
 
-      if ($contribution->installments >= 1) {
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution->id,
-          'installments',
-          ($contribution->installments - 1)
-        );
-      }
 
       $contributions = civicrm_api3(
         'Contribution', 'get', array(
