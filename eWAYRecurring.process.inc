@@ -533,24 +533,33 @@ function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cen
 function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = COMPLETED_CONTRIBUTION_STATUS_ID, $c_date = NULL)
 {
     // Mark the contribution as complete
-    $contribution = new CRM_Contribute_BAO_Contribution();
-    $contribution->id = $contribution_id;
-    $contribution->find(true);
+
+    $contribution = array ('id' => $contribution_id,
+			   'contribution_status_id' => $status_id);
 
     if(!$c_date)
       $c_date = time();
 
-    $contribution->contribution_status_id = $status_id;
-
     if ($status_id == CANCELLED_CONTRIBUTION_STATUS_ID)
-      $contribution->cancel_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'), $c_date);
+      $contribution['cancel_date'] = date('Y-m-d H:i:s', $c_date);
     else
-      $contribution->receive_date = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'), $c_date);
+      $contribution['receive_date'] = date('Y-m-d H:i:s', $c_date);
 
     if($trxn_id)
-      $contribution->trxn_id = $trxn_id;
+      $contribution['trxn_id'] = $trxn_id;
 
-    return $contribution->save();
+    try {
+      $result = civicrm_api3('Contribution', 'create', $contribution);
+
+      return $result['is_error'];
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      $log = CRM_Core_Error::createDebugLogger();
+
+      $log->log("Exception completing contribution {$contribution_id}: " . $e->getMessage());
+
+      return FALSE;
+    }
 }
 
 /**
