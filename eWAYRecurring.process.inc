@@ -237,6 +237,19 @@ function process_recurring_payments($payment_processor) {
           CRM_Utils_Date::isoToMysql ($d_now) );
       }
 
+      $new_contribution_record = array();
+
+      // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
+      $new_contribution_record['contact_id'] = $contribution->contact_id;
+      $new_contribution_record['receive_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
+      $new_contribution_record['total_amount'] = $contribution->amount;
+      $new_contribution_record['contribution_recur_id'] = $contribution->id;
+      $new_contribution_record['payment_instrument_id'] = $contribution->payment_instrument_id;
+      $new_contribution_record['address_id'] = $billing_address['id'];
+      $new_contribution_record['invoice_id'] = $invoice_id;
+      $new_contribution_record['campaign_id'] = $contribution->campaign_id;
+      $new_contribution_record['financial_type_id'] = $contribution->financial_type_id;
+      $new_contribution_record['payment_processor'] = $contribution->payment_processor_id;
 
       $contributions = civicrm_api3(
         'Contribution', 'get', array(
@@ -275,6 +288,10 @@ function process_recurring_payments($payment_processor) {
         );
       }
 
+      $new_contribution_record['source'] = "eWAY Recurring {$financial_type['name']}:\n{$precedent['contribution_source']}";
+      $new_contribution_record['contribution_page_id'] = $precedent['contribution_page_id'];
+      $new_contribution_record['is_test'] = $precedent['is_test'];
+
       $result = process_eway_payment(
 				     $token_client,
 				     $contribution->processor_id,
@@ -287,24 +304,7 @@ function process_recurring_payments($payment_processor) {
       CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
         $contribution->id, 'failure_count', 0);
 
-      // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
-      $new_contribution_record = array();
-
-      $new_contribution_record['contact_id'] = $contribution->contact_id;
-      $new_contribution_record['receive_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
-      $new_contribution_record['total_amount'] = $contribution->amount;
-      $new_contribution_record['contribution_recur_id'] = $contribution->id;
-      $new_contribution_record['contribution_status_id'] = COMPLETED_CONTRIBUTION_STATUS_ID;
-      $new_contribution_record['payment_instrument_id'] = $contribution->payment_instrument_id;
-      $new_contribution_record['source'] = "eWAY Recurring {$financial_type['name']}:\n{$precedent['contribution_source']}";
       $new_contribution_record['trxn_id'] = $result->ewayTrxnNumber;
-      $new_contribution_record['address_id'] = $billing_address['id'];
-      $new_contribution_record['invoice_id'] = $invoice_id;
-      $new_contribution_record['campaign_id'] = $contribution->campaign_id;
-      $new_contribution_record['financial_type_id'] = $contribution->financial_type_id;
-      $new_contribution_record['payment_processor'] = $contribution->payment_processor_id;
-      $new_contribution_record['is_test'] = $precedent['is_test'];
-      $new_contribution_record['contribution_page_id'] = $precedent['contribution_page_id'];
 
       if ($result->ewayTrxnStatus != 'True') {
         // Mark transaction as failed
@@ -341,6 +341,24 @@ function process_recurring_payments($payment_processor) {
       $log->log("Processing payment {$contribution->id} for {$contribution->contact_id}: " . $e->getMessage(), PEAR_LOG_WARNING);
 
       $contribution->failure_count++;
+
+      // Record a failed contribution in this case.
+      $new_contribution_record['contribution_status_id'] = FAILED_CONTRIBUTION_STATUS_ID;
+      $created = civicrm_api3('Contribution', 'create', $new_contribution_record);
+
+      $new_contribution_record = reset($created['values']);
+
+      if(isset($result->ewayTrxnError)){
+        $note = new CRM_Core_BAO_Note();
+
+        $note->entity_table = 'civicrm_contribution';
+        $note->contact_id = $contribution->contact_id;
+        $note->entity_id = $new_contribution_record['id'];
+        $note->subject = ts('Contribution Error');
+        $note->note = $e->getMessage();
+
+        $note->save();
+      }
 
       if ($contribution->failure_count < CONTRIBUTION_FAILURE_THRESHOLD){
         CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
