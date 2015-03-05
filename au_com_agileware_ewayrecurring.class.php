@@ -157,6 +157,31 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
       return $result->CreateCustomerResult;
     }
 
+  function updateCustomerToken( &$customerinfo, $params = array() ) {
+    $gateway_URL = $this->_paymentProcessor['url_recur'];    // eWAY Gateway URL
+
+    $soap_client = new SoapClient($gateway_URL/*, array('trace' => 1) /* Trace soap requests for debugging */);
+
+    // Set up SOAP headers
+    $headers = array(
+      'eWAYCustomerID' => $this->_paymentProcessor['subject'],   // eWAY Client ID
+      'Username'       => $this->_paymentProcessor['user_name'],
+      'Password'       => $this->_paymentProcessor['password']
+    );
+
+    $header = new SoapHeader('https://www.eway.com.au/gateway/managedpayment', 'eWAYHeader', $headers);
+    $soap_client->__setSoapHeaders($header);
+
+    // Hook to allow customer info to be changed before submitting it
+    CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $customerinfo );
+
+    // Update the customer via the API
+    $result = $soap_client->UpdateCustomer($customerinfo);
+
+    // We've updated the customer successfully
+    return $result->UpdateCustomerResult;
+  }
+
     /**********************************************************
     * This function sends request and receives response from
     * eWAY payment process
@@ -225,7 +250,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 'Phone' => '',
                 'Mobile' => '',
                 'CustomerRef' => '',
-                'JobDesc' => ($params['description']? $params['description']: ''),
+        'JobDesc' => '',
                 'Comments' => '',
                 'URL' => '',
                 'CCNumber' => $params['credit_card_number'],
@@ -661,5 +686,89 @@ The CiviCRM eWAY Payment Processor Module
       // TODO: Implement this - request token deletion from eWAY?
       return TRUE;
     }
+
+  function updateSubscriptionBillingInfo(&$message = '', $params = array()) {
+    // Something happens to the PseudoConstant cache so it stores the country label in place of its ISO 3166 code.
+    // Flush to cache to work around this.
+    CRM_Core_PseudoConstant::flush();
+
+
+    // Build the customer info for eWAY
+    $expireYear  = substr ($params['year'], 2, 2);
+    $expireMonth = sprintf('%02d', (int) $params['month']); // Pad month with zeros
+
+    $credit_card_name = $params['first_name'] . " ";
+    if (strlen($params['middle_name']) > 0 ) {
+      $credit_card_name .= $params['middle_name'] . " ";
+    }
+    $credit_card_name .= $params['last_name'];
+
+    $isoCountryCode = CRM_Core_PseudoConstant::getName('CRM_Core_BAO_Address', 'country_id', $params['country_id']);
+
+    $customerinfo = array(
+      'Title'             => 'Mr.',
+      'FirstName'         => $params['first_name'],
+      'LastName'          => $params['last_name'],
+      'Address'           => $params['street_address'],
+      'Suburb'            => $params['city'],
+      'State'             => $params['state_province'],
+      'Company'           => '',
+      'PostCode'          => $params['postal_code'],
+      'Country'           => strtolower($isoCountryCode),
+      'Email'             => ($params['email']? $params['email']: ''),
+      'Fax'               => '',
+      'Phone'             => '',
+      'Mobile'            => '',
+      'CustomerRef'       => '',
+      'JobDesc'           => '',
+      'Comments'          => '',
+      'URL'               => '',
+      'CCNumber'          => $params['credit_card_number'],
+      'CCNameOnCard'      => $credit_card_name,
+      'CCExpiryMonth'     => $expireMonth,
+      'CCExpiryYear'      => $expireYear,
+      'managedCustomerID' => $params['subscriptionId'],
+    );
+
+    try {
+      // Get the payment.  Why isn't this provided to the function.
+      $contribution = civicrm_api3('ContributionRecur', 'getsingle', array(
+                        'payment_processor_id' => $this->_paymentProcessor['id'],
+                        'processor_id' => $params['subscriptionId']
+                      ));
+
+      // We shouldn't be allowed to update the details for completed or cancelled payments
+      switch($contribution['contribution_status_id']) {
+        case COMPLETED_CONTRIBUTION_STATUS_ID:
+          throw new Exception(ts('Attempted to update billing details for a completed contribution.'));
+          break;
+        case CANCELLED_CONTRIBUTUTION_STATUS_ID:
+          throw new Exception(ts('Attempted to update billing details for a cancelled contribution.'));
+          break;
+        default:
+          break;
+      }
+
+      $result = $this->updateCustomerToken( $customerinfo, $params );
+
+      // Updating the billing details should fixed failed contributions
+      if(FAILED_CONTRIBUTION_STATUS_ID == $contribution['contribution_status_id']) {
+        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+          $contribution['id'],
+          'contribution_status_id',
+          IN_PROGRESS_CONTRIBUTION_STATUS_ID );
+      }
+
+      CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+        $contribution['id'],
+        'failure_count',
+        0 );
+
+      return $result;
+    }
+    catch(Exception $e) {
+      return self::errorExit(9010, $e->getMessage());
+    }
+  }
 
 } // end class CRM_Core_Payment_eWAYRecurring
