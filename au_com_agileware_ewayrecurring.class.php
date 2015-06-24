@@ -267,6 +267,14 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
               return self::errorExit(9010, $e->getMessage());
             }
 
+            // Force the contribution to Pending.
+            CRM_Core_DAO::setFieldValue(
+                'CRM_Contribute_DAO_Contribution',
+                $params['contributionID'],
+                'contribution_status_id',
+                2 // PENDING_CONTRIBUTION_STATUS_ID
+            );
+
             // Save the eWay customer token in the recurring contribution's processor_id field
             CRM_Core_DAO::setFieldValue(
                 'CRM_Contribute_DAO_ContributionRecur',
