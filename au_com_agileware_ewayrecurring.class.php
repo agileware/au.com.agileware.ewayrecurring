@@ -358,6 +358,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             //            $gateway_URL    = "https://www.eway.com.au/gateway_cvn/xmltest/testpage.asp";
             //        }
 
+            $fullAddress = $params['street_address'] . "\n" . $params['city'] . ' ' . $params['state_province'];
+
             //----------------------------------------------------------------------------------------------------
             // Now set the payment details - see http://www.eway.com.au/Support/Developer/PaymentsRealTime.aspx
             //----------------------------------------------------------------------------------------------------
