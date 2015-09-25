@@ -249,6 +249,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
      'module' => 'au.com.agileware.ewayrecurring',
      'name' => 'eWay_Recurring_cron',
      'entity' => 'Job',
+     'update' => 'never', // Ensure local changes are kept, eg. setting the job active
      'params' => array (
        'version' => 3,
        'run_frequency' => 'Always',
