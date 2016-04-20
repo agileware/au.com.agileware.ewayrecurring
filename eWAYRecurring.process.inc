@@ -39,6 +39,12 @@ function process_recurring_payments($payment_processor) {
   // Create log handler
   $log = CRM_Core_Error::createDebugLogger();
 
+  // If an ewayrecurring job is already running, we want to exit as soon as possible.
+  $lock = \Civi\Core\Container::singleton()->get('lockManager')->create('worker.ewayrecurring');
+  if(!$lock->isFree() || !$lock->acquire()){
+    return FALSE;
+  }
+
   // Get pending contributions
   $pending_contributions = get_pending_recurring_contributions($log, $payment_processor);
 
@@ -380,6 +386,7 @@ function process_recurring_payments($payment_processor) {
 
   }
 
+  $lock->release();
 }
 
 /**
