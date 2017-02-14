@@ -233,7 +233,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         //----------------------------------------------------------------------------------------------------
 
         // Was the recurring payment check box checked?
-        if ($params['is_recur'] == true) {
+        if (CRM_Utils_Array::value('is_recur', $params, false)) {
             // Add eWay customer
             $customerinfo = array(
                 'Title' => 'Mr.', // Crazily eWay makes this a mandatory field with fixed values
@@ -250,7 +250,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 'Phone' => '',
                 'Mobile' => '',
                 'CustomerRef' => '',
-        'JobDesc' => '',
+                'JobDesc' => '',
                 'Comments' => '',
                 'URL' => '',
                 'CCNumber' => $params['credit_card_number'],
