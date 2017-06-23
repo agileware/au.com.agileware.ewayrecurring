@@ -109,7 +109,7 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
 
     $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
 
-    $crid = $form->getVar('_crid');
+    ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
 
     $sql = 'SELECT UNIX_TIMESTAMP(MAX(receive_date)) FROM civicrm_contribution WHERE contribution_recur_id = %1';
     $current_nsd = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($crid, 'Int')));
