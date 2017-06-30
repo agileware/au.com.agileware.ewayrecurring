@@ -408,6 +408,7 @@ function get_pending_recurring_contributions($log, $payment_processor)
         'contribution_status_id' => PENDING_CONTRIBUTION_STATUS_ID,
         'rowCount' => 100,
         'offset' => 0,
+        'is_test' => $payment_processor['is_test'],
     );
 
     $result = array();
@@ -600,6 +601,15 @@ function send_receipt_email($contribution_id)
     $contribution = new CRM_Contribute_BAO_Contribution();
     $contribution->id = $contribution_id;
     $contribution->find(true);
+
+    $is_email_receipt = civicrm_api3('ContributionPage', 'getvalue', array(
+      'id' => $contribution->contribution_page_id,
+      'return' => 'is_email_receipt'
+    ));
+
+    if(!$is_email_receipt) {
+      return NULL;
+    }
 
     list($name, $email) = CRM_Contact_BAO_Contact_Location::getEmailDetails($contribution->contact_id);
 
