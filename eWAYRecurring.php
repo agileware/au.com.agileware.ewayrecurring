@@ -138,12 +138,12 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
       /* Update existing recurring contributions for this page */
       $sql = 'UPDATE civicrm_contribution_recur ccr
           INNER JOIN civicrm_contribution cc
-                  ON cc.invoice_id = ccr.invoice_id
+                  ON cc.invoice_id            = ccr.invoice_id
            LEFT JOIN civicrm_ewayrecurring ceway
                   ON ccr.payment_processor_id = ceway.processor_id
-                 SET ccr.cycle_day  = ceway.cycle_day
-               WHERE ccr.invoice_id = cc.invoice_id
-                 AND cc.contribution_page_id = %1';
+                 SET ccr.cycle_day            = COALESCE(ceway.cycle_day, ccr.cycle_day)
+               WHERE ccr.invoice_id           = cc.invoice_id
+                 AND cc.contribution_page_id  = %1';
 
       CRM_Core_DAO::executeQuery($sql, array(1 => array($page_id, 'Int')));
     }  else {
