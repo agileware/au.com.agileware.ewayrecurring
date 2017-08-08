@@ -558,10 +558,10 @@ function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cen
  */
 function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = COMPLETED_CONTRIBUTION_STATUS_ID, $c_date = NULL)
 {
-    // Mark the contribution as complete
+  // Mark the contribution as complete
+  $contribution = civicrm_api3('Contribution', 'getsingle', array('id' => $contribution_id));
 
-    $contribution = array ('id' => $contribution_id,
-			   'contribution_status_id' => $status_id);
+  $contribution['contribution_status_id'] = $status_id;
 
     if(!$c_date)
       $c_date = time();
