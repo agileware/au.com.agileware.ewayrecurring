@@ -563,29 +563,29 @@ function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = C
 
   $contribution['contribution_status_id'] = $status_id;
 
-    if(!$c_date)
-      $c_date = time();
+  if(!$c_date)
+    $c_date = time();
 
-    if ($status_id == CANCELLED_CONTRIBUTION_STATUS_ID)
-      $contribution['cancel_date'] = date('Y-m-d H:i:s', $c_date);
-    else
-      $contribution['receive_date'] = date('Y-m-d H:i:s', $c_date);
+  if ($status_id == CANCELLED_CONTRIBUTION_STATUS_ID)
+    $contribution['cancel_date'] = date('Y-m-d H:i:s', $c_date);
+  else
+    $contribution['receive_date'] = date('Y-m-d H:i:s', $c_date);
 
-    if($trxn_id)
-      $contribution['trxn_id'] = $trxn_id;
+  if($trxn_id)
+    $contribution['trxn_id'] = $trxn_id;
 
-    try {
-      $result = civicrm_api3('Contribution', 'create', $contribution);
+  try {
+    $result = civicrm_api3('Contribution', 'create', $contribution);
 
-      return $result['is_error'];
-    }
-    catch (CiviCRM_API3_Exception $e) {
-      $log = CRM_Core_Error::createDebugLogger();
+    return $result['is_error'];
+  }
+  catch (CiviCRM_API3_Exception $e) {
+    $log = CRM_Core_Error::createDebugLogger();
 
-      $log->log("Exception completing contribution {$contribution_id}: " . $e->getMessage());
+    $log->log("Exception completing contribution {$contribution_id}: " . $e->getMessage());
 
       return FALSE;
-    }
+  }
 }
 
 /**
