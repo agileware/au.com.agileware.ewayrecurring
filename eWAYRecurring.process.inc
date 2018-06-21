@@ -23,17 +23,25 @@
  +--------------------------------------------------------------------+
 */
 
-// Contribution status IDs.
-define('COMPLETED_CONTRIBUTION_STATUS_ID', 1);
-define('PENDING_CONTRIBUTION_STATUS_ID', 2);
-define('CANCELLED_CONTRIBUTION_STATUS_ID', 3);
-define('FAILED_CONTRIBUTION_STATUS_ID', 4);
-define('IN_PROGRESS_CONTRIBUTION_STATUS_ID', 5);
-
 define('CONTRIBUTION_FAILURE_THRESHOLD', 3);
 
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
+
+/**
+ * Define contribution statues as constants.
+ */
+function defineContributionStatuses() {
+  // Contribution status IDs.
+  if(!defined("COMPLETED_CONTRIBUTION_STATUS_ID")) {
+    $contributionStatues = CRM_Contribute_PseudoConstant::contributionStatus();
+    define('COMPLETED_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Completed", $contributionStatues));
+    define('PENDING_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Pending", $contributionStatues));
+    define('CANCELLED_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Cancelled", $contributionStatues));
+    define('FAILED_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Failed", $contributionStatues));
+    define('IN_PROGRESS_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("In Progress", $contributionStatues));
+  }
+}
 
 function process_recurring_payments($payment_processor) {
   // Create log handler

@@ -103,6 +103,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         $this->_mode             = $mode;             // live or test
         $this->_paymentProcessor = $paymentProcessor;
         $this->_processorName    = ts('eWay Recurring');
+        defineContributionStatuses();
     }
 
     /**
@@ -272,7 +273,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 'CRM_Contribute_DAO_Contribution',
                 $params['contributionID'],
                 'contribution_status_id',
-                2 // PENDING_CONTRIBUTION_STATUS_ID
+                PENDING_CONTRIBUTION_STATUS_ID
             );
 
             // Save the eWay customer token in the recurring contribution's processor_id field
@@ -474,7 +475,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             //----------------------------------------------------------------------------------------------------
             if ( self::isError( $eWAYResponse ) ) {
                 $eWayTrxnError = $eWAYResponse->Error();
-
+                CRM_Core_Error::debug_var('eWay Error', $eWayTrxnError, TRUE, TRUE);
                 if (substr($eWayTrxnError, 0, 6) == "Error:") {
                     return self::errorExit( 9008, $eWayTrxnError);
                 }
@@ -671,7 +672,6 @@ The CiviCRM eWAY Payment Processor Module
         $params['toName'     ] = $toName;
         $params['toEmail'    ] = $toEmail;
         $params['subject'    ] = $subject;
-        $params['cc'         ] = $cc;
         $params['text'       ] = $message;
 
         CRM_Utils_Mail::send( $params );
