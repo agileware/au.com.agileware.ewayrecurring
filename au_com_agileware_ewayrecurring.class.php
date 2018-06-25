@@ -73,6 +73,9 @@
 
 require_once 'CRM/Core/Payment.php';
 require_once 'eWAYRecurring.process.inc';
+// As this handles recurring and non-recurring, we also need to include original api libraries
+require_once 'packages/eWAY/eWAY_GatewayRequest.php';
+require_once 'packages/eWAY/eWAY_GatewayResponse.php';
 
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 {
@@ -96,10 +99,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
     **********************************************************/
     function __construct( $mode, &$paymentProcessor )
     {
-        // As this handles recurring and non-recurring, we also need to include original api libraries
-        require_once 'packages/eWAY/eWAY_GatewayRequest.php';
-        require_once 'packages/eWAY/eWAY_GatewayResponse.php';
-
         $this->_mode             = $mode;             // live or test
         $this->_paymentProcessor = $paymentProcessor;
         $this->_processorName    = ts('eWay Recurring');
