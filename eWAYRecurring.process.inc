@@ -28,21 +28,6 @@ define('CONTRIBUTION_FAILURE_THRESHOLD', 3);
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
-/**
- * Define contribution statues as constants.
- */
-function defineContributionStatuses() {
-  // Contribution status IDs.
-  if(!defined("COMPLETED_CONTRIBUTION_STATUS_ID")) {
-    $contributionStatues = CRM_Contribute_PseudoConstant::contributionStatus();
-    define('COMPLETED_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Completed", $contributionStatues));
-    define('PENDING_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Pending", $contributionStatues));
-    define('CANCELLED_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Cancelled", $contributionStatues));
-    define('FAILED_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("Failed", $contributionStatues));
-    define('IN_PROGRESS_CONTRIBUTION_STATUS_ID', CRM_Utils_Array::key("In Progress", $contributionStatues));
-  }
-}
-
 function process_recurring_payments($payment_processor) {
   // Create log handler
   $log = CRM_Core_Error::createDebugLogger();
@@ -66,10 +51,10 @@ function process_recurring_payments($payment_processor) {
 
   $log->log("Processing " . count($pending_contributions) . " pending contributions for processor " . $payment_processor['id'], PEAR_LOG_INFO);
   foreach ($pending_contributions as $pending_contribution) {
-    if ($pending_contribution['contribution_recur']->contribution_status_id == CANCELLED_CONTRIBUTION_STATUS_ID) {
+    if ($pending_contribution['contribution_recur']->contribution_status_id == _contribution_status_id('Cancelled')) {
       complete_contribution($pending_contribution['contribution']['id'],
 			    '',
-			    CANCELLED_CONTRIBUTION_STATUS_ID,
+			    _contribution_status_id('Cancelled'),
 			    strtotime($pending_contribution['contribution_recur']->cancel_date));
       continue;
     }
@@ -111,7 +96,7 @@ function process_recurring_payments($payment_processor) {
       // Mark the transaction as failed and move on.
       complete_contribution($pending_contribution['contribution']['id'],
 			    $result->ewayTrxnNumber,
-			    FAILED_CONTRIBUTION_STATUS_ID);
+			    _contribution_status_id('Failed'));
       $pending_contribution['contribution_recur']->failure_count++;
     } else {
       // $log->log("Successfully processed payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n", PEAR_LOG_DEBUG);
@@ -159,7 +144,7 @@ function process_recurring_payments($payment_processor) {
     CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
 				 $pending_contribution['contribution_recur']->id,
 				 'contribution_status_id',
-				 IN_PROGRESS_CONTRIBUTION_STATUS_ID );
+				 _contribution_status_id('In Progress') );
 
     // $log->log("Finished processing contribution ID: " . $pending_contribution['contribution']['id'] . "\n", PEAR_LOG_DEBUG);
   }
@@ -217,7 +202,7 @@ function process_recurring_payments($payment_processor) {
         array(
           'version' => '3',
           'id' => $contribution->id,
-          'contribution_recur_status_id' => COMPLETED_CONTRIBUTION_STATUS_ID)
+          'contribution_recur_status_id' => _contribution_status_id('Completed'))
       );
     }
 
@@ -244,7 +229,7 @@ function process_recurring_payments($payment_processor) {
         CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution->id,
           'contribution_status_id',
-          COMPLETED_CONTRIBUTION_STATUS_ID);
+          _contribution_status_id('Completed'));
         CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution->id,
           'end_date',
@@ -322,7 +307,7 @@ function process_recurring_payments($payment_processor) {
 
       if ($result->ewayTrxnStatus != 'True') {
         // Mark transaction as failed
-        $new_contribution_record['contribution_status_id'] = FAILED_CONTRIBUTION_STATUS_ID;
+        $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
       }
       else {
         // $log->log("Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
@@ -357,7 +342,7 @@ function process_recurring_payments($payment_processor) {
       $contribution->failure_count++;
 
       // Record a failed contribution in this case.
-      $new_contribution_record['contribution_status_id'] = FAILED_CONTRIBUTION_STATUS_ID;
+      $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
       $created = civicrm_api3('Contribution', 'create', $new_contribution_record);
 
       $new_contribution_record = reset($created['values']);
@@ -383,7 +368,7 @@ function process_recurring_payments($payment_processor) {
         CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution->id,
           'contribution_status_id',
-          FAILED_CONTRIBUTION_STATUS_ID
+          _contribution_status_id('Failed')
         );
 
         $log->log("Marked payment {$contribution->id} as failed");
@@ -413,7 +398,7 @@ function get_pending_recurring_contributions($log, $payment_processor)
     // TODO: Stop using the API. For consistency we should use BAOs so we get objects back
     $params = array(
         'version' => 3,
-        'contribution_status_id' => PENDING_CONTRIBUTION_STATUS_ID,
+        'contribution_status_id' => _contribution_status_id('Pending'),
         'rowCount' => 100,
         'offset' => 0,
         'is_test' => $payment_processor['is_test'],
@@ -564,8 +549,12 @@ function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cen
  * @param string $contribution_id The ID of the contribution to mark as complete
  * @return object The contribution object
  */
-function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = COMPLETED_CONTRIBUTION_STATUS_ID, $c_date = NULL)
+function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = NULL, $c_date = NULL)
 {
+  if(!$status_id) {
+    $status_id = _contribution_status_id('Completed');
+  }
+
   // Mark the contribution as complete
   $contribution = civicrm_api3('Contribution', 'getsingle', array('id' => $contribution_id));
 
@@ -574,7 +563,7 @@ function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = C
   if(!$c_date)
     $c_date = time();
 
-  if ($status_id == CANCELLED_CONTRIBUTION_STATUS_ID)
+  if ($status_id == _contribution_status_id('Cancelled'))
     $contribution['cancel_date'] = date('Y-m-d H:i:s', $c_date);
   else
     $contribution['receive_date'] = date('Y-m-d H:i:s', $c_date);

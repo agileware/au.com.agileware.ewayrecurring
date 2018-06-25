@@ -60,6 +60,10 @@
 
 include_once 'au_com_agileware_ewayrecurring.class.php';
 
+function _contribution_status_id($name) {
+  return CRM_Utils_Array::key($name, \CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name'));
+}
+
 function ewayrecurring_civicrm_buildForm ($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
     if(!($page_id = $form->getVar('_id')))

@@ -102,7 +102,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         $this->_mode             = $mode;             // live or test
         $this->_paymentProcessor = $paymentProcessor;
         $this->_processorName    = ts('eWay Recurring');
-        defineContributionStatuses();
     }
 
     /**
@@ -272,7 +271,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 'CRM_Contribute_DAO_Contribution',
                 $params['contributionID'],
                 'contribution_status_id',
-                PENDING_CONTRIBUTION_STATUS_ID
+                _contribution_status_id('Pending')
             );
 
             // Save the eWay customer token in the recurring contribution's processor_id field
@@ -704,7 +703,6 @@ The CiviCRM eWAY Payment Processor Module
     // Flush to cache to work around this.
     CRM_Core_PseudoConstant::flush();
 
-
     // Build the customer info for eWAY
     $expireYear  = substr ($params['year'], 2, 2);
     $expireMonth = sprintf('%02d', (int) $params['month']); // Pad month with zeros
@@ -751,10 +749,10 @@ The CiviCRM eWAY Payment Processor Module
 
       // We shouldn't be allowed to update the details for completed or cancelled payments
       switch($contribution['contribution_status_id']) {
-        case COMPLETED_CONTRIBUTION_STATUS_ID:
+        case _contribution_status_id('Completed'):
           throw new Exception(ts('Attempted to update billing details for a completed contribution.'));
           break;
-        case CANCELLED_CONTRIBUTUTION_STATUS_ID:
+        case _contribution_status_id('Cancelled'):
           throw new Exception(ts('Attempted to update billing details for a cancelled contribution.'));
           break;
         default:
@@ -764,11 +762,11 @@ The CiviCRM eWAY Payment Processor Module
       $result = $this->updateCustomerToken( $customerinfo, $params );
 
       // Updating the billing details should fixed failed contributions
-      if(FAILED_CONTRIBUTION_STATUS_ID == $contribution['contribution_status_id']) {
+      if(_contribution_status_id('Failed') == $contribution['contribution_status_id']) {
         CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution['id'],
           'contribution_status_id',
-          IN_PROGRESS_CONTRIBUTION_STATUS_ID );
+          _contribution_status_id('In Progress') );
       }
 
       CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
