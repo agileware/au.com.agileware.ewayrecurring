@@ -84,8 +84,8 @@ function ewayrecurring_civicrm_buildForm ($formName, &$form) {
         }
       }
     }
-  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' &&
-	    $form->getVar('_ppType') == 'eWay_Recurring' &&
+  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && $form->getVar('_paymentProcessorDAO') &&
+      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring' &&
 	    ($processor_id = $form->getVar('_id'))) {
     $form->addElement('text', 'recur_cycleday', ts('Recurring Payment Date'));
     $sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
@@ -162,8 +162,8 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
       CRM_Core_DAO::executeQuery($sql, array(1 => array($page_id, 'Int'),
 					     2 => array($cycle_day, 'Int')));
     }
-  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' &&
-	    $form->getVar('_ppType') == 'eWay_Recurring') {
+  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && $form->getVar('_paymentProcessorDAO') &&
+      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') {
     if(!($processor_id = $form->getVar('_id')))
       CRM_Core_Error::fatal("Attempt to configure a payment processor admin form with no id");
 
