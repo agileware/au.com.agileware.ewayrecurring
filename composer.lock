@@ -1,0 +1,70 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "53373da6ae47eeea453be33cdbda074b",
+    "packages": [
+        {
+            "name": "eway/eway-rapid-php",
+            "version": "v1.3.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/eWAYPayment/eway-rapid-php.git",
+                "reference": "5b765d83ef69e1783f391ae85aed48d47dd5f8eb"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/eWAYPayment/eway-rapid-php/zipball/5b765d83ef69e1783f391ae85aed48d47dd5f8eb",
+                "reference": "5b765d83ef69e1783f391ae85aed48d47dd5f8eb",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "php": ">=5.4.0"
+            },
+            "require-dev": {
+                "internations/http-mock": "~0.7",
+                "jeremeamia/superclosure": "1.0.2",
+                "phpdocumentor/phpdocumentor": "~2.8",
+                "phpunit/phpunit": "4.8.*",
+                "squizlabs/php_codesniffer": "2.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Eway\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "eWAY",
+                    "homepage": "https://www.eway.com.au"
+                }
+            ],
+            "description": "eWAY Rapid PHP library",
+            "homepage": "https://www.eway.com.au",
+            "keywords": [
+                "eway",
+                "payment processing",
+                "payments",
+                "rapid"
+            ],
+            "time": "2016-09-12T05:46:41+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": []
+}
