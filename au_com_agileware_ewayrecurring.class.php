@@ -679,7 +679,7 @@ The CiviCRM eWAY Payment Processor Module
 
     function handlePaymentCron() {
 
-      return process_recurring_payments($this->_paymentProcessor);
+      return process_recurring_payments($this->_paymentProcessor, $this);
 
     }
 

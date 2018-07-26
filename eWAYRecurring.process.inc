@@ -35,7 +35,7 @@ define('CONTRIBUTION_FAILURE_THRESHOLD', 3);
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
-function process_recurring_payments($payment_processor) {
+function process_recurring_payments($payment_processor, $paymentObject) {
   // Create log handler
   $log = CRM_Core_Error::createDebugLogger();
 
@@ -114,7 +114,7 @@ function process_recurring_payments($payment_processor) {
 			    $result->ewayTrxnNumber);
 
       // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
-      send_receipt_email($pending_contribution['contribution']['id']);
+      send_receipt_email($pending_contribution['contribution']['id'], $paymentObject);
     }
 
     // $log->log("Updating recurring contribution\n", PEAR_LOG_DEBUG);
@@ -594,9 +594,10 @@ function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = C
  * Sends a receipt for a contribution
  *
  * @param string $contribution_id The ID of the contribution to mark as complete
+ * @param CRM_Core_Payment $paymentObject CRM_Core_Payment object
  * @return bool Success or failure
  */
-function send_receipt_email($contribution_id)
+function send_receipt_email($contribution_id, $paymentObject)
 {
     $contribution = new CRM_Contribute_BAO_Contribution();
     $contribution->id = $contribution_id;
@@ -633,6 +634,7 @@ function send_receipt_email($contribution_id)
             'email' => $email,
 	    'trxn_id' => $contribution->trxn_id,
             'receive_date' => CRM_Utils_Date::format($contribution->receive_date),
+            'updateSubscriptionBillingUrl' => $paymentObject->subscriptionURL($contribution_id, 'contribution', 'billing'),
         ),
         'from' => $receiptFrom,
         'toName' => $name,
