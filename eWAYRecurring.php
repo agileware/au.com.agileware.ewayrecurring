@@ -88,8 +88,8 @@ function ewayrecurring_civicrm_buildForm ($formName, &$form) {
         }
       }
     }
-  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && $form->getVar('_paymentProcessorDAO') &&
-      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring' &&
+  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
+      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring')) &&
 	    ($processor_id = $form->getVar('_id'))) {
     $form->addElement('text', 'recur_cycleday', ts('Recurring Payment Date'));
     $sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
@@ -109,6 +109,15 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
     if (!CRM_Utils_Type::validate($cycle_day, 'Int', FALSE, ts('Cycle day')) || $cycle_day < 1 || $cycle_day > 31) {
       $errors['recur_cycleday'] = ts('Recurring Payment Date must be a number between 1 and 31');
     }
+
+    if(empty(CRM_Utils_Array::value('user_name', $fields, ''))) {
+      $errors['user_name'] = ts('API Key is a required field.');
+    }
+
+    if(empty(CRM_Utils_Array::value('password', $fields, ''))) {
+      $errors['password'] = ts('API Password is a required field.');
+    }
+
   } elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
 
     $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
@@ -166,8 +175,8 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
       CRM_Core_DAO::executeQuery($sql, array(1 => array($page_id, 'Int'),
 					     2 => array($cycle_day, 'Int')));
     }
-  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && $form->getVar('_paymentProcessorDAO') &&
-      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') {
+  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
+              $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring'))) {
     if(!($processor_id = $form->getVar('_id')))
       CRM_Core_Error::fatal("Attempt to configure a payment processor admin form with no id");
 
@@ -235,17 +244,8 @@ function ewayrecurring_civicrm_managed(&$entities) {
        'title' => 'eWAY Recurring',
        'description' => 'Recurring payments payment processor for eWay',
        'class_name' => 'au.com.agileware.ewayrecurring',
-       'user_name_label' => 'Username',
-       'password_label' => 'Password',
-       //'signature_label' => '',
-       'subject_label' => 'Customer ID',
-       'url_site_default' => 'https://www.eway.com.au/gateway_cvn/xmlpayment.asp',
-       //'url_api_default' => '',
-       'url_recur_default' => 'https://www.eway.com.au/gateway/ManagedPaymentService/managedCreditCardPayment.asmx?WSDL',
-       'url_site_test_default' => 'https://www.eway.com.au/gateway_cvn/xmltest/testpage.asp',
-       //'url_api_test_default' => '',
-       'url_recur_test_default' => 'https://www.eway.com.au/gateway/ManagedPaymentService/test/managedcreditcardpayment.asmx?WSDL',
-       //'url_button_default' => '',
+       'user_name_label' => 'API Key',
+       'password_label' => 'API Password',
        'billing_mode' => 'form',
        'is_recur' => '1',
        'payment_type' => '1',

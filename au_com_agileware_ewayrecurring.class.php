@@ -76,6 +76,7 @@ require_once 'eWAYRecurring.process.inc';
 // As this handles recurring and non-recurring, we also need to include original api libraries
 require_once 'packages/eWAY/eWAY_GatewayRequest.php';
 require_once 'packages/eWAY/eWAY_GatewayResponse.php';
+require_once 'vendor/autoload.php';
 
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 {
