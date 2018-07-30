@@ -85,13 +85,13 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    */
   static private $_singleton = null;
 
-  /**********************************************************
+  /**
    * Constructor
    *
    * @param string $mode the mode of operation: live or test
    *
    * @return void
-  **********************************************************/
+  */
   function __construct( $mode, &$paymentProcessor )
   {
     $this->_mode             = $mode;             // live or test
@@ -206,10 +206,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
     return $transactionErrors;
   }
 
-    /**********************************************************
-    * This function sends request and receives response from
-    * eWAY payment process
-    **********************************************************/
+    /**
+     * This function sends request and receives response from
+     * eWAY payment process
+     */
     function doDirectPayment( &$params )
     {
         if ( ! defined( 'CURLOPT_SSLCERT' ) ) {
@@ -221,11 +221,15 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         //-------------------------------------------------------------
         // Prepare some composite data from _paymentProcessor fields, data that is shared across one off and recurring payments.
         //-------------------------------------------------------------
+
         $amountInCents = round(((float) preg_replace('/[\s,]/', '', $params['amount'])) * 100);
         $eWayCustomer = $this->getEWayClientDetailsArray($params);
 
+        //----------------------------------------------------------------------------------------------------
         // Throw error if there are some errors while creating eWAY Client.
         // This could be due to incorrect Api Username or Api Password.
+        //----------------------------------------------------------------------------------------------------
+
         if(is_null($eWayClient) || count($eWayClient->getErrors())) {
             return self::errorExit( 9001, "Error: Unable to create eWAY Client object.");
         }
@@ -237,16 +241,24 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         // Was the recurring payment check box checked?
         if (CRM_Utils_Array::value('is_recur', $params, false)) {
 
+            //----------------------------------------------------------------------------------------------------
             // Hook to allow customer info to be changed before submitting it
+            //----------------------------------------------------------------------------------------------------
+
             CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayCustomer );
 
             try {
+
+              //----------------------------------------------------------------------------------------------------
               // Create eWay Customer.
+              //----------------------------------------------------------------------------------------------------
+
               $eWayCustomerResponse = $eWayClient->createCustomer(\Eway\Rapid\Enum\ApiMethod::DIRECT, $eWayCustomer);
 
               //----------------------------------------------------------------------------------------------------
               // See if we got an OK result - if not tell 'em and bail out
               //----------------------------------------------------------------------------------------------------
+
               $transactionErrors = $this->getEWayResponseErrors($eWayCustomerResponse, TRUE);
               if(count($transactionErrors)) {
                 return self::errorExit( 9008, implode("<br>", $transactionErrors));
@@ -258,7 +270,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
               return self::errorExit(9010, $e->getMessage());
             }
 
+            //----------------------------------------------------------------------------------------------------
             // Force the contribution to Pending.
+            //----------------------------------------------------------------------------------------------------
+
             CRM_Core_DAO::setFieldValue(
                 'CRM_Contribute_DAO_Contribution',
                 $params['contributionID'],
@@ -266,7 +281,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 _contribution_status_id('Pending')
             );
 
+            //----------------------------------------------------------------------------------------------------
             // Save the eWay customer token in the recurring contribution's processor_id field
+            //----------------------------------------------------------------------------------------------------
+
             CRM_Core_DAO::setFieldValue(
               'CRM_Contribute_DAO_ContributionRecur',
               $params['contributionRecurID'],
@@ -281,7 +299,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
               CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'))
             );
 
-	        // For monthly payments, set the cycle day according to the submitting page or processor default
+            //----------------------------------------------------------------------------------------------------
+            // For monthly payments, set the cycle day according to the submitting page or processor default
+            //----------------------------------------------------------------------------------------------------
+
 	        $cycle_day = 0;
 
 	        if(!empty($params['contributionPageID']) &&
@@ -304,9 +325,11 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
               $cycle_day
             );
 
-            /* AND we're done - this payment will staying in a pending state until it's processed
-             * by the cronjob
-             */
+            //----------------------------------------------------------------------------------------------------
+            // AND we're done - this payment will staying in a pending state until it's processed
+            // by the cronjob
+            //----------------------------------------------------------------------------------------------------
+
         }
         // This is a one off payment, most of this is lifted straight from the original code, so I wont document it.
         else
@@ -314,9 +337,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             //----------------------------------------------------------------------------------------------------
             // We use CiviCRM's param's 'invoiceID' as the unique transaction token to feed to eWAY
             // Trouble is that eWAY only accepts 16 chars for the token, while CiviCRM's invoiceID is an 32.
-            // As its made from a "$invoiceID = md5(uniqid(rand(), true));" then using the fierst 12 chars
+            // As its made from a "$invoiceID = md5(uniqid(rand(), true));" then using the first 12 chars
             // should be alright
             //----------------------------------------------------------------------------------------------------
+
             $uniqueTrnxNum = substr($params['invoiceID'], 0, 12);
 
             $eWayTransaction = array(
@@ -332,12 +356,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 'Capture' => true,
             );
 
+            //----------------------------------------------------------------------------------------------------
             // Allow further manipulation of the arguments via custom hooks ..
+            //----------------------------------------------------------------------------------------------------
+
             CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayTransaction );
 
             //----------------------------------------------------------------------------------------------------
-            // Check to see if we have a duplication before we send request.
+            // Check to see if we have a duplicate before we send request.
             //----------------------------------------------------------------------------------------------------
+
             if (method_exists($this, 'checkDupe') ?
                 $this->checkDupe($params['invoiceID'], CRM_Utils_Array::value('contributionID', $params)) :
                 $this->_checkDupe($params['invoiceID'])
@@ -350,6 +378,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             //----------------------------------------------------------------------------------------------------
             // If null data returned - tell 'em and bail out
             //----------------------------------------------------------------------------------------------------
+
             if ( is_null($eWAYResponse) ) {
                 return self::errorExit( 9006, "Error: Connection to payment gateway failed - no data returned.");
             }
@@ -357,6 +386,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             //----------------------------------------------------------------------------------------------------
             // See if we got an OK result - if not tell 'em and bail out
             //----------------------------------------------------------------------------------------------------
+
             $transactionErrors = $this->getEWayResponseErrors($eWAYResponse);
             if(count($transactionErrors)) {
                 return self::errorExit( 9008, implode("<br>", $transactionErrors));
@@ -372,6 +402,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             //              There is an error message commented out here but my prefered response to this unlikley
             //              possibility is to email 'support@eWAY.com.au'
             //-----------------------------------------------------------------------------------------------------
+
             $eWayTrxnReference_OUT = $uniqueTrnxNum;
             $eWayTrxnReference_IN  = $eWAYResponse->getAttribute('Payment')->InvoiceNumber;
 
@@ -380,9 +411,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 self::send_alert_email( $eWayTrxnReference_IN, $eWayTrxnReference_OUT, $eWayTrxnReference_IN, json_encode($eWayTransaction), json_encode($eWAYResponse));
             }
 
-            //=============
+            //----------------------------------------------------------------------------------------------------
             // Success !
-            //=============
+            //----------------------------------------------------------------------------------------------------
+
             $beaglestatus = $eWAYResponse->getAttribute('BeagleScore');
             if ( !empty( $beaglestatus ) ) {
                 $beaglestatus = ": ". $beaglestatus;
@@ -396,13 +428,11 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         return $params;
     }
 
-    // None of these functions have been changed, unless mentioned.
-
     /**
      * Checks to see if invoice_id already exists in db
      * @param  int     $invoiceId   The ID to check
      * @return bool                 True if ID exists, else false
-    */
+     */
     function _checkDupe( $invoiceId )
     {
         require_once 'CRM/Contribute/DAO/Contribution.php';
@@ -411,9 +441,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         return $contribution->find( );
     }
 
-    /*************************************************************************************************
+    /**
      * This function checks the eWAY response status - returning a boolean false if status != 'true'
-     *************************************************************************************************/
+     *
+     * @param $response
+     * @return bool
+     */
     function isError( &$response)
     {
         $errors = $response->getErrors();
@@ -424,9 +457,13 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         return false;
     }
 
-    /**************************************************
+    /**
      * Produces error message and returns from class
-     **************************************************/
+     *
+     * @param null $errorCode
+     * @param null $errorMessage
+     * @return object
+     */
     function &errorExit ( $errorCode = null, $errorMessage = null )
     {
         $e =& CRM_Core_Error::singleton( );
@@ -439,15 +476,19 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         return $e;
     }
 
-    /**************************************************
+    /**
      * NOTE: 'doTransferCheckout' not implemented
-     **************************************************/
+     *
+     * @param $params
+     * @param $component
+     * @throws Exception
+     */
     function doTransferCheckout( &$params, $component )
     {
         CRM_Core_Error::fatal( ts( 'This function is not implemented' ) );
     }
 
-    /********************************************************************************************
+    /**
      * This public function checks to see if we have the right processor config values set
      *
      * NOTE: Called by Events and Contribute to check config params are set prior to trying
@@ -459,9 +500,9 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
      *
      * returns string $errorMsg if any errors found - null if OK
      *
-     ********************************************************************************************/
-    //function checkConfig( $mode )          // CiviCRM V1.9 Declaration
-    function checkConfig( )                // CiviCRM V2.0 Declaration
+     * @return null|string
+     */
+    function checkConfig( )
     {
         $errorMsg = array();
 
@@ -482,9 +523,22 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         }
     }
 
+    /**
+     * Sends an alert email.
+     *
+     * @param $p_eWAY_tran_num - eWay transaction number
+     * @param $p_trxn_out  - Transaction number which we sent to eWay
+     * @param $p_trxn_back - Transaction number which returned from the eWay
+     * @param $p_request  -  Requested data
+     * @param $p_response  - Response from eWay
+     * @throws Exception
+     */
     function send_alert_email($p_eWAY_tran_num, $p_trxn_out, $p_trxn_back, $p_request, $p_response)
     {
+        //----------------------------------------------------------------------------------------------------
         // Initialization call is required to use CiviCRM APIs.
+        //----------------------------------------------------------------------------------------------------
+
         civicrm_initialize( true );
 
         require_once 'CRM/Utils/Mail.php';
@@ -522,7 +576,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                     The CiviCRM eWAY Payment Processor Module
         ";
 
+        //----------------------------------------------------------------------------------------------------
         // create the params array
+        //----------------------------------------------------------------------------------------------------
+
         $params                = array( );
 
         $params['groupName'  ] = 'eWay Email Sender';
@@ -584,21 +641,33 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
      * @return \Eway\Rapid\Model\Response\CreateCustomerResponse|object
      */
     function updateSubscriptionBillingInfo(&$message = '', $params = array()) {
+      //----------------------------------------------------------------------------------------------------
       // Something happens to the PseudoConstant cache so it stores the country label in place of its ISO 3166 code.
       // Flush to cache to work around this.
+      //----------------------------------------------------------------------------------------------------
+
       CRM_Core_PseudoConstant::flush();
 
+      //----------------------------------------------------------------------------------------------------
       // Build the customer info for eWAY
+      //----------------------------------------------------------------------------------------------------
+
       $eWayCustomer = $this->getEWayClientDetailsArray($params);
 
       try {
+        //----------------------------------------------------------------------------------------------------
         // Get the payment.  Why isn't this provided to the function.
+        //----------------------------------------------------------------------------------------------------
+
         $contribution = civicrm_api3('ContributionRecur', 'getsingle', array(
                         'payment_processor_id' => $this->_paymentProcessor['id'],
                         'processor_id' => $params['subscriptionId']
                       ));
 
+        //----------------------------------------------------------------------------------------------------
         // We shouldn't be allowed to update the details for completed or cancelled payments
+        //----------------------------------------------------------------------------------------------------
+
         switch($contribution['contribution_status_id']) {
           case _contribution_status_id('Completed'):
             throw new Exception(ts('Attempted to update billing details for a completed contribution.'));
@@ -610,11 +679,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             break;
         }
 
+        //----------------------------------------------------------------------------------------------------
         // Hook to allow customer info to be changed before submitting it
+        //----------------------------------------------------------------------------------------------------
         CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayCustomer);
 
         $eWayClient = $this->getEWayClient();
+
+        //----------------------------------------------------------------------------------------------------
         // Create eWay Customer.
+        //----------------------------------------------------------------------------------------------------
         $eWayCustomerResponse = $eWayClient->updateCustomer(\Eway\Rapid\Enum\ApiMethod::DIRECT, $eWayCustomer);
 
         //----------------------------------------------------------------------------------------------------
@@ -625,7 +699,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
           return self::errorExit( 9008, implode("<br>", $transactionErrors));
         }
 
+        //----------------------------------------------------------------------------------------------------
         // Updating the billing details should fixed failed contributions
+        //----------------------------------------------------------------------------------------------------
+
         if(_contribution_status_id('Failed') == $contribution['contribution_status_id']) {
         CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
           $contribution['id'],
