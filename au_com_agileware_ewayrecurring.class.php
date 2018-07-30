@@ -598,7 +598,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
      * @return bool
      */
     function handlePaymentCron() {
-      return process_recurring_payments($this->_paymentProcessor);
+      return process_recurring_payments($this->_paymentProcessor, $this);
     }
 
     /**
