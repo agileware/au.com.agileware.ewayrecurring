@@ -190,7 +190,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    */
   function getEWayResponseErrors($eWAYResponse, $createCustomerRequest = FALSE) {
     $transactionErrors = array();
-    if ( !$eWAYResponse->TransactionStatus ) {
+    if ( !$eWAYResponse->getAttribute('TransactionStatus') ) {
       if (count($eWAYResponse->getErrors())) {
           foreach ($eWAYResponse->getErrors() as $error) {
               $errorMessage = \Eway\Rapid::getMessage($error);
@@ -419,7 +419,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             if ( !empty( $beaglestatus ) ) {
                 $beaglestatus = ": ". $beaglestatus;
             }
-            $params['trxn_result_code'] = $eWAYResponse->TransactionStatus . $beaglestatus;
+            $params['trxn_result_code'] = $eWAYResponse->getAttribute('TransactionStatus') . $beaglestatus;
             $params['gross_amount']     = $eWAYResponse->getAttribute('Payment')->TotalAmount;
             $params['trxn_id']          = $eWAYResponse->getAttribute('TransactionID');
 
