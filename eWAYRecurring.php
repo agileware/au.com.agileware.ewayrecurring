@@ -287,7 +287,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
   $upgrades = array();
 
   if ($op == 'check') {
-    return array($schemaVersion < 5);
+    return array($schemaVersion < 6);
   } elseif ($op == 'enqueue') {
     if(NULL == $queue) {
       return CRM_Core_Error::fatal('au.com.agileware.ewayrecurring: No Queue supplied for upgrade');
@@ -320,6 +320,16 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
         ),
           'Update schema version'
         )
+      );
+    }
+    if ($schemaVersion < 6) {
+      $queue->createItem(
+          new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
+            6,
+            "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password' WHERE name = 'eWay_Recurring'"
+          ),
+            'Perform Rapid API related changes'
+          )
       );
     }
   }
