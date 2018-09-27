@@ -273,6 +273,14 @@ function ewayrecurring_civicrm_install() {
   // Do nothing here because the schema version can't be set during this hook.
 }
 
+function ewayrecurring_civicrm_postInstall() {
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 6);
+  // Update schemaVersion if added new version in upgrade process.
+  // Also add database related CREATE queries.
+  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+}
+
 function ewayrecurring_civicrm_uninstall() {
   $drops = array('DROP TABLE `civicrm_ewayrecurring`',
 		 'DROP TABLE `civicrm_contribution_page_recur_cycle`');
