@@ -315,14 +315,19 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
     }
     if ($schemaVersion < 5) {
       $queue->createItem(
-        new CRM_Queue_Task(
-          '_ewayrecurring_fix_installments',
-          array(5),
-          'Fix installment counts from old versions'
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema_version', array(
+          5,
+        ),
+          'Update schema version'
         )
       );
     }
   }
+}
+
+function _ewayrecurring_upgrade_schema_version(CRM_Queue_TaskContext $ctx, $schema) {
+    CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', $schema);
+    return CRM_Queue_Task::TASK_SUCCESS;
 }
 
 function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st, $params = array()) {
@@ -331,46 +336,6 @@ function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st,
     CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', $schema);
     return CRM_Queue_Task::TASK_SUCCESS;
   } else {
-    return CRM_Queue_Task::TASK_FAIL;
-  }
-}
-
-function _ewayrecurring_fix_installments(CRM_Queue_TaskContext $ctx, $schema) {
-  try {
-    $pptype = civicrm_api3(
-      'PaymentProcessorType', 'getsingle', array(
-        'class_name' => "au.com.agileware.ewayRecurring",
-        'api.PaymentProcessor.get' => array(),
-      )
-    );
-
-    /* Get all recurring contributions with installment limits */
-    $installment_recurring = civicrm_api3(
-      'ContributionRecur', 'get' , array(
-        'sequential' => 1,
-        'installments' => array('>' => 0),
-        'payment_processor_id' => array('IN' => array_map(
-                                  '_ewayrecurring_get_pp_id',
-                                  $pptype['api.PaymentProcessor.get']['values']
-                                )),
-      )
-    );
-
-    /* Restore original installment limit */
-    foreach($installment_recurring['values'] as & $recurring_contribution) {
-      $ccount = civicrm_api3('Contribution', 'getcount', array('contribution_recur_id' => $recurring_contribution['id']));
-      /* Completed recurring contributions will still have an installment recorded. */
-      $recurring_contribution['installments'] += ($recurring_contribution['contribution_status_id'] != 1? $ccount: $ccount - 1);
-    }
-
-    civicrm_api3(
-      'ContributionRecur', 'replace', $installment_recurring
-    );
-
-    CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', $schema);
-    return CRM_Queue_Task::TASK_SUCCESS;
-  }
-  catch (CiviCRM_API3_Exception $e) {
     return CRM_Queue_Task::TASK_FAIL;
   }
 }
