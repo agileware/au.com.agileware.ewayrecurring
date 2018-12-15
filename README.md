@@ -16,7 +16,7 @@ Installation
 
 1. Download the [latest version of this extension](https://github.com/agileware/au.com.agileware.ewayrecurring/archive/master.zip)
 1. Unzip in the CiviCRM extension directory, as defined in "System Settings / Directories'.
-1. Go to "Administer / System Settings / Extensions" and enable the "eWay_Recurring (au.com.agileware.ewayrecurring)" extension.
+1. Go to "Administer / System Settings / Extensions" and enable the "eWAY Recurring Payment Processor (au.com.agileware.ewayrecurring)" extension.
 1. Configure the payment processor with your eWay API token and password as obtained from your (eWay Account](https://go.eway.io)
 
 Sponsorship
