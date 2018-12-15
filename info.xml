@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <extension key="au.com.agileware.ewayrecurring" type="module">
   <file>eWAYRecurring</file>
-  <name>eWay_Recurring</name>
+  <name>eWAY Recurring Payment Processor</name>
   <description>Recurring payments payment processor for eWay</description>
   <urls>
     <url desc="Main Extension Page">https://github.com/agileware/au.com.agileware.ewayrecurring</url>
-    <url desc="Documentation"></url>
+    <url desc="Documentation">https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/README.md</url>
     <url desc="Support">https://agileware.com.au/contact</url>
     <url desc="Licensing">https://www.gnu.org/licenses/agpl-3.0.html</url>
   </urls>
@@ -17,6 +17,10 @@
   <releaseDate>2018-06-22</releaseDate>
   <version>1.5.4</version>
   <develStage>stable</develStage>
-  <compatibility><ver>4.6</ver><ver>4.7</ver><ver>5.2</ver></compatibility>
+  <compatibility>
+    <ver>4.6</ver>
+    <ver>4.7</ver>
+    <ver>5.0</ver>
+   </compatibility>
   <comments></comments>
 </extension>
