@@ -269,6 +269,36 @@ function ewayrecurring_civicrm_managed(&$entities) {
    );
 }
 
+/**
+ * Implements hook_civicrm_preProcess().
+ * @param $formName
+ * @param $form
+ */
+function ewayrecurring_civicrm_preProcess($formName, &$form) {
+  if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
+   $paymentProcessor = $form->getVar('_paymentProcessor');
+   $paymentProcessor = $paymentProcessor['object'];
+
+   if ($paymentProcessor instanceof au_com_agileware_ewayrecurring) {
+     $invoiceID = $form->_params['invoiceID'];
+     $contribution = civicrm_api3('Contribution', 'get', [
+       'sequential' => 1,
+       'invoice_id' => $invoiceID,
+       'is_test'    => ($paymentProcessor->_mode == 'test') ? 1 : 0,
+     ]);
+
+     if (count($contribution['values']) > 0) {
+       // Include eWay SDK.
+       require_once 'vendor/autoload.php';
+
+       $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
+       $paymentProcessor->validateContribution($eWayAccessCode, $contribution['id']);
+     }
+   }
+
+  }
+}
+
 function ewayrecurring_civicrm_install() {
   // Do nothing here because the schema version can't be set during this hook.
 }

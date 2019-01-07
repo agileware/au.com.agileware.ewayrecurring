@@ -136,6 +136,29 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
   }
 
   /**
+   * Validate contribution on successful response.
+   *
+   * @param $eWayAccessCode
+   * @param $contributionID
+   */
+  function validateContribution($eWayAccessCode, $contributionID) {
+    $eWayClient = $this->getEWayClient();
+    $transactionResponse = $eWayClient->queryTransaction($eWayAccessCode);
+
+    if ($transactionResponse) {
+      $transactionResponse = $transactionResponse->Transactions[0];
+      if ($transactionResponse->TransactionStatus) {
+        CRM_Core_DAO::setFieldValue(
+          'CRM_Contribute_DAO_Contribution',
+          $contributionID,
+          'contribution_status_id',
+          _contribution_status_id('Completed')
+        );
+      }
+    }
+  }
+
+  /**
    * Form customer details array from given params.
    *
    * @param $params array
@@ -190,7 +213,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    */
   function getEWayResponseErrors($eWAYResponse, $createCustomerRequest = FALSE) {
     $transactionErrors = array();
-    if ( !$eWAYResponse->getAttribute('TransactionStatus') ) {
+    if (  !$eWAYResponse->getAttribute('TransactionStatus') ) {
       if (count($eWAYResponse->getErrors())) {
           foreach ($eWAYResponse->getErrors() as $error) {
               $errorMessage = \Eway\Rapid::getMessage($error);
@@ -344,16 +367,22 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             $uniqueTrnxNum = substr($params['invoiceID'], 0, 12);
 
             $eWayTransaction = array(
-                'Customer' => $eWayCustomer,
-                'Payment' => [
-                    'TotalAmount' => $amountInCents,
-                    'InvoiceNumber' => $uniqueTrnxNum,
-                    'InvoiceDescription' => $params['description'],
-                    'InvoiceReference' => $params['invoiceID'],
-                ],
-                'CustomerIP' => $params['ip_address'],
-                'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
-                'Capture' => true,
+              'Customer' => $this->getEWayClientDetailsArray($params),
+              'RedirectUrl' => $this->getReturnSuccessUrl($params['qfKey']),
+              'CancelUrl' => $this->getCancelUrl($params['qfKey'], ''),
+              'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
+              'Payment' => [
+                'TotalAmount' => $amountInCents,
+                'InvoiceNumber' => $uniqueTrnxNum,
+                'InvoiceDescription' => $params['description'],
+                'InvoiceReference' => $params['invoiceID'],
+              ],
+              'CustomerIP' => $params['ip_address'],
+              'Capture' => true,
+              'CustomerReadOnly' => true,
+              'Options' => [
+                'ContributionID' => $params['contributionID'],
+              ],
             );
 
             //----------------------------------------------------------------------------------------------------
@@ -373,7 +402,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 return self::errorExit(9003, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWAY.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.' );
             }
 
-            $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::DIRECT, $eWayTransaction);
+            $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
 
             //----------------------------------------------------------------------------------------------------
             // If null data returned - tell 'em and bail out
@@ -386,43 +415,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             //----------------------------------------------------------------------------------------------------
             // See if we got an OK result - if not tell 'em and bail out
             //----------------------------------------------------------------------------------------------------
-
-            $transactionErrors = $this->getEWayResponseErrors($eWAYResponse);
+            $transactionErrors = $this->getEWayResponseErrors($eWAYResponse, TRUE);
             if(count($transactionErrors)) {
                 return self::errorExit( 9008, implode("<br>", $transactionErrors));
             }
 
-            //-----------------------------------------------------------------------------------------------------
-            // Cross-Check - the unique 'TrxnReference' we sent out should match the just received 'TrxnReference'
-            //
-            // PLEASE NOTE: If this occurs (which is highly unlikely) its a serious error as it would mean we have
-            //              received an OK status from eWAY, but their Gateway has not returned the correct unique
-            //              token - ie something is broken, BUT money has been taken from the client's account,
-            //              so we can't very well error-out as CiviCRM will then not process the registration.
-            //              There is an error message commented out here but my prefered response to this unlikley
-            //              possibility is to email 'support@eWAY.com.au'
-            //-----------------------------------------------------------------------------------------------------
-
-            $eWayTrxnReference_OUT = $uniqueTrnxNum;
-            $eWayTrxnReference_IN  = $eWAYResponse->getAttribute('Payment')->InvoiceNumber;
-
-            if ($eWayTrxnReference_IN != $eWayTrxnReference_OUT) {
-                // return self::errorExit( 9009, "Error: Unique Trxn code was not returned by eWAY Gateway. This is extremely unusual! Please contact the administrator of this site immediately with details of this transaction.");
-                self::send_alert_email( $eWayTrxnReference_IN, $eWayTrxnReference_OUT, $eWayTrxnReference_IN, json_encode($eWayTransaction), json_encode($eWAYResponse));
-            }
-
-            //----------------------------------------------------------------------------------------------------
-            // Success !
-            //----------------------------------------------------------------------------------------------------
-
-            $beaglestatus = $eWAYResponse->getAttribute('BeagleScore');
-            if ( !empty( $beaglestatus ) ) {
-                $beaglestatus = ": ". $beaglestatus;
-            }
-            $params['trxn_result_code'] = $eWAYResponse->getAttribute('TransactionStatus') . $beaglestatus;
-            $params['gross_amount']     = $eWAYResponse->getAttribute('Payment')->TotalAmount;
-            $params['trxn_id']          = $eWAYResponse->getAttribute('TransactionID');
-
+            CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
         }
 
         return $params;
