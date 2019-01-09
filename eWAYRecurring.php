@@ -284,6 +284,8 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
      $contribution = civicrm_api3('Contribution', 'get', [
        'sequential' => 1,
        'invoice_id' => $invoiceID,
+       'sequential' => TRUE,
+       'return'     => array('contribution_page_id'),
        'is_test'    => ($paymentProcessor->_mode == 'test') ? 1 : 0,
      ]);
 
@@ -291,8 +293,9 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
        // Include eWay SDK.
        require_once 'vendor/autoload.php';
 
+       $contribution = $contribution['values'][0];
        $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
-       $paymentProcessor->validateContribution($eWayAccessCode, $contribution['id']);
+       $paymentProcessor->validateContribution($eWayAccessCode, $contribution);
      }
    }
 

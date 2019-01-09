@@ -141,21 +141,100 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param $eWayAccessCode
    * @param $contributionID
    */
-  function validateContribution($eWayAccessCode, $contributionID) {
+  function validateContribution($eWayAccessCode, $contribution) {
+    $contributionID = $contribution['id'];
+    $isRecurring = (isset($contribution['contribution_recur_id']) && $contribution['contribution_recur_id'] != '') ? TRUE: FALSE;
+
     $eWayClient = $this->getEWayClient();
     $transactionResponse = $eWayClient->queryTransaction($eWayAccessCode);
 
     if ($transactionResponse) {
       $transactionResponse = $transactionResponse->Transactions[0];
-      if ($transactionResponse->TransactionStatus) {
-        CRM_Core_DAO::setFieldValue(
-          'CRM_Contribute_DAO_Contribution',
-          $contributionID,
-          'contribution_status_id',
-          _contribution_status_id('Completed')
-        );
+      if ($isRecurring) {
+        $customerTokenID = $transactionResponse->TokenCustomerID;
+        $this->updateRecurringContribution($contribution, $customerTokenID);
+      }
+      else {
+        if ($transactionResponse->TransactionStatus) {
+          CRM_Core_DAO::setFieldValue(
+            'CRM_Contribute_DAO_Contribution',
+            $contributionID,
+            'contribution_status_id',
+            _contribution_status_id('Completed')
+          );
+        }
       }
     }
+  }
+
+  /**
+   * Update recurring contribution with status and token.
+   *
+   * @param $contribution
+   * @param $customerTokenId
+   * @throws CRM_Core_Exception
+   */
+  function updateRecurringContribution($contribution, $customerTokenId){
+    //----------------------------------------------------------------------------------------------------
+    // Save the eWay customer token in the recurring contribution's processor_id field
+    //----------------------------------------------------------------------------------------------------
+
+    $contributionRecurringId = $contribution['contribution_recur_id'];
+    $contributionPageId = $contribution['contribution_page_id'];
+
+    CRM_Core_DAO::setFieldValue(
+      'CRM_Contribute_DAO_ContributionRecur',
+      $contributionRecurringId,
+      'processor_id',
+      $customerTokenId
+    );
+
+    CRM_Core_DAO::setFieldValue(
+      'CRM_Contribute_DAO_ContributionRecur',
+      $contributionRecurringId,
+      'create_date',
+      CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'))
+    );
+
+    //----------------------------------------------------------------------------------------------------
+    // For monthly payments, set the cycle day according to the submitting page or processor default
+    //----------------------------------------------------------------------------------------------------
+
+    $cycle_day = 0;
+
+    if(!empty($contributionPageId) &&
+      CRM_Utils_Type::validate($contributionPageId, 'Int', FALSE, ts('Contribution Page')))
+    {
+      $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
+      $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($contributionPageId, 'Int')));
+    } else {
+      $cd_sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
+      $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($this->_paymentProcessor['id'], 'Int')));
+    }
+
+    if(!$cycle_day)
+      $cycle_day = 0;
+
+    CRM_Core_DAO::setFieldValue(
+      'CRM_Contribute_DAO_ContributionRecur',
+      $contributionRecurringId,
+      'cycle_day',
+      $cycle_day
+    );
+
+    //----------------------------------------------------------------------------------------------------
+    // AND we're done - this payment will staying in a pending state until it's processed
+    // by the cronjob
+    //----------------------------------------------------------------------------------------------------
+  }
+
+  /**
+   * Remove Credit card fields from the form.
+   *
+   * @return array
+   */
+  function getPaymentFormFields() {
+    return array();
   }
 
   /**
@@ -165,14 +244,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @return array
    */
   function getEWayClientDetailsArray($params) {
-    $expireYear    = substr ($params['year'], 2, 2);
-    $expireMonth   = sprintf('%02d', (int) $params['month']); // Pad month with zeros
-    $credit_card_name  = $params['first_name'] . " ";
-    if (strlen($params['middle_name']) > 0 ) {
-      $credit_card_name .= $params['middle_name'] . " ";
-    }
-    $credit_card_name .= $params['last_name'];
-
     $eWayCustomer = array(
       'Reference' => (isset($params['contactID'])) ? 'Civi-' . $params['contactID'] : '', // Referencing eWay customer with CiviCRM id if we have.
       'FirstName' => $params['first_name'],
@@ -183,13 +254,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
       'PostalCode' => $params['postal_code'],
       'Country' => $params['country'],
       'Email' => (isset($params['email']) ? $params['email'] : ''), // Email is not accessible for updateSubscriptionBillingInfo method.
-      'CardDetails' => [
-          'Name' => $credit_card_name,
-          'Number' => $params['credit_card_number'],
-          'ExpiryMonth' => $expireMonth,
-          'ExpiryYear' => $expireYear,
-          'CVN' => $params['cvv2'],
-      ]
     );
 
     if(isset($params['subscriptionId']) && !empty($params['subscriptionId'])) {
@@ -265,6 +329,17 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         if (CRM_Utils_Array::value('is_recur', $params, false)) {
 
             //----------------------------------------------------------------------------------------------------
+            // Force the contribution to Pending.
+            //----------------------------------------------------------------------------------------------------
+
+            CRM_Core_DAO::setFieldValue(
+              'CRM_Contribute_DAO_Contribution',
+              $params['contributionID'],
+              'contribution_status_id',
+              _contribution_status_id('Pending')
+            );
+
+            //----------------------------------------------------------------------------------------------------
             // Hook to allow customer info to be changed before submitting it
             //----------------------------------------------------------------------------------------------------
 
@@ -276,7 +351,11 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
               // Create eWay Customer.
               //----------------------------------------------------------------------------------------------------
 
-              $eWayCustomerResponse = $eWayClient->createCustomer(\Eway\Rapid\Enum\ApiMethod::DIRECT, $eWayCustomer);
+              $eWayCustomer['RedirectUrl'] = $this->getReturnSuccessUrl($params['qfKey']);
+              $eWayCustomer['CancelUrl'] = $this->getCancelUrl($params['qfKey'], '');
+              $eWayCustomer['CustomerReadOnly'] = TRUE;
+
+              $eWayCustomerResponse = $eWayClient->createCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayCustomer);
 
               //----------------------------------------------------------------------------------------------------
               // See if we got an OK result - if not tell 'em and bail out
@@ -287,71 +366,13 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 return self::errorExit( 9008, implode("<br>", $transactionErrors));
               }
 
+              CRM_Utils_System::redirect($eWayCustomerResponse->SharedPaymentUrl);
+
               $managed_customer_id = $eWayCustomerResponse->getAttribute('Customer')->TokenCustomerID;
             }
             catch(Exception $e) {
               return self::errorExit(9010, $e->getMessage());
             }
-
-            //----------------------------------------------------------------------------------------------------
-            // Force the contribution to Pending.
-            //----------------------------------------------------------------------------------------------------
-
-            CRM_Core_DAO::setFieldValue(
-                'CRM_Contribute_DAO_Contribution',
-                $params['contributionID'],
-                'contribution_status_id',
-                _contribution_status_id('Pending')
-            );
-
-            //----------------------------------------------------------------------------------------------------
-            // Save the eWay customer token in the recurring contribution's processor_id field
-            //----------------------------------------------------------------------------------------------------
-
-            CRM_Core_DAO::setFieldValue(
-              'CRM_Contribute_DAO_ContributionRecur',
-              $params['contributionRecurID'],
-              'processor_id',
-              $managed_customer_id
-            );
-
-            CRM_Core_DAO::setFieldValue(
-              'CRM_Contribute_DAO_ContributionRecur',
-              $params['contributionRecurID'],
-              'create_date',
-              CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'))
-            );
-
-            //----------------------------------------------------------------------------------------------------
-            // For monthly payments, set the cycle day according to the submitting page or processor default
-            //----------------------------------------------------------------------------------------------------
-
-	        $cycle_day = 0;
-
-	        if(!empty($params['contributionPageID']) &&
-	          CRM_Utils_Type::validate($params['contributionPageID'], 'Int', FALSE, ts('Contribution Page')))
-	        {
-	          $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
-	          $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($params['contributionPageID'], 'Int')));
-	        } else {
-	          $cd_sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
-	          $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($this->_paymentProcessor['id'], 'Int')));
-	        }
-
-            if(!$cycle_day)
-                $cycle_day = 0;
-
-            CRM_Core_DAO::setFieldValue(
-              'CRM_Contribute_DAO_ContributionRecur',
-              $params['contributionRecurID'],
-              'cycle_day',
-              $cycle_day
-            );
-
-            //----------------------------------------------------------------------------------------------------
-            // AND we're done - this payment will staying in a pending state until it's processed
-            // by the cronjob
-            //----------------------------------------------------------------------------------------------------
 
         }
         // This is a one off payment, most of this is lifted straight from the original code, so I wont document it.
@@ -367,7 +388,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             $uniqueTrnxNum = substr($params['invoiceID'], 0, 12);
 
             $eWayTransaction = array(
-              'Customer' => $this->getEWayClientDetailsArray($params),
+              'Customer' => $eWayCustomer,
               'RedirectUrl' => $this->getReturnSuccessUrl($params['qfKey']),
               'CancelUrl' => $this->getCancelUrl($params['qfKey'], ''),
               'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
@@ -378,11 +399,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
                 'InvoiceReference' => $params['invoiceID'],
               ],
               'CustomerIP' => $params['ip_address'],
-              'Capture' => true,
-              'CustomerReadOnly' => true,
+              'Capture' => TRUE,
+              'SaveCustomer' => TRUE,
               'Options' => [
                 'ContributionID' => $params['contributionID'],
               ],
+              'CustomerReadOnly' => TRUE,
             );
 
             //----------------------------------------------------------------------------------------------------
@@ -483,7 +505,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
      */
     function doTransferCheckout( &$params, $component )
     {
-        CRM_Core_Error::fatal( ts( 'This function is not implemented' ) );
+        $this->doDirectPayment($params);
     }
 
     /**
