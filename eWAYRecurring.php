@@ -285,7 +285,7 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
        'sequential' => 1,
        'invoice_id' => $invoiceID,
        'sequential' => TRUE,
-       'return'     => array('contribution_page_id'),
+       'return'     => array('contribution_page_id', 'contribution_recur_id'),
        'is_test'    => ($paymentProcessor->_mode == 'test') ? 1 : 0,
      ]);
 
