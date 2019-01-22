@@ -88,8 +88,8 @@ function ewayrecurring_civicrm_buildForm ($formName, &$form) {
         }
       }
     }
-  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && $form->getVar('_paymentProcessorDAO') &&
-      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring' &&
+  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
+      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring')) &&
 	    ($processor_id = $form->getVar('_id'))) {
     $form->addElement('text', 'recur_cycleday', ts('Recurring Payment Date'));
     $sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
@@ -109,6 +109,15 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
     if (!CRM_Utils_Type::validate($cycle_day, 'Int', FALSE, ts('Cycle day')) || $cycle_day < 1 || $cycle_day > 31) {
       $errors['recur_cycleday'] = ts('Recurring Payment Date must be a number between 1 and 31');
     }
+
+    if(empty(CRM_Utils_Array::value('user_name', $fields, ''))) {
+      $errors['user_name'] = ts('API Key is a required field.');
+    }
+
+    if(empty(CRM_Utils_Array::value('password', $fields, ''))) {
+      $errors['password'] = ts('API Password is a required field.');
+    }
+
   } elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
 
     $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
@@ -166,8 +175,8 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
       CRM_Core_DAO::executeQuery($sql, array(1 => array($page_id, 'Int'),
 					     2 => array($cycle_day, 'Int')));
     }
-  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && $form->getVar('_paymentProcessorDAO') &&
-      $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') {
+  } elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
+              $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring'))) {
     if(!($processor_id = $form->getVar('_id')))
       CRM_Core_Error::fatal("Attempt to configure a payment processor admin form with no id");
 
@@ -235,17 +244,8 @@ function ewayrecurring_civicrm_managed(&$entities) {
        'title' => 'eWAY Recurring',
        'description' => 'Recurring payments payment processor for eWay',
        'class_name' => 'au.com.agileware.ewayrecurring',
-       'user_name_label' => 'Username',
-       'password_label' => 'Password',
-       //'signature_label' => '',
-       'subject_label' => 'Customer ID',
-       'url_site_default' => 'https://www.eway.com.au/gateway_cvn/xmlpayment.asp',
-       //'url_api_default' => '',
-       'url_recur_default' => 'https://www.eway.com.au/gateway/ManagedPaymentService/managedCreditCardPayment.asmx?WSDL',
-       'url_site_test_default' => 'https://www.eway.com.au/gateway_cvn/xmltest/testpage.asp',
-       //'url_api_test_default' => '',
-       'url_recur_test_default' => 'https://www.eway.com.au/gateway/ManagedPaymentService/test/managedcreditcardpayment.asmx?WSDL',
-       //'url_button_default' => '',
+       'user_name_label' => 'API Key',
+       'password_label' => 'API Password',
        'billing_mode' => 'form',
        'is_recur' => '1',
        'payment_type' => '1',
@@ -269,8 +269,49 @@ function ewayrecurring_civicrm_managed(&$entities) {
    );
 }
 
+/**
+ * Implements hook_civicrm_preProcess().
+ * @param $formName
+ * @param $form
+ */
+function ewayrecurring_civicrm_preProcess($formName, &$form) {
+  if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
+   $paymentProcessor = $form->getVar('_paymentProcessor');
+   $paymentProcessor = $paymentProcessor['object'];
+
+   if ($paymentProcessor instanceof au_com_agileware_ewayrecurring) {
+     $invoiceID = $form->_params['invoiceID'];
+     $contribution = civicrm_api3('Contribution', 'get', [
+       'sequential' => 1,
+       'invoice_id' => $invoiceID,
+       'sequential' => TRUE,
+       'return'     => array('contribution_page_id', 'contribution_recur_id'),
+       'is_test'    => ($paymentProcessor->_mode == 'test') ? 1 : 0,
+     ]);
+
+     if (count($contribution['values']) > 0) {
+       // Include eWay SDK.
+       require_once 'vendor/autoload.php';
+
+       $contribution = $contribution['values'][0];
+       $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
+       $paymentProcessor->validateContribution($eWayAccessCode, $contribution);
+     }
+   }
+
+  }
+}
+
 function ewayrecurring_civicrm_install() {
   // Do nothing here because the schema version can't be set during this hook.
+}
+
+function ewayrecurring_civicrm_postInstall() {
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 6);
+  // Update schemaVersion if added new version in upgrade process.
+  // Also add database related CREATE queries.
+  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
 }
 
 function ewayrecurring_civicrm_uninstall() {
@@ -287,7 +328,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
   $upgrades = array();
 
   if ($op == 'check') {
-    return array($schemaVersion < 5);
+    return array($schemaVersion < 6);
   } elseif ($op == 'enqueue') {
     if(NULL == $queue) {
       return CRM_Core_Error::fatal('au.com.agileware.ewayrecurring: No Queue supplied for upgrade');
@@ -315,14 +356,29 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
     }
     if ($schemaVersion < 5) {
       $queue->createItem(
-        new CRM_Queue_Task(
-          '_ewayrecurring_fix_installments',
-          array(5),
-          'Fix installment counts from old versions'
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema_version', array(
+          5,
+        ),
+          'Update schema version'
         )
       );
     }
+    if ($schemaVersion < 6) {
+      $queue->createItem(
+          new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
+            6,
+            "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password' WHERE name = 'eWay_Recurring'"
+          ),
+            'Perform Rapid API related changes'
+          )
+      );
+    }
   }
+}
+
+function _ewayrecurring_upgrade_schema_version(CRM_Queue_TaskContext $ctx, $schema) {
+    CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', $schema);
+    return CRM_Queue_Task::TASK_SUCCESS;
 }
 
 function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st, $params = array()) {
@@ -331,46 +387,6 @@ function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st,
     CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', $schema);
     return CRM_Queue_Task::TASK_SUCCESS;
   } else {
-    return CRM_Queue_Task::TASK_FAIL;
-  }
-}
-
-function _ewayrecurring_fix_installments(CRM_Queue_TaskContext $ctx, $schema) {
-  try {
-    $pptype = civicrm_api3(
-      'PaymentProcessorType', 'getsingle', array(
-        'class_name' => "au.com.agileware.ewayRecurring",
-        'api.PaymentProcessor.get' => array(),
-      )
-    );
-
-    /* Get all recurring contributions with installment limits */
-    $installment_recurring = civicrm_api3(
-      'ContributionRecur', 'get' , array(
-        'sequential' => 1,
-        'installments' => array('>' => 0),
-        'payment_processor_id' => array('IN' => array_map(
-                                  '_ewayrecurring_get_pp_id',
-                                  $pptype['api.PaymentProcessor.get']['values']
-                                )),
-      )
-    );
-
-    /* Restore original installment limit */
-    foreach($installment_recurring['values'] as & $recurring_contribution) {
-      $ccount = civicrm_api3('Contribution', 'getcount', array('contribution_recur_id' => $recurring_contribution['id']));
-      /* Completed recurring contributions will still have an installment recorded. */
-      $recurring_contribution['installments'] += ($recurring_contribution['contribution_status_id'] != 1? $ccount: $ccount - 1);
-    }
-
-    civicrm_api3(
-      'ContributionRecur', 'replace', $installment_recurring
-    );
-
-    CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', $schema);
-    return CRM_Queue_Task::TASK_SUCCESS;
-  }
-  catch (CiviCRM_API3_Exception $e) {
     return CRM_Queue_Task::TASK_FAIL;
   }
 }

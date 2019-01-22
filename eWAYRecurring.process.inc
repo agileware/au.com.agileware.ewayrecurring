@@ -28,7 +28,7 @@ define('CONTRIBUTION_FAILURE_THRESHOLD', 3);
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
-function process_recurring_payments($payment_processor) {
+function process_recurring_payments($payment_processor, $paymentObject) {
   // Create log handler
   $log = CRM_Core_Error::createDebugLogger();
 
@@ -42,12 +42,7 @@ function process_recurring_payments($payment_processor) {
   $pending_contributions = get_pending_recurring_contributions($log, $payment_processor);
 
   // Create eWay token client
-  $token_client = eway_token_client(
-				    $payment_processor['url_recur'],
-				    $payment_processor['subject'],
-				    $payment_processor['user_name'],
-				    $payment_processor['password']
-				    );
+  $eWayClient = $paymentObject->getEWayClient();
 
   $log->log("Processing " . count($pending_contributions) . " pending contributions for processor " . $payment_processor['id'], PEAR_LOG_INFO);
   foreach ($pending_contributions as $pending_contribution) {
@@ -81,8 +76,8 @@ function process_recurring_payments($payment_processor) {
       $financial_type = (array) $ft_bao;
     }
 
-    $result = process_eway_payment(
-				   $token_client,
+    $eWayResponse = process_eway_payment(
+                   $eWayClient,
 				   $pending_contribution['contribution_recur']->processor_id,
 				   $amount_in_cents,
 				   $pending_contribution['contribution']['invoice_id'],
@@ -90,12 +85,13 @@ function process_recurring_payments($payment_processor) {
                                      ":\n" . $pending_contribution['contribution']['contribution_source'] : '')
 				   );
 
-    if ($result->ewayTrxnStatus != 'True') {
+    $responseErrors = $paymentObject->getEWayResponseErrors($eWayResponse);
+    if (count($responseErrors)) {
       // $log->log('ERROR: Failed to process transaction for managed customer: ' . $pending_contribution['contribution_recur']->processor_id . "\n", PEAR_LOG_DEBUG);
-      // $log->log('eWay response: ' . $result->ewayTrxnError . "\n", PEAR_LOG_DEBUG);
+      // $log->log('eWay response: ' . $eWayResponse->getAttribute('TransactionID') . "\n", PEAR_LOG_DEBUG);
       // Mark the transaction as failed and move on.
       complete_contribution($pending_contribution['contribution']['id'],
-			    $result->ewayTrxnNumber,
+          $eWayResponse->getAttribute('TransactionID'),
 			    _contribution_status_id('Failed'));
       $pending_contribution['contribution_recur']->failure_count++;
     } else {
@@ -104,7 +100,7 @@ function process_recurring_payments($payment_processor) {
       // $log->log("Marking contribution as complete\n", PEAR_LOG_DEBUG);
 
       complete_contribution($pending_contribution['contribution']['id'],
-			    $result->ewayTrxnNumber);
+          $eWayResponse->getAttribute('TransactionID'));
 
       // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
       send_receipt_email($pending_contribution['contribution']['id']);
@@ -291,8 +287,8 @@ function process_recurring_payments($payment_processor) {
       $new_contribution_record['contribution_page_id'] = $precedent['contribution_page_id'];
       $new_contribution_record['is_test'] = $precedent['is_test'];
 
-      $result = process_eway_payment(
-				     $token_client,
+      $eWayResponse = process_eway_payment(
+                     $eWayClient,
 				     $contribution->processor_id,
 				     $amount_in_cents,
 				     substr($invoice_id, 0, 16),
@@ -303,9 +299,10 @@ function process_recurring_payments($payment_processor) {
       CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
         $contribution->id, 'failure_count', 0);
 
-      $new_contribution_record['trxn_id'] = $result->ewayTrxnNumber;
+      $new_contribution_record['trxn_id'] = $eWayResponse->getAttribute('TransactionID');
 
-      if ($result->ewayTrxnStatus != 'True') {
+      $responseErrors = $paymentObject->getEWayResponseErrors($eWayResponse);
+      if (count($responseErrors)) {
         // Mark transaction as failed
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
       }
@@ -320,14 +317,14 @@ function process_recurring_payments($payment_processor) {
 
       $new_contribution_record = reset($created['values']);
 
-      if(isset($result->ewayTrxnError)){
+      if(count($responseErrors)){
         $note = new CRM_Core_BAO_Note();
 
         $note->entity_table = 'civicrm_contribution';
         $note->contact_id = $contribution->contact_id;
         $note->entity_id = $new_contribution_record['id'];
         $note->subject = ts('Transaction Error');
-        $note->note = $result->ewayTrxnError;
+        $note->note = implode("\n", $responseErrors);
 
         $note->save();
       }
@@ -347,7 +344,7 @@ function process_recurring_payments($payment_processor) {
 
       $new_contribution_record = reset($created['values']);
 
-      if(isset($result->ewayTrxnError)){
+      if(isset($responseErrors) && count($responseErrors)){
         $note = new CRM_Core_BAO_Note();
 
         $note->entity_table = 'civicrm_contribution';
@@ -375,7 +372,7 @@ function process_recurring_payments($payment_processor) {
       }
     }
 
-    unset($result);
+    unset($eWayResponse);
 
   }
 
@@ -507,7 +504,7 @@ function eway_token_client($gateway_url, $eway_customer_id, $username, $password
  *
  * Processes an eWay token payment
  *
- * @param object $soap_client An eWay SOAP client set up and ready to go
+ * @param object $eWayClient An eWay client set up and ready to go
  * @param string $managed_customer_id The eWay token ID for the credit card you want to process
  * @param string $amount_in_cents The amount in cents to charge the customer
  * @param string $invoice_reference InvoiceReference to send to eWay
@@ -515,30 +512,34 @@ function eway_token_client($gateway_url, $eway_customer_id, $username, $password
  * @throws SoapFault exceptions
  * @return object eWay response object
  */
-function process_eway_payment($soap_client, $managed_customer_id, $amount_in_cents, $invoice_reference, $invoice_description) {
+function process_eway_payment($eWayClient, $managed_customer_id, $amount_in_cents, $invoice_reference, $invoice_description) {
 
   static $prev_response = NULL;
 
-  $paymentinfo = array(
-    'managedCustomerID' => $managed_customer_id,
-    'amount' => $amount_in_cents,
-    'invoiceReference' => $invoice_reference,
-    'invoiceDescription' => $invoice_description
+  $paymentTransaction = array(
+    'Customer' => [
+      'TokenCustomerID' => $managed_customer_id,
+    ],
+    'Payment' => [
+      'TotalAmount' => $amount_in_cents,
+      'InvoiceDescription' => $invoice_description,
+      'InvoiceReference' => $invoice_reference,
+    ],
+    'TransactionType' => \Eway\Rapid\Enum\TransactionType::RECURRING,
   );
 
-  $result = $soap_client->ProcessPayment($paymentinfo);
-  $eway_response = & $result->ewayResponse;
+  $eWayResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::DIRECT, $paymentTransaction);
 
-  if ($prev_response->ewayTrxnNumber == $eway_response->ewayTrxnNumber) {
+  if (isset($prev_response) && $prev_response->getAttribute('TransactionID') == $eWayResponse->getAttribute('TransactionID')) {
     throw new Exception (
       'eWAY ProcessPayment returned duplicate transaction number: ' .
-      $prev_response->ewayTrxnNumber . ' vs ' . $eway_response->ewayTrxnNumber
+      $prev_response->getAttribute('TransactionID') . ' vs ' . $eWayResponse->getAttribute('TransactionID')
     );
   }
 
-  $prev_response = & $eway_response;
+  $prev_response = & $eWayResponse;
 
-  return $eway_response;
+  return $eWayResponse;
 }
 
 /**
