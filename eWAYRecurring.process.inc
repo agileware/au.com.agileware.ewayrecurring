@@ -38,112 +38,8 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     return FALSE;
   }
 
-  // Get pending contributions
-  $pending_contributions = get_pending_recurring_contributions($log, $payment_processor);
-
   // Create eWay token client
   $eWayClient = $paymentObject->getEWayClient();
-
-  $log->log("Processing " . count($pending_contributions) . " pending contributions for processor " . $payment_processor['id'], PEAR_LOG_INFO);
-  foreach ($pending_contributions as $pending_contribution) {
-    if ($pending_contribution['contribution_recur']->contribution_status_id == _contribution_status_id('Cancelled')) {
-      complete_contribution($pending_contribution['contribution']['id'],
-			    '',
-			    _contribution_status_id('Cancelled'),
-			    strtotime($pending_contribution['contribution_recur']->cancel_date));
-      continue;
-    }
-    // Process payment
-    // $log->log("Processing payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n", PEAR_LOG_DEBUG);
-    $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
-				    $pending_contribution['contribution']['total_amount']);
-
-
-    // Attempt to get the Financial Type using the API.
-    try {
-      $financial_type = civicrm_api3(
-        'FinancialType', 'getsingle', array(
-          'sequential' => 1,
-          'return' => "name",
-          'id' => $pending_contribution['contribution']['financial_type_id'],
-        ));
-    }
-    catch(CiviCRM_API3_Exception $e) { // Most likely due to FinancialType API not being available in < 4.5 - try DAO directly
-      $ft_bao = new CRM_Financial_BAO_FinancialType();
-      $ft_bao->id = $pending_contribution['contribution']['financial_type_id'];
-      $ft_bao->find(true);
-
-      $financial_type = (array) $ft_bao;
-    }
-
-    $eWayResponse = process_eway_payment(
-                   $eWayClient,
-				   $pending_contribution['contribution_recur']->processor_id,
-				   $amount_in_cents,
-				   $pending_contribution['contribution']['invoice_id'],
-				   $financial_type['name'] . ($pending_contribution['contribution']['contribution_source']?
-                                     ":\n" . $pending_contribution['contribution']['contribution_source'] : '')
-				   );
-
-    $responseErrors = $paymentObject->getEWayResponseErrors($eWayResponse);
-    if (count($responseErrors)) {
-      // $log->log('ERROR: Failed to process transaction for managed customer: ' . $pending_contribution['contribution_recur']->processor_id . "\n", PEAR_LOG_DEBUG);
-      // $log->log('eWay response: ' . $eWayResponse->getAttribute('TransactionID') . "\n", PEAR_LOG_DEBUG);
-      // Mark the transaction as failed and move on.
-      complete_contribution($pending_contribution['contribution']['id'],
-          $eWayResponse->getAttribute('TransactionID'),
-			    _contribution_status_id('Failed'));
-      $pending_contribution['contribution_recur']->failure_count++;
-    } else {
-      // $log->log("Successfully processed payment for pending contribution ID: " . $pending_contribution['contribution']['id'] . "\n", PEAR_LOG_DEBUG);
-
-      // $log->log("Marking contribution as complete\n", PEAR_LOG_DEBUG);
-
-      complete_contribution($pending_contribution['contribution']['id'],
-          $eWayResponse->getAttribute('TransactionID'));
-
-      // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
-      send_receipt_email($pending_contribution['contribution']['id'], $paymentObject);
-    }
-
-    // $log->log("Updating recurring contribution\n", PEAR_LOG_DEBUG);
-
-
-    /* Schedule next contribution */
-
-    $c_recur =& $pending_contribution['contribution_recur'];
-
-    if (($cd = $pending_contribution['contribution_recur']->cycle_day) > 0 &&
-	$pending_contribution['contribution_recur']->frequency_unit == 'month'){
-      $d_now = new DateTime();
-      $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
-      $d_next->modify("+{$c_recur->frequency_interval} " .
-		      "{$c_recur->frequency_unit}s");
-      $next_m = ($d_now->format('m') + $c_recur->frequency_interval - 1) % 12 + 1;
-      if ($next_m != $d_next->format('m')) {
-	$daysover = $d_next->format('d');
-	$d_next->modify("-{$daysover} days");
-      }
-      $next_sched = $d_next->format('Y-m-d 00:00:00');
-    } else {
-      $next_sched = date('Y-m-d 00:00:00',
-			 strtotime("+{$c_recur->frequency_interval} " .
-				   "{$c_recur->frequency_unit}s"));
-    }
-
-    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-				 $pending_contribution['contribution_recur']->id,
-				 'next_sched_contribution_date',
-				 CRM_Utils_Date::isoToMysql ($next_sched) );
-
-    /* Update status for reporting */
-    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-				 $pending_contribution['contribution_recur']->id,
-				 'contribution_status_id',
-				 _contribution_status_id('In Progress') );
-
-    // $log->log("Finished processing contribution ID: " . $pending_contribution['contribution']['id'] . "\n", PEAR_LOG_DEBUG);
-  }
 
   // Process today's scheduled contributions.
   $scheduled_contributions = get_scheduled_contributions($payment_processor);
@@ -254,10 +150,18 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         )
       );
 
-      $precedent = reset($contributions['values']);
+      $precedent = new CRM_Contribute_BAO_Contribution();
+      $precedent->contribution_recur_id = $contribution->id;
 
-      if(empty($precedent)) {
-        $precedent = array ('contribution_source' => '', 'is_test' => 0);
+      $contributionSource = '';
+      $contributionPageId = '';
+      $contributionIsTest = 0;
+
+      if($precedent->find(TRUE)) {
+        $contributionSource = $precedent->source;
+        $contributionPageId = $precedent->contribution_page_id;
+        $contributionIsTest = $precedent->is_test;
+        echo "2";
       }
 
       try {
@@ -283,17 +187,17 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         );
       }
 
-      $new_contribution_record['source'] = "eWAY Recurring {$financial_type['name']}:\n{$precedent['contribution_source']}";
-      $new_contribution_record['contribution_page_id'] = $precedent['contribution_page_id'];
-      $new_contribution_record['is_test'] = $precedent['is_test'];
+      $new_contribution_record['source'] = "eWAY Recurring {$financial_type['name']}:\n{$contributionSource}";
+      $new_contribution_record['contribution_page_id'] = $contributionPageId;
+      $new_contribution_record['is_test'] = $contributionIsTest;
 
       $eWayResponse = process_eway_payment(
                      $eWayClient,
 				     $contribution->processor_id,
 				     $amount_in_cents,
 				     substr($invoice_id, 0, 16),
-				     $financial_type['name'] . ($precedent['contribution_source']?
-                                       ":\n" . $precedent['contribution_source'] : '')
+				     $financial_type['name'] . ($contributionSource?
+                                       ":\n" . $contributionSource : '')
 				     );
 
       CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
@@ -380,61 +284,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 }
 
 /**
- * get_pending_recurring_contributions
- *
- * Gets recurring contributions that are in a pending state.
- * These are for newly created recurring contributions and should
- * generally be processed the same day they're created. These do not
- * include the regularly processed recurring transactions.
- *
- * @return array An array of associative arrays containing contribution arrays & contribtion_recur objects
- */
-function get_pending_recurring_contributions($log, $payment_processor)
-{
-    // Get pending contributions
-    // TODO: Stop using the API. For consistency we should use BAOs so we get objects back
-    $params = array(
-        'version' => 3,
-        'contribution_status_id' => _contribution_status_id('Pending'),
-        'rowCount' => 100,
-        'offset' => 0,
-        'is_test' => $payment_processor['is_test'],
-    );
-
-    $result = array();
-
-    $pending_contributions = civicrm_api('Contribution', 'get', $params);
-
-    while($pending_contributions['count'] > 0) {
-      foreach ($pending_contributions['values'] as $contribution) {
-        // Only process those with recurring contribution records
-        if ($contribution['contribution_recur_id']) {
-          // Find the recurring contribution record for this contribution
-          $recurring = new CRM_Contribute_BAO_ContributionRecur();
-          $recurring->id = $contribution['contribution_recur_id'];
-
-          // Only process records that have a recurring record with
-          // a processor ID, i.e. an eWay token
-          if ($recurring->find(true) && $recurring->processor_id
-	      && ($recurring->payment_processor_id == $payment_processor['id'])) {
-            // TODO: Return the same type of results
-            // This is a bit nasty, contribution is an array and
-            // contribution_recur is an object
-            $result[$contribution['contribution_recur_id']] = array(
-              'contribution' => $contribution,
-              'contribution_recur' => $recurring
-            );
-          }
-        }
-      }
-
-      $params['offset'] += $params['rowCount'];
-      $pending_contributions = civicrm_api('Contribution', 'get', $params);
-    }
-    return $result;
-}
-
-/**
  * get_scheduled_contributions
  *
  * Gets recurring contributions that are scheduled to be processed today
@@ -463,40 +312,12 @@ function get_scheduled_contributions($payment_processor)
       $contribution->whereAdd
 	("`receive_date` >= '{$scheduled_today->next_sched_contribution_date}'");
 
-      if (!($contribution->find())) {
+      if (!($contribution->find(TRUE))) {
 	$scheduled_contributions[] = clone $scheduled_today;
       }
     }
 
     return $scheduled_contributions;
-}
-
-/**
- * eway_token_client
- *
- * Creates an eWay SOAP client to the eWay token API
- *
- * @param string $gateway_url URL of the gateway to connect to (could be the test or live gateway)
- * @param string $eway_customer_id Your eWay customer ID
- * @param string $username Your eWay business centre username
- * @param string $password Your eWay business centre password
- * @return object A SOAP client to the eWay token API
- */
-function eway_token_client($gateway_url, $eway_customer_id, $username, $password)
-{
-
-    $soap_client = new SoapClient($gateway_url);
-
-    // Set up SOAP headers
-    $headers = array(
-        'eWAYCustomerID' => $eway_customer_id,
-        'Username'       => $username,
-        'Password'       => $password
-    );
-    $header = new SoapHeader('https://www.eway.com.au/gateway/managedpayment', 'eWAYHeader', $headers);
-    $soap_client->__setSoapHeaders($header);
-
-    return $soap_client;
 }
 
 /**
@@ -540,50 +361,6 @@ function process_eway_payment($eWayClient, $managed_customer_id, $amount_in_cent
   $prev_response = & $eWayResponse;
 
   return $eWayResponse;
-}
-
-/**
- * complete_contribution
- *
- * Marks a contribution as complete
- *
- * @param string $contribution_id The ID of the contribution to mark as complete
- * @return object The contribution object
- */
-function complete_contribution($contribution_id, $trxn_id = NULL, $status_id = NULL, $c_date = NULL)
-{
-  if(!$status_id) {
-    $status_id = _contribution_status_id('Completed');
-  }
-
-  // Mark the contribution as complete
-  $contribution = civicrm_api3('Contribution', 'getsingle', array('id' => $contribution_id));
-
-  $contribution['contribution_status_id'] = $status_id;
-
-  if(!$c_date)
-    $c_date = time();
-
-  if ($status_id == _contribution_status_id('Cancelled'))
-    $contribution['cancel_date'] = date('Y-m-d H:i:s', $c_date);
-  else
-    $contribution['receive_date'] = date('Y-m-d H:i:s', $c_date);
-
-  if($trxn_id)
-    $contribution['trxn_id'] = $trxn_id;
-
-  try {
-    $result = civicrm_api3('Contribution', 'create', $contribution);
-
-    return $result['is_error'];
-  }
-  catch (CiviCRM_API3_Exception $e) {
-    $log = CRM_Core_Error::createDebugLogger();
-
-    $log->log("Exception completing contribution {$contribution_id}: " . $e->getMessage());
-
-      return FALSE;
-  }
 }
 
 /**

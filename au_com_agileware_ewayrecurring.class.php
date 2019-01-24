@@ -147,23 +147,36 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
     $eWayClient = $this->getEWayClient();
     $transactionResponse = $eWayClient->queryTransaction($eWayAccessCode);
+    $contributionStatus = 'Failed';
 
     if ($transactionResponse) {
       $transactionResponse = $transactionResponse->Transactions[0];
+
+      if ($transactionResponse->TransactionStatus) {
+        $contributionStatus = 'Completed';
+      }
+
       if ($isRecurring) {
         $customerTokenID = $transactionResponse->TokenCustomerID;
         $this->updateRecurringContribution($contribution, $customerTokenID);
       }
-      else {
-        if ($transactionResponse->TransactionStatus) {
-          CRM_Core_DAO::setFieldValue(
-            'CRM_Contribute_DAO_Contribution',
-            $contributionID,
-            'contribution_status_id',
-            _contribution_status_id('Completed')
-          );
-        }
-      }
+
+    }
+
+    CRM_Core_DAO::setFieldValue(
+      'CRM_Contribute_DAO_Contribution',
+      $contributionID,
+      'contribution_status_id',
+      _contribution_status_id($contributionStatus)
+    );
+
+    if ($isRecurring) {
+      CRM_Core_DAO::setFieldValue(
+        'CRM_Contribute_DAO_ContributionRecur',
+        $contributionID,
+        'contribution_status_id',
+        _contribution_status_id($contributionStatus)
+      );
     }
   }
 
@@ -182,50 +195,60 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
     $contributionRecurringId = $contribution['contribution_recur_id'];
     $contributionPageId = $contribution['contribution_page_id'];
 
-    CRM_Core_DAO::setFieldValue(
-      'CRM_Contribute_DAO_ContributionRecur',
-      $contributionRecurringId,
-      'processor_id',
-      $customerTokenId
-    );
+    try {
 
-    CRM_Core_DAO::setFieldValue(
-      'CRM_Contribute_DAO_ContributionRecur',
-      $contributionRecurringId,
-      'create_date',
-      CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'))
-    );
+      $recurringContribution = civicrm_api3('ContributionRecur', 'getsingle', [
+        'id' => $contributionRecurringId,
+      ]);
 
-    //----------------------------------------------------------------------------------------------------
-    // For monthly payments, set the cycle day according to the submitting page or processor default
-    //----------------------------------------------------------------------------------------------------
+      //----------------------------------------------------------------------------------------------------
+      // For monthly payments, set the cycle day according to the submitting page or processor default
+      //----------------------------------------------------------------------------------------------------
 
-    $cycle_day = 0;
-
-    if(!empty($contributionPageId) &&
-      CRM_Utils_Type::validate($contributionPageId, 'Int', FALSE, ts('Contribution Page')))
-    {
-      $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
-      $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($contributionPageId, 'Int')));
-    } else {
-      $cd_sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
-      $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($this->_paymentProcessor['id'], 'Int')));
-    }
-
-    if(!$cycle_day)
       $cycle_day = 0;
 
-    CRM_Core_DAO::setFieldValue(
-      'CRM_Contribute_DAO_ContributionRecur',
-      $contributionRecurringId,
-      'cycle_day',
-      $cycle_day
-    );
+      if(!empty($contributionPageId) &&
+        CRM_Utils_Type::validate($contributionPageId, 'Int', FALSE, ts('Contribution Page')))
+      {
+        $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
+        $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($contributionPageId, 'Int')));
+      } else {
+        $cd_sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
+        $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($this->_paymentProcessor['id'], 'Int')));
+      }
 
-    //----------------------------------------------------------------------------------------------------
-    // AND we're done - this payment will staying in a pending state until it's processed
-    // by the cronjob
-    //----------------------------------------------------------------------------------------------------
+      if(!$cycle_day)
+        $cycle_day = 0;
+
+      if (($cd = $cycle_day) > 0 &&
+        $recurringContribution['frequency_unit'] == 'month'){
+        $d_now = new DateTime();
+        $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
+        $d_next->modify("+{$recurringContribution['frequency_interval']} " .
+          "{$recurringContribution['frequency_unit']}s");
+        $next_m = ($d_now->format('m') + $recurringContribution['frequency_interval'] - 1) % 12 + 1;
+        if ($next_m != $d_next->format('m')) {
+          $daysover = $d_next->format('d');
+          $d_next->modify("-{$daysover} days");
+        }
+        $next_sched = $d_next->format('Y-m-d 00:00:00');
+      } else {
+        $next_sched = date('Y-m-d 00:00:00',
+          strtotime("+{$recurringContribution['frequency_interval']} " .
+            "{$recurringContribution['frequency_unit']}s"));
+      }
+
+      $recurringContribution['next_sched_contribution_date'] = CRM_Utils_Date::isoToMysql ($next_sched);
+      $recurringContribution['cycle_day'] = $cycle_day;
+      $recurringContribution['processor_id'] = $customerTokenId;
+      $recurringContribution['create_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
+      $recurringContribution['contribution_status_id'] = _contribution_status_id('In Progress');
+
+      civicrm_api3('ContributionRecur', 'create', $recurringContribution);
+
+    } catch (CiviCRM_API3_Exception $e) {
+
+    }
   }
 
   /**
@@ -325,6 +348,41 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         // Now set the payment details - see https://eway.io/api-v3/#direct-connection
         //----------------------------------------------------------------------------------------------------
 
+
+        //----------------------------------------------------------------------------------------------------
+        // We use CiviCRM's param's 'invoiceID' as the unique transaction token to feed to eWAY
+        // Trouble is that eWAY only accepts 16 chars for the token, while CiviCRM's invoiceID is an 32.
+        // As its made from a "$invoiceID = md5(uniqid(rand(), true));" then using the first 12 chars
+        // should be alright
+        //----------------------------------------------------------------------------------------------------
+
+        $uniqueTrnxNum = substr($params['invoiceID'], 0, 12);
+        $invoiceDescription = $params['description'];
+        if ($invoiceDescription == '') {
+          $invoiceDescription = 'Invoice ID: ' . $params['invoiceID'];
+        }
+
+        $eWayTransaction = array(
+          'Customer' => $eWayCustomer,
+          'RedirectUrl' => $this->getReturnSuccessUrl($params['qfKey']),
+          'CancelUrl' => $this->getCancelUrl($params['qfKey'], ''),
+          'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
+          'Payment' => [
+            'TotalAmount' => $amountInCents,
+            'InvoiceNumber' => $uniqueTrnxNum,
+            'InvoiceDescription' => $invoiceDescription,
+            'InvoiceReference' => $params['invoiceID'],
+          ],
+          'CustomerIP' => $params['ip_address'],
+          'Capture' => TRUE,
+          'SaveCustomer' => TRUE,
+          'Options' => [
+            'ContributionID' => $params['contributionID'],
+          ],
+          'CustomerReadOnly' => TRUE,
+        );
+
+
         // Was the recurring payment check box checked?
         if (CRM_Utils_Array::value('is_recur', $params, false)) {
 
@@ -338,112 +396,44 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
               'contribution_status_id',
               _contribution_status_id('Pending')
             );
-
-            //----------------------------------------------------------------------------------------------------
-            // Hook to allow customer info to be changed before submitting it
-            //----------------------------------------------------------------------------------------------------
-
-            CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayCustomer );
-
-            try {
-
-              //----------------------------------------------------------------------------------------------------
-              // Create eWay Customer.
-              //----------------------------------------------------------------------------------------------------
-
-              $eWayCustomer['RedirectUrl'] = $this->getReturnSuccessUrl($params['qfKey']);
-              $eWayCustomer['CancelUrl'] = $this->getCancelUrl($params['qfKey'], '');
-              $eWayCustomer['CustomerReadOnly'] = TRUE;
-
-              $eWayCustomerResponse = $eWayClient->createCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayCustomer);
-
-              //----------------------------------------------------------------------------------------------------
-              // See if we got an OK result - if not tell 'em and bail out
-              //----------------------------------------------------------------------------------------------------
-
-              $transactionErrors = $this->getEWayResponseErrors($eWayCustomerResponse, TRUE);
-              if(count($transactionErrors)) {
-                return self::errorExit( 9008, implode("<br>", $transactionErrors));
-              }
-
-              CRM_Utils_System::redirect($eWayCustomerResponse->SharedPaymentUrl);
-
-              $managed_customer_id = $eWayCustomerResponse->getAttribute('Customer')->TokenCustomerID;
-            }
-            catch(Exception $e) {
-              return self::errorExit(9010, $e->getMessage());
-            }
-
         }
-        // This is a one off payment, most of this is lifted straight from the original code, so I wont document it.
-        else
-        {
-            //----------------------------------------------------------------------------------------------------
-            // We use CiviCRM's param's 'invoiceID' as the unique transaction token to feed to eWAY
-            // Trouble is that eWAY only accepts 16 chars for the token, while CiviCRM's invoiceID is an 32.
-            // As its made from a "$invoiceID = md5(uniqid(rand(), true));" then using the first 12 chars
-            // should be alright
-            //----------------------------------------------------------------------------------------------------
 
-            $uniqueTrnxNum = substr($params['invoiceID'], 0, 12);
+        //----------------------------------------------------------------------------------------------------
+        // Allow further manipulation of the arguments via custom hooks ..
+        //----------------------------------------------------------------------------------------------------
 
-            $eWayTransaction = array(
-              'Customer' => $eWayCustomer,
-              'RedirectUrl' => $this->getReturnSuccessUrl($params['qfKey']),
-              'CancelUrl' => $this->getCancelUrl($params['qfKey'], ''),
-              'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
-              'Payment' => [
-                'TotalAmount' => $amountInCents,
-                'InvoiceNumber' => $uniqueTrnxNum,
-                'InvoiceDescription' => $params['description'],
-                'InvoiceReference' => $params['invoiceID'],
-              ],
-              'CustomerIP' => $params['ip_address'],
-              'Capture' => TRUE,
-              'SaveCustomer' => TRUE,
-              'Options' => [
-                'ContributionID' => $params['contributionID'],
-              ],
-              'CustomerReadOnly' => TRUE,
-            );
+        CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayTransaction );
 
-            //----------------------------------------------------------------------------------------------------
-            // Allow further manipulation of the arguments via custom hooks ..
-            //----------------------------------------------------------------------------------------------------
+        //----------------------------------------------------------------------------------------------------
+        // Check to see if we have a duplicate before we send request.
+        //----------------------------------------------------------------------------------------------------
 
-            CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayTransaction );
-
-            //----------------------------------------------------------------------------------------------------
-            // Check to see if we have a duplicate before we send request.
-            //----------------------------------------------------------------------------------------------------
-
-            if (method_exists($this, 'checkDupe') ?
-                $this->checkDupe($params['invoiceID'], CRM_Utils_Array::value('contributionID', $params)) :
-                $this->_checkDupe($params['invoiceID'])
-            ) {
-                return self::errorExit(9003, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWAY.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.' );
-            }
-
-            $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
-
-            //----------------------------------------------------------------------------------------------------
-            // If null data returned - tell 'em and bail out
-            //----------------------------------------------------------------------------------------------------
-
-            if ( is_null($eWAYResponse) ) {
-                return self::errorExit( 9006, "Error: Connection to payment gateway failed - no data returned.");
-            }
-
-            //----------------------------------------------------------------------------------------------------
-            // See if we got an OK result - if not tell 'em and bail out
-            //----------------------------------------------------------------------------------------------------
-            $transactionErrors = $this->getEWayResponseErrors($eWAYResponse, TRUE);
-            if(count($transactionErrors)) {
-                return self::errorExit( 9008, implode("<br>", $transactionErrors));
-            }
-
-            CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
+        if (method_exists($this, 'checkDupe') ?
+          $this->checkDupe($params['invoiceID'], CRM_Utils_Array::value('contributionID', $params)) :
+          $this->_checkDupe($params['invoiceID'])
+        ) {
+          return self::errorExit(9003, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWAY.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.' );
         }
+
+        $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
+
+        //----------------------------------------------------------------------------------------------------
+        // If null data returned - tell 'em and bail out
+        //----------------------------------------------------------------------------------------------------
+
+        if ( is_null($eWAYResponse) ) {
+          return self::errorExit( 9006, "Error: Connection to payment gateway failed - no data returned.");
+        }
+
+        //----------------------------------------------------------------------------------------------------
+        // See if we got an OK result - if not tell 'em and bail out
+        //----------------------------------------------------------------------------------------------------
+        $transactionErrors = $this->getEWayResponseErrors($eWAYResponse, TRUE);
+        if(count($transactionErrors)) {
+          return self::errorExit( 9008, implode("<br>", $transactionErrors));
+        }
+
+        CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
 
         return $params;
     }
