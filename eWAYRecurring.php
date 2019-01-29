@@ -328,6 +328,9 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
   $upgrades = array();
 
   if ($op == 'check') {
+    if($schemaVersion < 6) {
+      CRM_Core_Session::setStatus(ts('Version 2.0.0 of the eWAYRecurring extension changes the method of authentication with eWAY. To upgrade you will need to enter a new API Key and Password.  For more details see <a href="%1">the upgrade notes.</a>', [1 => 'https://github.com/agileware/au.com.agileware.ewayrecurring/blob/2.0.0/UPGRADE.md#200']), ts('eWAYRecurring Action Required'));
+    }
     return array($schemaVersion < 6);
   } elseif ($op == 'enqueue') {
     if(NULL == $queue) {

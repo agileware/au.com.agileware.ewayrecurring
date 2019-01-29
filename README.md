@@ -1,36 +1,66 @@
 eWAY Recurring Payment Processor for CiviCRM
-------
+--------------------------------------------
 
-CiviCRM payment processor extension for [eWay](https://eway.com.au) which implements recurring payments using tokens. This method is essential for automating the process setting up recurring donations and memberships in your CiviCRM securely and reliably.
+CiviCRM payment processor extension for [eWAY](https://eway.com.au) which
+implements recurring payments using tokens. This method is essential for
+automating the process setting up recurring donations and memberships in your
+CiviCRM securely and reliably.
 
-This payment processor also allows you to specify a particular day of the month to process all recurring payments together.
+This payment processor also allows you to specify a particular day of the month
+to process all recurring payments together.
 
-You will need to have a [eWay account](https://eway.com.au) to use this payment processor on your CiviCRM website.
+You will need to have a [eWAY account](https://eway.com.au) to use this payment
+processor on your CiviCRM website.
 
-This extension currently utilises the eWay token API which has been deprecated by eWay. [eWay Rapid API](https://www.eway.com.au/features/api-rapid-api/) support is currently available for testing in the [rapidapi branch](https://github.com/agileware/au.com.agileware.ewayrecurring/archive/rapidapi.zip).
-
-Support for the eWay token API will be dropped once eWay Rapid API integration is stable. The extension upgrade will transition to the new API.
+This extension previously utilised the eWAY token API which has been deprecated
+by eWAY.  [eWAY Rapid API](https://www.eway.com.au/features/api-rapid-api/) is
+now used with the Responsive Shared Page method, reducing the level of PCI DSS
+compliance required on your site.
 
 Installation
-------
+------------
 
-1. Download the [latest version of this extension](https://github.com/agileware/au.com.agileware.ewayrecurring/archive/master.zip)
-1. Unzip in the CiviCRM extension directory, as defined in "System Settings / Directories'.
-1. Go to "Administer / System Settings / Extensions" and enable the "eWAY Recurring Payment Processor (au.com.agileware.ewayrecurring)" extension.
-1. Configure the payment processor with your eWay API token and password as obtained from your (eWay Account](https://go.eway.io)
+1. Download the [latest version of this
+   extension](https://github.com/agileware/au.com.agileware.ewayrecurring/archive/master.zip)
+2. Extract in your CiviCRM extensions directory, as defined in "System Settings /
+   Directories".
+3. Go to "Administer / System Settings / Extensions" and enable the "eWAY
+   Recurring Payment Processor (au.com.agileware.ewayrecurring)" extension.
+4. Configure the payment processor with your eWAY API Key and Password as
+   obtained from your [eWAY Account](https://go.eway.io). eWAY provides 
+   [step by step instructions](https://go.eway.io/s/article/How-do-I-setup-my-Live-eWAY-API-Key-and-Password)
+   for generating these details.
+
+
+Upgrading from 1.x
+------------------
+
+The 2.0.0 version introduces use of the eWAY RapidAPI 3.1, which requires a
+different method of authentication with eWAY from that used in the 1.x series.
+
+You will need to Download and extract the extension as usual, and after running
+the Extensions upgrades, you will need to [generate an API Key and
+Password](https://go.way.io/s/article/How-do-I-setup-my-Live-eWAY-API-Key-and-Password)
+as above and update these details in your Payment Processor settings.
+
+Once your authentication details are updated, existing recurring payments will
+continue to operate as usual.
 
 Sponsorship
-------
+-----------
 
-Initial development of this CiviCRM extension for recurring functionality and token payments was kindly sponsored by Stephen Garrett of
-[Good Reason](http://www.goodreason.com.au).
+Initial development of this CiviCRM extension for recurring functionality and
+token payments was kindly sponsored by Stephen Garrett of [Good
+Reason](http://www.goodreason.com.au).
 
 About the Authors
-------
+-----------------
 
-This CiviCRM extension was developed by the team at [Agileware](https://agileware.com.au).
+This CiviCRM extension was developed by the team at
+[Agileware](https://agileware.com.au).
 
-[Agileware](https://agileware.com.au) provide a range of CiviCRM services including:
+[Agileware](https://agileware.com.au) provide a range of CiviCRM services
+including:
 
   * CiviCRM migration
   * CiviCRM integration
@@ -39,7 +69,8 @@ This CiviCRM extension was developed by the team at [Agileware](https://agilewar
   * CiviCRM hosting
   * CiviCRM remote training services
 
-Support your Australian [CiviCRM](https://civicrm.org) developers, [contact Agileware](https://agileware.com.au/contact) today!
+Support your Australian [CiviCRM](https://civicrm.org) developers, [contact
+Agileware](https://agileware.com.au/contact) today!
 
 
-![Agileware](logo/agileware-logo.png)  
+![Agileware](logo/agileware-logo.png)
