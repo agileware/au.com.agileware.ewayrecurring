@@ -370,7 +370,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
           'Payment' => [
             'TotalAmount' => $amountInCents,
             'InvoiceNumber' => $uniqueTrnxNum,
-            'InvoiceDescription' => $invoiceDescription,
+            'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
             'InvoiceReference' => $params['invoiceID'],
           ],
           'CustomerIP' => $params['ip_address'],

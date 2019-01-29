@@ -343,7 +343,7 @@ function process_eway_payment($eWayClient, $managed_customer_id, $amount_in_cent
     ],
     'Payment' => [
       'TotalAmount' => $amount_in_cents,
-      'InvoiceDescription' => $invoice_description,
+      'InvoiceDescription' => substr(trim($invoice_description), 0, 64),
       'InvoiceReference' => $invoice_reference,
     ],
     'TransactionType' => \Eway\Rapid\Enum\TransactionType::RECURRING,
