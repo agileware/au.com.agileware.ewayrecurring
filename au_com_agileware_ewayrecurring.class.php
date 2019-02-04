@@ -141,32 +141,58 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param $eWayAccessCode
    * @param $contributionID
    */
-  function validateContribution($eWayAccessCode, $contribution) {
+  function validateContribution($eWayAccessCode, $contribution, $qfKey) {
     $contributionID = $contribution['id'];
     $isRecurring = (isset($contribution['contribution_recur_id']) && $contribution['contribution_recur_id'] != '') ? TRUE: FALSE;
 
     $eWayClient = $this->getEWayClient();
     $transactionResponse = $eWayClient->queryTransaction($eWayAccessCode);
-    $contributionStatus = 'Failed';
+    $this->_is_test = $contribution['is_test'];
+
+    $hasTransactionFailed = FALSE;
+    $transactionResponseError = "";
 
     if ($transactionResponse) {
-      $transactionResponse = $transactionResponse->Transactions[0];
+      $responseErrors = $transactionResponse->getErrors();
 
-      if ($transactionResponse->TransactionStatus) {
-        $contributionStatus = 'Completed';
+      if (count($responseErrors)) {
+        $transactionErrors = array();
+        foreach ($responseErrors as $responseError) {
+          $errorMessage = \Eway\Rapid::getMessage($responseError);
+          $transactionErrors[] = $errorMessage;
+        }
+
+        $hasTransactionFailed = TRUE;
+        $transactionResponseError = implode(",", $transactionErrors);
+      }
+      else {
+        $transactionResponse = $transactionResponse->Transactions[0];
       }
 
-      if ($isRecurring) {
-        $customerTokenID = $transactionResponse->TokenCustomerID;
-        $this->updateRecurringContribution($contribution, $customerTokenID);
-      }
+      if (!$hasTransactionFailed) {
+        if ($isRecurring) {
+          $customerTokenID = $transactionResponse->TokenCustomerID;
+          $this->updateRecurringContribution($contribution, $customerTokenID);
+        }
 
+        civicrm_api3('Contribution', 'completetransaction', array(
+          'id' => $contributionID,
+        ));
+      }
+    }
+    else {
+      $hasTransactionFailed = TRUE;
+      $transactionResponseError = 'Sorry, Your payment was declined. Extension error code: 1001';
     }
 
-    civicrm_api3('Contribution', 'completetransaction', array(
-      'id' => $contributionID,
-    ));
-    
+    if ($hasTransactionFailed) {
+      if ($transactionResponseError != '') {
+        CRM_Core_Session::setStatus(ts($transactionResponseError, ts('Error'), 'error'));
+      }
+      $failUrl = $this->getReturnFailUrl($qfKey);
+      CRM_Utils_System::redirect($failUrl);
+    }
+
   }
 
   /**

@@ -285,7 +285,7 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
        'sequential' => 1,
        'invoice_id' => $invoiceID,
        'sequential' => TRUE,
-       'return'     => array('contribution_page_id', 'contribution_recur_id'),
+       'return'     => array('contribution_page_id', 'contribution_recur_id', 'is_test'),
        'is_test'    => ($paymentProcessor->_mode == 'test') ? 1 : 0,
      ]);
 
@@ -295,7 +295,8 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
 
        $contribution = $contribution['values'][0];
        $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
-       $paymentProcessor->validateContribution($eWayAccessCode, $contribution);
+       $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
+       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey);
      }
    }
 
