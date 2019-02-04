@@ -163,21 +163,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
     }
 
-    CRM_Core_DAO::setFieldValue(
-      'CRM_Contribute_DAO_Contribution',
-      $contributionID,
-      'contribution_status_id',
-      _contribution_status_id($contributionStatus)
-    );
-
-    if ($isRecurring) {
-      CRM_Core_DAO::setFieldValue(
-        'CRM_Contribute_DAO_ContributionRecur',
-        $contributionID,
-        'contribution_status_id',
-        _contribution_status_id($contributionStatus)
-      );
-    }
+    civicrm_api3('Contribution', 'completetransaction', array(
+      'id' => $contributionID,
+    ));
+    
   }
 
   /**
