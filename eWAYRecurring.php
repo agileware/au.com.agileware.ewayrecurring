@@ -296,7 +296,7 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
        $contribution = $contribution['values'][0];
        $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
        $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
-       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey);
+       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
      }
    }
 

@@ -141,7 +141,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param $eWayAccessCode
    * @param $contributionID
    */
-  function validateContribution($eWayAccessCode, $contribution, $qfKey) {
+  function validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor) {
     $contributionID = $contribution['id'];
     $isRecurring = (isset($contribution['contribution_recur_id']) && $contribution['contribution_recur_id'] != '') ? TRUE: FALSE;
 
@@ -176,7 +176,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         }
 
         civicrm_api3('Contribution', 'completetransaction', array(
-          'id' => $contributionID,
+          'id'                   => $contributionID,
+          'payment_processor_id' => $paymentProcessor['id'],
         ));
       }
     }
@@ -315,17 +316,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    */
   function getEWayResponseErrors($eWAYResponse, $createCustomerRequest = FALSE) {
     $transactionErrors = array();
-    if (  !$eWAYResponse->getAttribute('TransactionStatus') ) {
-      if (count($eWAYResponse->getErrors())) {
-          foreach ($eWAYResponse->getErrors() as $error) {
-              $errorMessage = \Eway\Rapid::getMessage($error);
-              CRM_Core_Error::debug_var('eWay Error', $errorMessage, TRUE, TRUE);
-              $transactionErrors[] = $errorMessage;
-          }
-
-      } else if(!$createCustomerRequest) {
-          $transactionErrors[] = 'Sorry, Your payment was declined.';
+    
+    if (count($eWAYResponse->getErrors())) {
+      foreach ($eWAYResponse->getErrors() as $error) {
+        $errorMessage = \Eway\Rapid::getMessage($error);
+        CRM_Core_Error::debug_var('eWay Error', $errorMessage, TRUE, TRUE);
+        $transactionErrors[] = $errorMessage;
       }
+
+    } else if(!$createCustomerRequest) {
+      $transactionErrors[] = 'Sorry, Your payment was declined.';
     }
 
     return $transactionErrors;
