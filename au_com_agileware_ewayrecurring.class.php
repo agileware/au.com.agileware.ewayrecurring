@@ -167,6 +167,14 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
       }
       else {
         $transactionResponse = $transactionResponse->Transactions[0];
+
+        if(!$transactionResponse->TransactionStatus) {
+          $hasTransactionFailed = TRUE;
+
+          $transactionMessages = implode(', ', array_map('\Eway\Rapid::getMessage', explode(', ', $transactionResponse->ResponseMessage)));
+
+          $transactionResponseError = 'Your payment was declined: ' . $transactionMessages;
+        }
       }
 
       if (!$hasTransactionFailed) {
@@ -188,7 +196,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
     if ($hasTransactionFailed) {
       if ($transactionResponseError != '') {
-        CRM_Core_Session::setStatus(ts($transactionResponseError, ts('Error'), 'error'));
+        CRM_Core_Session::setStatus($transactionResponseError, ts('Error'), 'error');
       }
       $failUrl = $this->getReturnFailUrl($qfKey);
       CRM_Utils_System::redirect($failUrl);
@@ -316,15 +324,14 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    */
   function getEWayResponseErrors($eWAYResponse, $createCustomerRequest = FALSE) {
     $transactionErrors = array();
-    
+
     if (count($eWAYResponse->getErrors())) {
       foreach ($eWAYResponse->getErrors() as $error) {
         $errorMessage = \Eway\Rapid::getMessage($error);
         CRM_Core_Error::debug_var('eWay Error', $errorMessage, TRUE, TRUE);
         $transactionErrors[] = $errorMessage;
       }
-
-    } else if(!$createCustomerRequest) {
+    } elseif(!$createCustomerRequest) {
       $transactionErrors[] = 'Sorry, Your payment was declined.';
     }
 
