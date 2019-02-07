@@ -395,7 +395,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
             'InvoiceReference' => $params['invoiceID'],
           ],
-          'CustomerIP' => $params['ip_address'],
+          'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
           'Capture' => TRUE,
           'SaveCustomer' => TRUE,
           'Options' => [
