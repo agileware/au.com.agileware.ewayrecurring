@@ -246,7 +246,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
        'class_name' => 'au.com.agileware.ewayrecurring',
        'user_name_label' => 'API Key',
        'password_label' => 'API Password',
-       'billing_mode' => 'special',
+       'billing_mode' => 'form',
        'is_recur' => '1',
        'payment_type' => '1',
      ),
@@ -266,6 +266,22 @@ function ewayrecurring_civicrm_managed(&$entities) {
        'parameters' => "processor_name=eWay_Recurring",
        'is_active' => '0'
      ),
+   );
+   $entities[] = array(
+      'module' => 'au.com.agileware.ewayrecurring',
+      'name' => 'eWay_Transaction_Verification_cron',
+      'entity' => 'Job',
+      'update' => 'never', // Ensure local changes are kept, eg. setting the job active
+      'params' => array (
+        'version' => 3,
+        'run_frequency' => 'Always',
+        'name' => 'eWAY Transaction Verifications',
+        'description' => 'Process pending transaction verifications in the eWay_Recurring processor',
+        'api_entity' => 'EwayContributionTransactions',
+        'api_action' => 'validate',
+        'parameters' => "",
+        'is_active' => '1'
+      ),
    );
 }
 
@@ -296,7 +312,9 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
        $contribution = $contribution['values'][0];
        $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
        $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
-       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
+       $paymentProcessorId = $paymentProcessor->getPaymentProcessor();
+       $paymentProcessorId = $paymentProcessorId['id'];
+       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessorId);
      }
    }
 
@@ -313,6 +331,15 @@ function ewayrecurring_civicrm_postInstall() {
   // Also add database related CREATE queries.
   CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
   CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+  CRM_Core_DAO::executeQuery("UPDATE `civicrm_payment_processor_type` SET billing_mode = 3 WHERE name = 'eWay_Recurring'");
+
+  $files = glob(__DIR__ . '/sql/*_install.sql');
+  if (is_array($files)) {
+    foreach ($files as $file) {
+      CRM_Utils_File::sourceSQLFile(CIVICRM_DSN, $file);
+    }
+  }
+
 }
 
 function ewayrecurring_civicrm_uninstall() {
@@ -321,6 +348,13 @@ function ewayrecurring_civicrm_uninstall() {
 
   foreach($drops as $st) {
     CRM_Core_DAO::executeQuery($st, array());
+  }
+
+  $files = glob($this->extensionDir . '/sql/*_uninstall.sql');
+  if (is_array($files)) {
+    foreach ($files as $file) {
+      CRM_Utils_File::sourceSQLFile(CIVICRM_DSN, $file);
+    }
   }
 }
 
@@ -398,4 +432,15 @@ function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st,
 /* Because we can't rely on PHP having anonymous functions. */
 function _ewayrecurring_get_pp_id($processor) {
   return $processor['id'];
+}
+
+/**
+ * Implements hook_civicrm_apiWrappers().
+ */
+function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
+  $entityTypes[] = array(
+    'name'  => 'EwayContributionTransactions',
+    'class' => 'CRM_eWAYRecurring_DAO_EwayContributionTransactions',
+    'table' => 'civicrm_eway_contribution_transactions',
+  );
 }
