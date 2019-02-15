@@ -141,9 +141,9 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param $eWayAccessCode
    * @param $contributionID
    */
-  function validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessorId) {
+  function validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor) {
     $this->_is_test = $contribution['is_test'];
-    $response = CRM_eWAYRecurring_eWAYRecurringUtils::validateContribution($eWayAccessCode, $contribution, $paymentProcessorId, FALSE);
+    $response = CRM_eWAYRecurring_eWAYRecurringUtils::validateContribution($eWayAccessCode, $contribution, $paymentProcessor, FALSE);
 
     $hasTransactionFailed = $response['hasTransactionFailed'];
     $transactionResponseError = $response['transactionResponseError'];
