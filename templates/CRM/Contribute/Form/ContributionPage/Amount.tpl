@@ -392,3 +392,5 @@ return false;
 </script>
 {/literal}
 {/if}
+{crmRegion name="contribute-form-contributionpage-amount-post"}
+{/crmRegion}
