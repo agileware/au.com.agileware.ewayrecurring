@@ -185,6 +185,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
         civicrm_api3('Contribution', 'completetransaction', array(
           'id'                   => $contributionID,
+          'trxn_id'              => $transactionResponse->TransactionID,
           'payment_processor_id' => $paymentProcessor['id'],
         ));
       }
