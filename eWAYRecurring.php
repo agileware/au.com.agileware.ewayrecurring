@@ -278,28 +278,44 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
    $paymentProcessor = $form->getVar('_paymentProcessor');
    $paymentProcessor = $paymentProcessor['object'];
+   validateEwayContribution($paymentProcessor, $form->_params['invoiceID']);
+  }
+}
 
-   if ($paymentProcessor instanceof au_com_agileware_ewayrecurring) {
-     $invoiceID = $form->_params['invoiceID'];
-     $contribution = civicrm_api3('Contribution', 'get', [
-       'sequential' => 1,
-       'invoice_id' => $invoiceID,
-       'sequential' => TRUE,
-       'return'     => array('contribution_page_id', 'contribution_recur_id', 'is_test'),
-       'is_test'    => ($paymentProcessor->_mode == 'test') ? 1 : 0,
-     ]);
+/**
+ * Validate eWAY contribution by AccessCode, Invoice ID and Payment Processor.
+ *
+ * @param $paymentProcessor
+ * @param $invoiceID
+ * @return array|null
+ * @throws CRM_Core_Exception
+ * @throws CiviCRM_API3_Exception
+ */
+function validateEwayContribution($paymentProcessor, $invoiceID) {
+  if ($paymentProcessor instanceof au_com_agileware_ewayrecurring) {
+    $contribution = civicrm_api3('Contribution', 'get', [
+      'sequential' => 1,
+      'invoice_id' => $invoiceID,
+      'sequential' => TRUE,
+      'return'     => array('contribution_page_id', 'contribution_recur_id', 'is_test'),
+      'is_test'    => ($paymentProcessor->_mode == 'test') ? 1 : 0,
+    ]);
 
-     if (count($contribution['values']) > 0) {
-       // Include eWay SDK.
-       require_once 'vendor/autoload.php';
+    if (count($contribution['values']) > 0) {
+      // Include eWay SDK.
+      require_once 'vendor/autoload.php';
 
-       $contribution = $contribution['values'][0];
-       $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
-       $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
-       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
-     }
-   }
+      $contribution = $contribution['values'][0];
+      $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
+      $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
 
+      $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
+
+      return array(
+        'contribution' => $contribution,
+      );
+    }
+    return NULL;
   }
 }
 
@@ -399,4 +415,43 @@ function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st,
 /* Because we can't rely on PHP having anonymous functions. */
 function _ewayrecurring_get_pp_id($processor) {
   return $processor['id'];
+}
+
+/**
+ * Disable AJAX for contribution tab.
+ * @param $pattern
+ * @return array|false
+ */
+function ewayrecurring_civicrm_tabset($tabsetName, &$tabs, $context) {
+  if ($tabsetName == 'civicrm/contact/view') {
+    foreach ($tabs as $index => $tab) {
+      if ($tab['id'] == 'contribute') {
+        $tabs[$index]['class'] = str_replace('livePage', '', $tabs[$index]['class']);
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * (Delegated) Implements hook_civicrm_xmlMenu().
+ *
+ * @param $files array(string)
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_xmlMenu
+ */
+function ewayrecurring_civicrm_xmlMenu(&$files) {
+  foreach (_ewayrecurring_civix_glob(__DIR__ . '/xml/Menu/*.xml') as $file) {
+    $files[] = $file;
+  }
+}
+
+/**
+ * Check the glob.
+ * @param $pattern
+ * @return array|false
+ */
+function _ewayrecurring_civix_glob($pattern) {
+  $result = glob($pattern);
+  return is_array($result) ? $result : array();
 }

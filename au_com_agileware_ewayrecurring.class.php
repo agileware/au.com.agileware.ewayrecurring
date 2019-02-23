@@ -387,8 +387,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
         $eWayTransaction = array(
           'Customer' => $eWayCustomer,
-          'RedirectUrl' => $this->getReturnSuccessUrl($params['qfKey']),
-          'CancelUrl' => $this->getCancelUrl($params['qfKey'], ''),
+          'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params),
+          'CancelUrl' => $this->getCancelPaymentReturnUrl($params),
           'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
           'Payment' => [
             'TotalAmount' => $amountInCents,
@@ -459,6 +459,53 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
 
         return $params;
+    }
+
+  /**
+   * Check if submitting the payment from contribution page.
+   * @param $params
+   * @return bool
+   */
+    function isFromContributionPage($params) {
+      return (isset($params['contributionPageID']) && !empty($params['contributionPageID']));
+    }
+
+  /**
+   * Get cancel payment return URL.
+   *
+   * @param $params
+   * @return string
+   */
+    function getCancelPaymentReturnUrl($params) {
+      if ($this->isFromContributionPage($params)) {
+        return $this->getCancelUrl($params['qfKey'], '');
+      }
+
+      return CRM_Utils_System::url('civicrm/contact/view/contribution', array(
+        'action'      => 'add',
+        'cid'         => $params['contactID'],
+        'context'     => 'contribution',
+        'mode'        => 'live',
+      ), TRUE, NULL, FALSE);
+    }
+
+  /**
+   * Get successful payment return URL.
+   *
+   * @param $params
+   * @return string
+   */
+
+    function getSuccessfulPaymentReturnUrl($params) {
+      if ($this->isFromContributionPage($params)) {
+        return $this->getReturnSuccessUrl($params['qfKey']);
+      }
+
+      return CRM_Utils_System::url('civicrm/ewayrecurring/verifypayment', array(
+        'contributionInvoiceID' => $params['invoiceID'],
+        'qfKey'                 => $params['qfKey'],
+        'paymentProcessorID'    => ($this->getPaymentProcessor())['id'],
+      ), TRUE, NULL, FALSE);
     }
 
     /**
