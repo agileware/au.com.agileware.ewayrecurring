@@ -75,7 +75,7 @@ require_once 'CRM/Core/Payment.php';
 require_once 'eWAYRecurring.process.inc';
 
 // Include eWay SDK.
-require_once __DIR__ . '/vendor/autoload.php';
+require_once extensionPath('vendor/autoload.php');
 
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 {

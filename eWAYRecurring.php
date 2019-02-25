@@ -303,7 +303,7 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
 
     if (count($contribution['values']) > 0) {
       // Include eWay SDK.
-      require_once 'vendor/autoload.php';
+      require_once extensionPath('vendor/autoload.php');
 
       $contribution = $contribution['values'][0];
       $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
@@ -454,4 +454,19 @@ function ewayrecurring_civicrm_xmlMenu(&$files) {
 function _ewayrecurring_civix_glob($pattern) {
   $result = glob($pattern);
   return is_array($result) ? $result : array();
+}
+
+/**
+ * Get the path of a resource file (in this extension).
+ *
+ * @param string|NULL $file
+ *   Ex: NULL.
+ *   Ex: 'css/foo.css'.
+ * @return string
+ *   Ex: '/var/www/example.org/sites/default/ext/org.example.foo'.
+ *   Ex: '/var/www/example.org/sites/default/ext/org.example.foo/css/foo.css'.
+ */
+function extensionPath($file = NULL) {
+  // return CRM_Core_Resources::singleton()->getPath(self::LONG_NAME, $file);
+  return __DIR__ . ($file === NULL ? '' : (DIRECTORY_SEPARATOR . $file));
 }
