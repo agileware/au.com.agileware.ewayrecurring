@@ -388,7 +388,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       $queue->createItem(
           new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
             6,
-            "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password' WHERE name = 'eWay_Recurring'"
+            "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password', billing_mode = 3 WHERE name = 'eWay_Recurring'"
           ),
             'Perform Rapid API related changes'
           )
