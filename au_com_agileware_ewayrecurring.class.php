@@ -285,6 +285,27 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
     return array();
   }
 
+ /**
+  * Get default billing fields
+  *
+  * @param null $billingLocationID
+  * @return array
+  */
+ function getBillingAddressFields($billingLocationID = NULL)
+ {
+   $billingLocationID = CRM_Core_BAO_LocationType::getBilling();
+   return array(
+     'first_name' => 'billing_first_name',
+     'middle_name' => 'billing_middle_name',
+     'last_name' => 'billing_last_name',
+     'street_address' => "billing_street_address-{$billingLocationID}",
+     'city' => "billing_city-{$billingLocationID}",
+     'country' => "billing_country_id-{$billingLocationID}",
+     'state_province' => "billing_state_province_id-{$billingLocationID}",
+     'postal_code' => "billing_postal_code-{$billingLocationID}",
+   );
+ }
+
   /**
    * Form customer details array from given params.
    *
@@ -339,11 +360,15 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
     return $transactionErrors;
   }
 
-    /**
-     * This function sends request and receives response from
-     * eWAY payment process
-     */
-    function doDirectPayment( &$params )
+  /**
+   * This function redirects to the eWAY and store the payment response.
+   *
+   * @param $params
+   * @param $component
+   * @return object
+   * @throws Exception
+   */
+    function doTransferCheckout( &$params, $component )
     {
         if ( ! defined( 'CURLOPT_SSLCERT' ) ) {
             CRM_Core_Error::fatal( ts( 'eWAY - Gateway requires curl with SSL support' ) );
