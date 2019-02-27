@@ -151,8 +151,14 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
     $hasTransactionFailed = FALSE;
     $transactionResponseError = "";
+    $transactionID = "";
 
     if ($transactionResponse) {
+
+      if (isset($transactionResponse->Transactions) && count($transactionResponse->Transactions) > 0) {
+        $transactionID = $transactionResponse->Transactions[0]->TransactionID;
+      }
+
       $responseErrors = $transactionResponse->getErrors();
 
       if (count($responseErrors)) {
@@ -185,7 +191,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
         civicrm_api3('Contribution', 'completetransaction', array(
           'id'                   => $contributionID,
-          'trxn_id'              => $transactionResponse->TransactionID,
+          'trxn_id'              => $transactionID,
           'payment_processor_id' => $paymentProcessor['id'],
         ));
       }
@@ -196,6 +202,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
     }
 
     if ($hasTransactionFailed) {
+      civicrm_api3('Contribution', 'create', array(
+        'id'                      => $contributionID,
+        'contribution_status_id'  => _contribution_status_id('Failed'),
+        'trxn_id'                 => $transactionID,
+      ));
+
       if ($transactionResponseError != '') {
         CRM_Core_Session::setStatus($transactionResponseError, ts('Error'), 'error');
       }
