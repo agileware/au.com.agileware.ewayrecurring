@@ -383,7 +383,9 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
             $eWAYRequest->CustomerIPAddress (CRM_Utils_System::ipAddress());
 
-            $isoCountryCode = CRM_Core_PseudoConstant::getName('CRM_Core_BAO_Address', 'country_id', $params['country_id']);
+            // Set the country code directly if given, or fetch from Address BAO
+            // if passed by ID (e.g. webform_civicrm);
+            @$isoCountryCode = $params['country'] ?: CRM_Core_PseudoConstant::getName('CRM_Core_BAO_Address', 'country_id', $params['country_id']);
             $eWAYRequest->CustomerBillingCountry($isoCountryCode);
 
             // Allow further manipulation of the arguments via custom hooks ..
