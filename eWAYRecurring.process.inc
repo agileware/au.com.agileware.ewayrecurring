@@ -161,7 +161,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $contributionSource = $precedent->source;
         $contributionPageId = $precedent->contribution_page_id;
         $contributionIsTest = $precedent->is_test;
-        echo "2";
       }
 
       try {

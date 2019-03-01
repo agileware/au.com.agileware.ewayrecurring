@@ -369,7 +369,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param Eway\Rapid\Model\Response\AbstractResponse $eWAYResponse
    * @return array
    */
-  function getEWayResponseErrors($eWAYResponse, $createCustomerRequest = FALSE) {
+  function getEWayResponseErrors($eWAYResponse) {
     $transactionErrors = array();
 
     if (count($eWAYResponse->getErrors())) {
@@ -378,8 +378,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         CRM_Core_Error::debug_var('eWay Error', $errorMessage, TRUE, TRUE);
         $transactionErrors[] = $errorMessage;
       }
-    } elseif(!$createCustomerRequest) {
-      $transactionErrors[] = 'Sorry, Your payment was declined.';
     }
 
     return $transactionErrors;
@@ -497,7 +495,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         //----------------------------------------------------------------------------------------------------
         // See if we got an OK result - if not tell 'em and bail out
         //----------------------------------------------------------------------------------------------------
-        $transactionErrors = $this->getEWayResponseErrors($eWAYResponse, TRUE);
+        $transactionErrors = $this->getEWayResponseErrors($eWAYResponse);
         if(count($transactionErrors)) {
           return self::errorExit( 9008, implode("<br>", $transactionErrors));
         }
@@ -739,7 +737,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         //----------------------------------------------------------------------------------------------------
         // See if we got an OK result - if not tell 'em and bail out
         //----------------------------------------------------------------------------------------------------
-        $transactionErrors = $this->getEWayResponseErrors($eWayCustomerResponse, TRUE);
+        $transactionErrors = $this->getEWayResponseErrors($eWayCustomerResponse);
         if(count($transactionErrors)) {
           return self::errorExit( 9008, implode("<br>", $transactionErrors));
         }
