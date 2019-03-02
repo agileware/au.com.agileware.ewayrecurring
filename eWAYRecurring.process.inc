@@ -62,10 +62,15 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     }
 
     /* Get the number of Contributions already recorded for this Schedule. */
-    $ccount = civicrm_api3('Contribution', 'getcount', array(
+    $mainContributions = civicrm_api3('Contribution', 'get', array(
                 'options' => array('limit' => 0),
+                'sequential' => 1,
+                'return'     => array('total_amount', 'tax_amount'),
                 'contribution_recur_id' => $contribution->id,
               ));
+
+    $mainContributions = $mainContributions['values'];
+    $ccount = count($mainContributions);
 
     /* Schedule next contribution */
     if (($contribution->installments <= 0) || ($contribution->installments > $ccount + 1)) {
@@ -128,12 +133,13 @@ function process_recurring_payments($payment_processor, $paymentObject) {
           CRM_Utils_Date::isoToMysql ($d_now) );
       }
 
+      $mainContributions = $mainContributions[0];
       $new_contribution_record = array();
 
       // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
       $new_contribution_record['contact_id'] = $contribution->contact_id;
       $new_contribution_record['receive_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
-      $new_contribution_record['total_amount'] = $contribution->amount;
+      $new_contribution_record['total_amount'] = ($contribution->amount - $mainContributions['tax_amount']);
       $new_contribution_record['contribution_recur_id'] = $contribution->id;
       $new_contribution_record['payment_instrument_id'] = $contribution->payment_instrument_id;
       $new_contribution_record['address_id'] = $billing_address['id'];
