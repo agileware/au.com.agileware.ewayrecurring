@@ -202,6 +202,9 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
           'payment_processor_id' => $paymentProcessor['id'],
         ));
       }
+      else {
+        $this->deleteRecurringContribution($contribution);
+      }
     }
     else {
       $hasTransactionFailed = TRUE;
@@ -222,6 +225,23 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
       CRM_Utils_System::redirect($failUrl);
     }
 
+  }
+
+  /**
+   * Delete recurring contribution if transaction failed.
+   *
+   * @param $contribution
+   */
+  function deleteRecurringContribution($contribution) {
+    $contributionRecurringId = $contribution['contribution_recur_id'];
+    try {
+      civicrm_api3('ContributionRecur', 'delete', array(
+        'id' => $contributionRecurringId,
+      ));
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      // Recurring contribution not found. Skip!
+    }
   }
 
   /**
