@@ -392,12 +392,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
   function getEWayResponseErrors($eWAYResponse) {
     $transactionErrors = array();
 
-    if (count($eWAYResponse->getErrors())) {
-      foreach ($eWAYResponse->getErrors() as $error) {
-        $errorMessage = \Eway\Rapid::getMessage($error);
-        CRM_Core_Error::debug_var('eWay Error', $errorMessage, TRUE, TRUE);
-        $transactionErrors[] = $errorMessage;
-      }
+    $eway_errors = $eWAYResponse->getErrors();
+    foreach ($eway_errors as $error) {
+      $errorMessage = \Eway\Rapid::getMessage($error);
+      $transactionErrors[] = $errorMessage;
     }
 
     return $transactionErrors;

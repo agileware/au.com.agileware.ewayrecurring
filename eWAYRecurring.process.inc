@@ -205,15 +205,21 @@ function process_recurring_payments($payment_processor, $paymentObject) {
                                        ":\n" . $contributionSource : '')
 				     );
 
-      CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-        $contribution->id, 'failure_count', 0);
-
       $new_contribution_record['trxn_id'] = $eWayResponse->getAttribute('TransactionID');
 
       $responseErrors = $paymentObject->getEWayResponseErrors($eWayResponse);
+
+      if (!$eWayResponse->TransactionStatus) {
+        $responseMessages = array_map('\Eway\Rapid::getMessage', explode(', ', $eWayResponse->ResponseMessage));
+        $responseErrors = array_merge($responseMessages, $responseErrors);
+      }
+
       if (count($responseErrors)) {
         // Mark transaction as failed
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
+
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
+          $contribution->id, 'failure_count', ++$contribution->failure_count);
       }
       else {
         // $log->log("Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
@@ -221,6 +227,9 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
         // send_receipt_email($new_contribution_record->id);
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Completed');
+
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
+          $contribution->id, 'failure_count', 0);
       }
 
       $repeated = civicrm_api3('Contribution', 'repeattransaction', array(
