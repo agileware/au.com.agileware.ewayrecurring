@@ -220,11 +220,19 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
         // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
         // send_receipt_email($new_contribution_record->id);
+        $new_contribution_record['contribution_status_id'] = _contribution_status_id('Completed');
       }
 
-      $created = civicrm_api3('Contribution', 'create', $new_contribution_record);
+      $repeated = civicrm_api3('Contribution', 'repeattransaction', array(
+        'contribution_recur_id' => $contribution->id,
+        'contribution_status_id' => $new_contribution_record['contribution_status_id'],
+        ));
 
-      $new_contribution_record = reset($created['values']);
+      $new_contribution_record['id'] = $repeated['id'];
+
+      $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
+
+      $new_contribution_record = reset($updated['values']);
 
       if(count($responseErrors)){
         $note = new CRM_Core_BAO_Note();
@@ -249,9 +257,9 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
       // Record a failed contribution in this case.
       $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
-      $created = civicrm_api3('Contribution', 'create', $new_contribution_record);
+      $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
 
-      $new_contribution_record = reset($created['values']);
+      $new_contribution_record = reset($updated['values']);
 
       if(isset($responseErrors) && count($responseErrors)){
         $note = new CRM_Core_BAO_Note();
