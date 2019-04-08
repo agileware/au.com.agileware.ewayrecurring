@@ -6,4 +6,10 @@
     <title>VerifyPayment</title>
     <access_arguments>access CiviCRM</access_arguments>
   </item>
+  <item>
+    <path>civicrm/ewayrecurring/settings</path>
+    <page_callback>CRM_eWAYRecurring_Form_Settings</page_callback>
+    <title>eWay Recurring Contributions Settings</title>
+    <access_arguments>administer CiviCRM</access_arguments>
+  </item>
 </menu>

@@ -23,8 +23,6 @@
  +--------------------------------------------------------------------+
 */
 
-define('CONTRIBUTION_FAILURE_THRESHOLD', 3);
-
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
@@ -43,6 +41,9 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
   // Process today's scheduled contributions.
   $scheduled_contributions = get_scheduled_contributions($payment_processor);
+  $scheduled_failed_contributions = get_scheduled_failed_contributions($payment_processor);
+
+  $scheduled_contributions = array_merge($scheduled_failed_contributions, $scheduled_contributions);
 
   $log->log("Processing " . count($scheduled_contributions) . " scheduled contributions for processor " . $payment_processor['id'], PEAR_LOG_INFO);
   foreach ($scheduled_contributions as $contribution) {
@@ -56,7 +57,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 					       'id',
 					       TRUE);
 
-    if (strtotime($next_sched) > time()) {
+    if (strtotime($next_sched) > time() && $contribution->contribution_status_id != _contribution_status_id('Failed')) {
       $log->log("Detected processing race for scheduled payments, aborting", PEAR_LOG_WARNING);
       break;  // Assume parallel cron job called, exit loop.
     }
@@ -117,24 +118,15 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     $invoice_id = md5(uniqid(rand(), TRUE));
 
     try {
-      if($next_sched){
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution->id,
-          'next_sched_contribution_date',
-          CRM_Utils_Date::isoToMysql ($next_sched) );
-      } else {
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution->id,
-          'contribution_status_id',
-          _contribution_status_id('Completed'));
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution->id,
-          'end_date',
-          CRM_Utils_Date::isoToMysql ($d_now) );
+      if ($contribution->contribution_status_id != _contribution_status_id('Failed')) {
+        _eWayRecurring_update_contribution_status($next_sched, $contribution);
       }
 
       $mainContributions = $mainContributions[0];
       $new_contribution_record = array();
+      if (empty($mainContributions['tax_amount'])) {
+        $mainContributions['tax_amount'] = 0;
+      }
 
       // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
       $new_contribution_record['contact_id'] = $contribution->contact_id;
@@ -217,9 +209,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       if (count($responseErrors)) {
         // Mark transaction as failed
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
-
-        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
-          $contribution->id, 'failure_count', ++$contribution->failure_count);
+        _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
       }
       else {
         // $log->log("Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
@@ -228,8 +218,26 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         // send_receipt_email($new_contribution_record->id);
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Completed');
 
+        if ($contribution->failure_count > 0 && $contribution->contribution_status_id == _contribution_status_id('Failed')) {
+          // Failed recurring contribution completed successfuly after several retry.
+          _eWayRecurring_update_contribution_status($next_sched, $contribution);
+          CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+            $contribution->id,
+            'contribution_status_id',
+            _contribution_status_id('In Progress'));
+          civicrm_api3('Activity', 'create', [
+            'source_contact_id' => $contribution->contact_id,
+            'activity_type_id'  => "eWay Transaction Succeed",
+            'source_record'     => $contribution->id,
+            'details'           => 'Transaction Succeed after ' . $contribution->failure_count . ' retries',
+          ]);
+        }
+
         CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
           $contribution->id, 'failure_count', 0);
+
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
+          $contribution->id, 'failure_retry_date', '');
       }
 
       $repeated = civicrm_api3('Contribution', 'repeattransaction', array(
@@ -262,13 +270,13 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     catch(Exception $e) {
       $log->log("Processing payment {$contribution->id} for {$contribution->contact_id}: " . $e->getMessage(), PEAR_LOG_WARNING);
 
-      $contribution->failure_count++;
-
       // Record a failed contribution in this case.
       $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
       $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
 
       $new_contribution_record = reset($updated['values']);
+
+      _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
 
       if(isset($responseErrors) && count($responseErrors)){
         $note = new CRM_Core_BAO_Note();
@@ -281,21 +289,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
         $note->save();
       }
-
-      if ($contribution->failure_count < CONTRIBUTION_FAILURE_THRESHOLD){
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution->id,
-          'failure_count',
-          $contribution->failure_count);
-      } else {
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution->id,
-          'contribution_status_id',
-          _contribution_status_id('Failed')
-        );
-
-        $log->log("Marked payment {$contribution->id} as failed");
-      }
     }
 
     unset($eWayResponse);
@@ -303,6 +296,45 @@ function process_recurring_payments($payment_processor, $paymentObject) {
   }
 
   $lock->release();
+}
+
+function _eWayRecurring_update_contribution_status($next_sched, $contribution) {
+  $d_now = new DateTime();
+  if($next_sched){
+    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+      $contribution->id,
+      'next_sched_contribution_date',
+      CRM_Utils_Date::isoToMysql ($next_sched) );
+  } else {
+    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+      $contribution->id,
+      'contribution_status_id',
+      _contribution_status_id('Completed'));
+    CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+      $contribution->id,
+      'end_date',
+      CRM_Utils_Date::isoToMysql ($d_now) );
+  }
+}
+
+function _eWAYRecurring_mark_recurring_contribution_Failed($contribution) {
+  $today = new DateTime();
+  $retryDelayInDays = Civi::settings()->get('eway_recurring_contribution_retry_delay');
+  $today->modify("+". $retryDelayInDays . " days");
+  $today->setTime(0, 0, 0);
+
+  civicrm_api3('Activity', 'create', [
+    'source_contact_id' => $contribution->contact_id,
+    'activity_type_id'  => "eWay Transaction Failed",
+    'source_record'     => $contribution->id,
+  ]);
+
+  civicrm_api3('ContributionRecur', 'create', [
+    'id'                           => $contribution->id,
+    'failure_count'                => (++$contribution->failure_count),
+    'failure_retry_date'           => $today->format("Y-m-d H:i:s"),
+    'contribution_status_id'       => _contribution_status_id('Failed'),
+  ]);
 }
 
 /**
@@ -340,6 +372,37 @@ function get_scheduled_contributions($payment_processor)
     }
 
     return $scheduled_contributions;
+}
+
+/**
+ * get_scheduled_failed_contributions
+ *
+ * Gets recurring contributions that are failed and to be processed today
+ *
+ * @return array An array of contribtion_recur objects
+ */
+function get_scheduled_failed_contributions($payment_processor)
+{
+  $maxFailRetry = Civi::settings()->get('eway_recurring_contribution_max_retry');
+
+  $scheduled_today = new CRM_Contribute_BAO_ContributionRecur();
+  $scheduled_today->whereAdd("`failure_retry_date` <= now()");
+
+  $scheduled_today->whereAdd("`contribution_status_id` = 4");
+  $scheduled_today->whereAdd("`failure_count` < " . $maxFailRetry);
+
+  $scheduled_today->find();
+
+  $scheduled_failed_contributions = array();
+
+  while ($scheduled_today->fetch()) {
+    if($scheduled_today->payment_processor_id != $payment_processor['id']){
+      continue;
+    }
+    $scheduled_failed_contributions[] = clone $scheduled_today;
+  }
+
+  return $scheduled_failed_contributions;
 }
 
 /**

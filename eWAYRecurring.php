@@ -59,6 +59,259 @@
 */
 
 include_once 'au_com_agileware_ewayrecurring.class.php';
+require_once 'eWAYRecurring.civix.php';
+use CRM_eWAYRecurring_ExtensionUtil as E;
+
+/**
+ * Implements hook_civicrm_config().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_config
+ */
+function ewayrecurring_civicrm_config(&$config) {
+  _ewayrecurring_civix_civicrm_config($config);
+}
+
+/**
+ * Implements hook_civicrm_xmlMenu().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_xmlMenu
+ */
+function ewayrecurring_civicrm_xmlMenu(&$files) {
+  _ewayrecurring_civix_civicrm_xmlMenu($files);
+}
+
+/**
+ * Implements hook_civicrm_install().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_install
+ */
+function ewayrecurring_civicrm_install() {
+  _ewayrecurring_civix_civicrm_install();
+}
+
+/**
+ * Implements hook_civicrm_postInstall().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
+ */
+function ewayrecurring_civicrm_postInstall() {
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 6);
+  // Update schemaVersion if added new version in upgrade process.
+  // Also add database related CREATE queries.
+  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+  CRM_Core_DAO::executeQuery("UPDATE `civicrm_payment_processor_type` SET billing_mode = 3 WHERE name = 'eWay_Recurring'");
+  _ewayrecurring_civix_civicrm_postInstall();
+}
+
+/**
+ * Implements hook_civicrm_uninstall().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
+ */
+function ewayrecurring_civicrm_uninstall() {
+  $drops = array('DROP TABLE `civicrm_ewayrecurring`',
+    'DROP TABLE `civicrm_contribution_page_recur_cycle`');
+
+  foreach($drops as $st) {
+    CRM_Core_DAO::executeQuery($st, array());
+  }
+  _ewayrecurring_civix_civicrm_uninstall();
+}
+
+/**
+ * Implements hook_civicrm_enable().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_enable
+ */
+function ewayrecurring_civicrm_enable() {
+  _ewayrecurring_civix_civicrm_enable();
+}
+
+/**
+ * Implements hook_civicrm_disable().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_disable
+ */
+function ewayrecurring_civicrm_disable() {
+  _ewayrecurring_civix_civicrm_disable();
+}
+
+/**
+ * Implements hook_civicrm_upgrade().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_upgrade
+ */
+function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
+  $schemaVersion = intval(CRM_Core_BAO_Extension::getSchemaVersion('au.com.agileware.ewayrecurring'));
+  $upgrades = array();
+
+  if ($op == 'check') {
+    if($schemaVersion < 6) {
+      CRM_Core_Session::setStatus(ts('Version 2.0.0 of the eWAYRecurring extension changes the method of authentication with eWAY. To upgrade you will need to enter a new API Key and Password.  For more details see <a href="%1">the upgrade notes.</a>', [1 => 'https://github.com/agileware/au.com.agileware.ewayrecurring/blob/2.0.0/UPGRADE.md#200']), ts('eWAYRecurring Action Required'));
+    }
+    return array($schemaVersion < 6);
+  } elseif ($op == 'enqueue') {
+    if(NULL == $queue) {
+      return CRM_Core_Error::fatal('au.com.agileware.ewayrecurring: No Queue supplied for upgrade');
+    }
+    if($schemaVersion < 3) {
+      $queue->createItem(
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
+          3,
+          "CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
+        ),
+          'Install page_recur_cycle table'
+        )
+      );
+
+    }
+    if($schemaVersion < 4) {
+      $queue->createItem(
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
+          4,
+          "CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
+        ),
+          'Install cycle_day table'
+        )
+      );
+    }
+    if ($schemaVersion < 5) {
+      $queue->createItem(
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema_version', array(
+          5,
+        ),
+          'Update schema version'
+        )
+      );
+    }
+    if ($schemaVersion < 6) {
+      $queue->createItem(
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
+          6,
+          "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password', billing_mode = 3 WHERE name = 'eWay_Recurring'"
+        ),
+          'Perform Rapid API related changes'
+        )
+      );
+    }
+  }
+  return _ewayrecurring_civix_civicrm_upgrade($op, $queue);
+}
+
+/**
+ * Implements hook_civicrm_managed().
+ *
+ * Generate a list of entities to create/deactivate/delete when this module
+ * is installed, disabled, uninstalled.
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_managed
+ */
+function ewayrecurring_civicrm_managed(&$entities) {
+  $entities[] = array(
+    'module' => 'au.com.agileware.ewayrecurring',
+    'name' => 'eWay_Recurring',
+    'entity' => 'PaymentProcessorType',
+    'params' => array(
+      'version' => 3,
+      'name' => 'eWay_Recurring',
+      'title' => 'eWAY Recurring',
+      'description' => 'Recurring payments payment processor for eWay',
+      'class_name' => 'au.com.agileware.ewayrecurring',
+      'user_name_label' => 'API Key',
+      'password_label' => 'API Password',
+      'billing_mode' => 'form',
+      'is_recur' => '1',
+      'payment_type' => '1',
+    ),
+  );
+  $entities[] = array(
+    'module' => 'au.com.agileware.ewayrecurring',
+    'name' => 'eWay_Recurring_cron',
+    'entity' => 'Job',
+    'update' => 'never', // Ensure local changes are kept, eg. setting the job active
+    'params' => array (
+      'version' => 3,
+      'run_frequency' => 'Always',
+      'name' => 'eWAY Recurring Payments',
+      'description' => 'Process pending and scheduled payments in the eWay_Recurring processor',
+      'api_entity' => 'Job',
+      'api_action' => 'run_payment_cron',
+      'parameters' => "processor_name=eWay_Recurring",
+      'is_active' => '0'
+    ),
+  );
+  $entities[] = array(
+    'module' => 'au.com.agileware.ewayrecurring',
+    'name' => 'eWay_Failed_Transaction_ActivityType',
+    'entity' => 'OptionValue',
+    'update' => 'always',
+    'params' => array (
+      'version' => 3,
+      'option_group_id' => "activity_type",
+      'label' => "eWay Transaction Failed",
+    ),
+  );
+  $entities[] = array(
+    'module' => 'au.com.agileware.ewayrecurring',
+    'name' => 'eWay_Succeed_Transaction_ActivityType',
+    'entity' => 'OptionValue',
+    'update' => 'always',
+    'params' => array (
+      'version' => 3,
+      'option_group_id' => "activity_type",
+      'label' => "eWay Transaction Succeed",
+    ),
+  );
+  _ewayrecurring_civix_civicrm_managed($entities);
+}
+
+/**
+ * Implements hook_civicrm_caseTypes().
+ *
+ * Generate a list of case-types.
+ *
+ * Note: This hook only runs in CiviCRM 4.4+.
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_caseTypes
+ */
+function ewayrecurring_civicrm_caseTypes(&$caseTypes) {
+  _ewayrecurring_civix_civicrm_caseTypes($caseTypes);
+}
+
+/**
+ * Implements hook_civicrm_angularModules().
+ *
+ * Generate a list of Angular modules.
+ *
+ * Note: This hook only runs in CiviCRM 4.5+. It may
+ * use features only available in v4.6+.
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_angularModules
+ */
+function ewayrecurring_civicrm_angularModules(&$angularModules) {
+  _ewayrecurring_civix_civicrm_angularModules($angularModules);
+}
+
+/**
+ * Implements hook_civicrm_alterSettingsFolders().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_alterSettingsFolders
+ */
+function ewayrecurring_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
+  _ewayrecurring_civix_civicrm_alterSettingsFolders($metaDataFolders);
+}
+
+/**
+ * Implements hook_civicrm_entityTypes().
+ *
+ * Declare entity types provided by this module.
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_entityTypes
+ */
+function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
+  _ewayrecurring_civix_civicrm_entityTypes($entityTypes);
+}
 
 function _contribution_status_id($name) {
   return CRM_Utils_Array::key($name, \CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name'));
@@ -209,66 +462,6 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
   }
 }
 
-/*
- * Implements hook_civicrm_config()
- *
- * Include path for our overloaded templates */
-function ewayrecurring_civicrm_config(&$config) {
-  $template =& CRM_Core_Smarty::singleton();
-
-  $ewayrecurringRoot =
-    dirname(__FILE__) . DIRECTORY_SEPARATOR;
-
-  $ewayrecurringDir = $ewayrecurringRoot . 'templates';
-
-  if (is_array($template->template_dir)) {
-    array_unshift($template->template_dir, $ewayrecurringDir);
-  }
-  else {
-    $template->template_dir = array($ewayrecurringDir, $template->template_dir);
-  }
-
-  // also fix php include path
-  $include_path = $ewayrecurringRoot . PATH_SEPARATOR . get_include_path();
-  set_include_path($include_path);
-}
-
-function ewayrecurring_civicrm_managed(&$entities) {
-   $entities[] = array(
-     'module' => 'au.com.agileware.ewayrecurring',
-     'name' => 'eWay_Recurring',
-     'entity' => 'PaymentProcessorType',
-     'params' => array(
-       'version' => 3,
-       'name' => 'eWay_Recurring',
-       'title' => 'eWAY Recurring',
-       'description' => 'Recurring payments payment processor for eWay',
-       'class_name' => 'au.com.agileware.ewayrecurring',
-       'user_name_label' => 'API Key',
-       'password_label' => 'API Password',
-       'billing_mode' => 'form',
-       'is_recur' => '1',
-       'payment_type' => '1',
-     ),
-   );
-   $entities[] = array(
-     'module' => 'au.com.agileware.ewayrecurring',
-     'name' => 'eWay_Recurring_cron',
-     'entity' => 'Job',
-     'update' => 'never', // Ensure local changes are kept, eg. setting the job active
-     'params' => array (
-       'version' => 3,
-       'run_frequency' => 'Always',
-       'name' => 'eWAY Recurring Payments',
-       'description' => 'Process pending and scheduled payments in the eWay_Recurring processor',
-       'api_entity' => 'Job',
-       'api_action' => 'run_payment_cron',
-       'parameters' => "processor_name=eWay_Recurring",
-       'is_active' => '0'
-     ),
-   );
-}
-
 /**
  * Implements hook_civicrm_preProcess().
  * @param $formName
@@ -319,84 +512,6 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
   }
 }
 
-function ewayrecurring_civicrm_install() {
-  // Do nothing here because the schema version can't be set during this hook.
-}
-
-function ewayrecurring_civicrm_postInstall() {
-  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 6);
-  // Update schemaVersion if added new version in upgrade process.
-  // Also add database related CREATE queries.
-  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
-  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
-  CRM_Core_DAO::executeQuery("UPDATE `civicrm_payment_processor_type` SET billing_mode = 3 WHERE name = 'eWay_Recurring'");
-}
-
-function ewayrecurring_civicrm_uninstall() {
-  $drops = array('DROP TABLE `civicrm_ewayrecurring`',
-		 'DROP TABLE `civicrm_contribution_page_recur_cycle`');
-
-  foreach($drops as $st) {
-    CRM_Core_DAO::executeQuery($st, array());
-  }
-}
-
-function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
-  $schemaVersion = intval(CRM_Core_BAO_Extension::getSchemaVersion('au.com.agileware.ewayrecurring'));
-  $upgrades = array();
-
-  if ($op == 'check') {
-    if($schemaVersion < 6) {
-      CRM_Core_Session::setStatus(ts('Version 2.0.0 of the eWAYRecurring extension changes the method of authentication with eWAY. To upgrade you will need to enter a new API Key and Password.  For more details see <a href="%1">the upgrade notes.</a>', [1 => 'https://github.com/agileware/au.com.agileware.ewayrecurring/blob/2.0.0/UPGRADE.md#200']), ts('eWAYRecurring Action Required'));
-    }
-    return array($schemaVersion < 6);
-  } elseif ($op == 'enqueue') {
-    if(NULL == $queue) {
-      return CRM_Core_Error::fatal('au.com.agileware.ewayrecurring: No Queue supplied for upgrade');
-    }
-    if($schemaVersion < 3) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
-            3,
-	    "CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
-          ),
-          'Install page_recur_cycle table'
-        )
-      );
-
-    }
-    if($schemaVersion < 4) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
-            4,
-            "CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
-          ),
-          'Install cycle_day table'
-        )
-      );
-    }
-    if ($schemaVersion < 5) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema_version', array(
-          5,
-        ),
-          'Update schema version'
-        )
-      );
-    }
-    if ($schemaVersion < 6) {
-      $queue->createItem(
-          new CRM_Queue_Task('_ewayrecurring_upgrade_schema', array(
-            6,
-            "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password', billing_mode = 3 WHERE name = 'eWay_Recurring'"
-          ),
-            'Perform Rapid API related changes'
-          )
-      );
-    }
-  }
-}
-
 function _ewayrecurring_upgrade_schema_version(CRM_Queue_TaskContext $ctx, $schema) {
     CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', $schema);
     return CRM_Queue_Task::TASK_SUCCESS;
@@ -434,29 +549,6 @@ function ewayrecurring_civicrm_tabset($tabsetName, &$tabs, $context) {
 }
 
 /**
- * (Delegated) Implements hook_civicrm_xmlMenu().
- *
- * @param $files array(string)
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_xmlMenu
- */
-function ewayrecurring_civicrm_xmlMenu(&$files) {
-  foreach (_ewayrecurring_civix_glob(__DIR__ . '/xml/Menu/*.xml') as $file) {
-    $files[] = $file;
-  }
-}
-
-/**
- * Check the glob.
- * @param $pattern
- * @return array|false
- */
-function _ewayrecurring_civix_glob($pattern) {
-  $result = glob($pattern);
-  return is_array($result) ? $result : array();
-}
-
-/**
  * Get the path of a resource file (in this extension).
  *
  * @param string|NULL $file
@@ -469,4 +561,15 @@ function _ewayrecurring_civix_glob($pattern) {
 function extensionPath($file = NULL) {
   // return CRM_Core_Resources::singleton()->getPath(self::LONG_NAME, $file);
   return __DIR__ . ($file === NULL ? '' : (DIRECTORY_SEPARATOR . $file));
+}
+
+function ewayrecurring_civicrm_navigationMenu(&$menu) {
+  _ewayrecurring_civix_insert_navigation_menu($menu, 'Administer', array(
+    'label' => E::ts('eWay Recurring Settings'),
+    'name' => 'eWayRecurringSettings',
+    'url' => 'civicrm/ewayrecurring/settings',
+    'permission' => 'administer CiviCRM',
+    'operator' => 'OR',
+    'separator' => 0,
+  ));
 }
