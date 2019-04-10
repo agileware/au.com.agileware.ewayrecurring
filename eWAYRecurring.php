@@ -263,6 +263,22 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'label' => "eWay Transaction Succeed",
     ),
   );
+  $entities[] = array(
+    'module' => 'au.com.agileware.ewayrecurring',
+    'name' => 'eWay_Transaction_Verification_cron',
+    'entity' => 'Job',
+    'update' => 'never', // Ensure local changes are kept, eg. setting the job active
+    'params' => array (
+      'version' => 3,
+      'run_frequency' => 'Always',
+      'name' => 'eWAY Transaction Verifications',
+      'description' => 'Process pending transaction verifications in the eWay_Recurring processor',
+      'api_entity' => 'EwayContributionTransactions',
+      'api_action' => 'validate',
+      'parameters' => "",
+      'is_active' => '1'
+    ),
+  );
   _ewayrecurring_civix_civicrm_managed($entities);
 }
 
@@ -310,6 +326,11 @@ function ewayrecurring_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_entityTypes
  */
 function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
+  $entityTypes[] = array(
+    'name'  => 'EwayContributionTransactions',
+    'class' => 'CRM_eWAYRecurring_DAO_EwayContributionTransactions',
+    'table' => 'civicrm_eway_contribution_transactions',
+  );
   _ewayrecurring_civix_civicrm_entityTypes($entityTypes);
 }
 
@@ -469,6 +490,7 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
  */
 function ewayrecurring_civicrm_preProcess($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
+    exit;
    $paymentProcessor = $form->getVar('_paymentProcessor');
    $paymentProcessor = $paymentProcessor['object'];
    validateEwayContribution($paymentProcessor, $form->_params['invoiceID']);
@@ -487,7 +509,6 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
 function validateEwayContribution($paymentProcessor, $invoiceID) {
   if ($paymentProcessor instanceof au_com_agileware_ewayrecurring) {
     $contribution = civicrm_api3('Contribution', 'get', [
-      'sequential' => 1,
       'invoice_id' => $invoiceID,
       'sequential' => TRUE,
       'return'     => array('contribution_page_id', 'contribution_recur_id', 'is_test'),

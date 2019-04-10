@@ -142,74 +142,15 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param $contributionID
    */
   function validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor) {
-    $contributionID = $contribution['id'];
-    $isRecurring = (isset($contribution['contribution_recur_id']) && $contribution['contribution_recur_id'] != '') ? TRUE: FALSE;
-
-    $eWayClient = $this->getEWayClient();
-    $transactionResponse = $eWayClient->queryTransaction($eWayAccessCode);
     $this->_is_test = $contribution['is_test'];
 
-    $hasTransactionFailed = FALSE;
-    $transactionResponseError = "";
-    $transactionID = "";
+    $response = CRM_eWAYRecurring_eWAYRecurringUtils::validateContribution($eWayAccessCode, $contribution, $paymentProcessor);
+    CRM_eWAYRecurring_eWAYRecurringUtils::completeEWayTransaction($eWayAccessCode);
 
-    if ($transactionResponse) {
-
-      if (isset($transactionResponse->Transactions) && count($transactionResponse->Transactions) > 0) {
-        $transactionID = $transactionResponse->Transactions[0]->TransactionID;
-      }
-
-      $responseErrors = $transactionResponse->getErrors();
-
-      if (count($responseErrors)) {
-        $transactionErrors = array();
-        foreach ($responseErrors as $responseError) {
-          $errorMessage = \Eway\Rapid::getMessage($responseError);
-          $transactionErrors[] = $errorMessage;
-        }
-
-        $hasTransactionFailed = TRUE;
-        $transactionResponseError = implode(",", $transactionErrors);
-      }
-      else {
-        $transactionResponse = $transactionResponse->Transactions[0];
-
-        if(!$transactionResponse->TransactionStatus) {
-          $hasTransactionFailed = TRUE;
-
-          $transactionMessages = implode(', ', array_map('\Eway\Rapid::getMessage', explode(', ', $transactionResponse->ResponseMessage)));
-
-          $transactionResponseError = 'Your payment was declined: ' . $transactionMessages;
-        }
-      }
-
-      if (!$hasTransactionFailed) {
-        if ($isRecurring) {
-          $customerTokenID = $transactionResponse->TokenCustomerID;
-          $customerResponse = $eWayClient->queryCustomer($customerTokenID);
-          if (isset($customerResponse->Customers) && count($customerResponse->Customers)) {
-            $customerResponse = $customerResponse->Customers[0];
-          }
-          else {
-            $customerResponse = NULL;
-          }
-          $this->updateRecurringContribution($contribution, $customerTokenID, $customerResponse);
-        }
-
-        civicrm_api3('Contribution', 'completetransaction', array(
-          'id'                   => $contributionID,
-          'trxn_id'              => $transactionID,
-          'payment_processor_id' => $paymentProcessor['id'],
-        ));
-      }
-      else {
-        $this->deleteRecurringContribution($contribution);
-      }
-    }
-    else {
-      $hasTransactionFailed = TRUE;
-      $transactionResponseError = 'Sorry, Your payment was declined. Extension error code: 1001';
-    }
+    $hasTransactionFailed = $response['hasTransactionFailed'];
+    $transactionResponseError = $response['transactionResponseError'];
+    $contributionID = $response['contributionId'];
+    $transactionID = $response['transactionId'];
 
     if ($hasTransactionFailed) {
       civicrm_api3('Contribution', 'create', array(
@@ -228,121 +169,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
   }
 
   /**
-   * Delete recurring contribution if transaction failed.
-   *
-   * @param $contribution
-   */
-  function deleteRecurringContribution($contribution) {
-    $contributionRecurringId = $contribution['contribution_recur_id'];
-    try {
-      civicrm_api3('ContributionRecur', 'delete', array(
-        'id' => $contributionRecurringId,
-      ));
-    }
-    catch (CiviCRM_API3_Exception $e) {
-      // Recurring contribution not found. Skip!
-    }
-  }
-
-  /**
-   * Update recurring contribution with status and token.
-   *
-   * @param $contribution
-   * @param $customerTokenId
-   * @param $customerResponse
-   * @throws CRM_Core_Exception
-   */
-  function updateRecurringContribution($contribution, $customerTokenId, $customerResponse){
-    //----------------------------------------------------------------------------------------------------
-    // Save the eWay customer token in the recurring contribution's processor_id field
-    //----------------------------------------------------------------------------------------------------
-
-    $contributionRecurringId = $contribution['contribution_recur_id'];
-    $contributionPageId = $contribution['contribution_page_id'];
-
-    try {
-
-      $recurringContribution = civicrm_api3('ContributionRecur', 'getsingle', [
-        'id' => $contributionRecurringId,
-      ]);
-
-      //----------------------------------------------------------------------------------------------------
-      // For monthly payments, set the cycle day according to the submitting page or processor default
-      //----------------------------------------------------------------------------------------------------
-
-      $cycle_day = 0;
-
-      if(!empty($contributionPageId) &&
-        CRM_Utils_Type::validate($contributionPageId, 'Int', FALSE, ts('Contribution Page')))
-      {
-        $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
-        $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($contributionPageId, 'Int')));
-      } else {
-        $cd_sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
-        $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, array(1 => array($this->_paymentProcessor['id'], 'Int')));
-      }
-
-      if(!$cycle_day)
-        $cycle_day = 0;
-
-      if (($cd = $cycle_day) > 0 &&
-        $recurringContribution['frequency_unit'] == 'month'){
-        $d_now = new DateTime();
-        $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
-        $d_next->modify("+{$recurringContribution['frequency_interval']} " .
-          "{$recurringContribution['frequency_unit']}s");
-        $next_m = ($d_now->format('m') + $recurringContribution['frequency_interval'] - 1) % 12 + 1;
-        if ($next_m != $d_next->format('m')) {
-          $daysover = $d_next->format('d');
-          $d_next->modify("-{$daysover} days");
-        }
-        $next_sched = $d_next->format('Y-m-d 00:00:00');
-      } else {
-        $next_sched = date('Y-m-d 00:00:00',
-          strtotime("+{$recurringContribution['frequency_interval']} " .
-            "{$recurringContribution['frequency_unit']}s"));
-      }
-
-      $paymentTokenID = NULL;
-      if ($customerResponse && isset($customerResponse->CardDetails)) {
-        $ccNumber = $customerResponse->CardDetails->Number;
-        $ccName = $customerResponse->CardDetails->Name;
-        $ccExpMonth = $customerResponse->CardDetails->ExpiryMonth;
-        $ccExpYear = $customerResponse->CardDetails->ExpiryYear;
-
-        $expiryDate = new DateTime();
-        $expiryDate->setDate($ccExpYear, $ccExpMonth, 1);
-        $expiryDate = $expiryDate->format("Y-m-d");
-
-        $paymentToken = civicrm_api3('PaymentToken', 'create', [
-          'contact_id'            => $recurringContribution['contact_id'],
-          'payment_processor_id'  => $recurringContribution['payment_processor_id'],
-          'token'                 => $customerTokenId,
-          'created_date'          => date("Y-m-d"),
-          'created_id'            => CRM_Core_Session::getLoggedInContactID(),
-          'expiry_date'           => $expiryDate,
-          'billing_first_name'    => $ccName,
-          'masked_account_number' => $ccNumber,
-        ]);
-
-        $paymentTokenID = $paymentToken['id'];
-      }
-
-      $recurringContribution['next_sched_contribution_date'] = CRM_Utils_Date::isoToMysql ($next_sched);
-      $recurringContribution['cycle_day'] = $cycle_day;
-      $recurringContribution['processor_id'] = $customerTokenId;
-      $recurringContribution['payment_token_id'] = $paymentTokenID;
-      $recurringContribution['create_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
-      $recurringContribution['contribution_status_id'] = _contribution_status_id('In Progress');
-
-      civicrm_api3('ContributionRecur', 'create', $recurringContribution);
-
-    } catch (CiviCRM_API3_Exception $e) {
-
-    }
-  }
-
-  /**
    * Remove Credit card fields from the form.
    *
    * @return array
@@ -352,12 +178,47 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
   }
 
   /**
+   * Set customer's country based on given params
+   *
+   * @param $params
+   */
+  private function setCustomerCountry(&$params) {
+    if (!isset($params['country']) || empty($params['country'])) {
+      $countryId = 0;
+      if (isset($params['country_id']) && !empty($params['country_id'])) {
+        $countryId = $params['country_id'];
+      }
+      if ($countryId == 0) {
+        try {
+          $billingLocationTypeId = civicrm_api3('LocationType', 'getsingle', [
+            'return' => ["id"],
+            'name' => "Billing",
+          ]);
+          $billingLocationTypeId = $billingLocationTypeId['id'];
+        }
+        catch (CiviCRM_API3_Exception $e) {
+        }
+        $billingCountryIdKey = "billing_country_id-" . $billingLocationTypeId;
+        if (isset($params[$billingCountryIdKey]) && !empty($params[$billingCountryIdKey])) {
+          $countryId = $params[$billingCountryIdKey];
+        }
+      }
+      $isoCountryCode = CRM_Core_PseudoConstant::getName('CRM_Core_BAO_Address', 'country_id', $countryId);
+      $params['country'] = $isoCountryCode;
+    }
+  }
+
+  /**
    * Form customer details array from given params.
    *
    * @param $params array
    * @return array
    */
   function getEWayClientDetailsArray($params) {
+    $this->setCustomerCountry($params);
+    if (empty($params['country'])) {
+      return self::errorExit(9007, 'Not able to retrieve customer\'s country.' );
+    }
     $eWayCustomer = array(
       'Reference' => (isset($params['contactID'])) ? 'Civi-' . $params['contactID'] : '', // Referencing eWay customer with CiviCRM id if we have.
       'FirstName' => $params['first_name'],
@@ -458,7 +319,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
             'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
             'InvoiceReference' => $params['invoiceID'],
           ],
-          'CustomerIP' => $params['ip_address'],
+          'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
           'Capture' => TRUE,
           'SaveCustomer' => TRUE,
           'Options' => [
@@ -517,6 +378,14 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         if(count($transactionErrors)) {
           return self::errorExit( 9008, implode("<br>", $transactionErrors));
         }
+
+        $paymentProcessor = $this->getPaymentProcessor();
+
+        civicrm_api3('EwayContributionTransactions', 'create', array(
+          'access_code'     => $eWAYResponse->AccessCode,
+          'contribution_id' => $params['contributionID'],
+          'payment_processor_id' => $paymentProcessor['id'],
+        ));
 
         CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
 
