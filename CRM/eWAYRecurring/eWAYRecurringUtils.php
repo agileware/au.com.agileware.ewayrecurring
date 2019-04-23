@@ -100,7 +100,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
    * Complete eWay transaction based on access code.
    * @param $accessCode
    */
-  public function completeEWayTransaction($accessCode) {
+  public static function completeEWayTransaction($accessCode) {
     try {
       $eWayTransaction = civicrm_api3('EwayContributionTransactions', 'getsingle', [
         'access_code' => $accessCode,
@@ -174,7 +174,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
           else {
             $customerResponse = NULL;
           }
-          self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $customerResponse);
+          self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $customerResponse, $transactionID);
         }
 
         civicrm_api3('Contribution', 'completetransaction', array(
@@ -225,7 +225,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
    * @param $customerTokenId
    * @throws CRM_Core_Exception
    */
-  private static function updateRecurringContribution($contribution, $customerTokenId, $paymentProcessorId, $customerResponse){
+  private static function updateRecurringContribution($contribution, $customerTokenId, $paymentProcessorId, $customerResponse, $transactionID){
     //----------------------------------------------------------------------------------------------------
     // Save the eWay customer token in the recurring contribution's processor_id field
     //----------------------------------------------------------------------------------------------------
@@ -307,6 +307,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
       $recurringContribution['payment_token_id'] = $paymentTokenID;
       $recurringContribution['create_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
       $recurringContribution['contribution_status_id'] = _contribution_status_id('In Progress');
+      $recurringContribution['trxn_id'] = $transactionID;
 
       civicrm_api3('ContributionRecur', 'create', $recurringContribution);
 
