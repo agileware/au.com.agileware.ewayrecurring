@@ -193,7 +193,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
           else {
             $customerResponse = NULL;
           }
-          $this->updateRecurringContribution($contribution, $customerTokenID, $customerResponse);
+          $this->updateRecurringContribution($contribution, $customerTokenID, $customerResponse, $transactionID);
         }
 
         civicrm_api3('Contribution', 'completetransaction', array(
@@ -250,9 +250,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param $contribution
    * @param $customerTokenId
    * @param $customerResponse
+   * @param $transactionID
    * @throws CRM_Core_Exception
    */
-  function updateRecurringContribution($contribution, $customerTokenId, $customerResponse){
+  function updateRecurringContribution($contribution, $customerTokenId, $customerResponse, $transactionID){
     //----------------------------------------------------------------------------------------------------
     // Save the eWay customer token in the recurring contribution's processor_id field
     //----------------------------------------------------------------------------------------------------
@@ -334,6 +335,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
       $recurringContribution['payment_token_id'] = $paymentTokenID;
       $recurringContribution['create_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
       $recurringContribution['contribution_status_id'] = _contribution_status_id('In Progress');
+      $recurringContribution['trxn_id'] = $transactionID;
 
       civicrm_api3('ContributionRecur', 'create', $recurringContribution);
 
