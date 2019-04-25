@@ -39,7 +39,13 @@ If you've created a WebForm (in Drupal) to take the contributions using eWAY Pay
 
 **eWAY Transaction Verifications** schedule job verifies the pending transactions of eWAY. This is required when CiviCRM is unable to verify the transaction right after redirection.
 
-Visit `civicrm/admin/job` to enable **eWAY Transaction Verifications** job. 
+Visit `civicrm/admin/job` to enable **eWAY Transaction Verifications** job.
+
+### eWAY Failed Transactions
+
+Recurring contribution transactions get failed because of several reasons. In such situation extension will mark the recurring contribution as failed and will retry the transaction for **x** number of times at **y (days)** of interval.
+
+To update the **Maximum retries** and **Retry delay (in days)** go to `civicrm/ewayrecurring/settings`. By default value of **Maximum retries** is 3 and value of **Retry delay (in days)** is 4. 
 
 
 Upgrading from 1.x
