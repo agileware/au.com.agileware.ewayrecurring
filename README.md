@@ -30,6 +30,16 @@ Installation
    obtained from your [eWAY Account](https://go.eway.io). eWAY provides 
    [step by step instructions](https://go.eway.io/s/article/How-do-I-setup-my-Live-eWAY-API-Key-and-Password)
    for generating these details.
+   
+### eWAY Transactions Verification
+
+eWAY Transactions get verified as soon as the user is redirected back to the CiviCRM website. This is true only for Contribution pages created from CiviCRM.
+
+If you've created a WebForm (in Drupal) to take the contributions using eWAY Payment processor, make sure **eWAY Transaction Verifications** Schedule job is active in CiviCRM. 
+
+**eWAY Transaction Verifications** schedule job verifies the pending transactions of eWAY. This is required when CiviCRM is unable to verify the transaction right after redirection.
+
+Visit `civicrm/admin/job` to enable **eWAY Transaction Verifications** job. 
 
 
 Upgrading from 1.x
