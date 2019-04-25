@@ -14,8 +14,8 @@
     <author>Agileware</author>
     <email>support@agileware.com.au</email>
   </maintainer>
-  <releaseDate>2018-06-22</releaseDate>
-  <version>2.0.0-beta</version>
+  <releaseDate>2019-04-25</releaseDate>
+  <version>2.1.0-beta</version>
   <develStage>beta</develStage>
   <compatibility>
     <ver>4.7</ver>
