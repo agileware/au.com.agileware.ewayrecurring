@@ -490,7 +490,6 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
  */
 function ewayrecurring_civicrm_preProcess($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
-    exit;
    $paymentProcessor = $form->getVar('_paymentProcessor');
    $paymentProcessor = $paymentProcessor['object'];
    validateEwayContribution($paymentProcessor, $form->_params['invoiceID']);
