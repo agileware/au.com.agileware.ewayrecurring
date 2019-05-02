@@ -489,6 +489,7 @@ function ewayrecurring_civicrm_postProcess ($formName, &$form) {
  * @param $form
  */
 function ewayrecurring_civicrm_preProcess($formName, &$form) {
+  Civi::$statics['openedeWayForm'] = $formName;
   if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
    $paymentProcessor = $form->getVar('_paymentProcessor');
    $paymentProcessor = $paymentProcessor['object'];

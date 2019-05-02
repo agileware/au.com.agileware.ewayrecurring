@@ -407,9 +407,17 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @param $params
    * @return string
    */
-    function getCancelPaymentReturnUrl($params) {
+    function getCancelPaymentReturnUrl($params, $recurringContribution = NULL) {
       if ($this->isFromContributionPage($params)) {
         return $this->getCancelUrl($params['qfKey'], '');
+      }
+
+      if (Civi::$statics['openedeWayForm'] == 'CRM_Contribute_Form_UpdateBilling' && $recurringContribution != NULL) {
+        return CRM_Utils_System::url('civicrm/contribute/updatebilling', array(
+          'cid'         => $recurringContribution['contact_id'],
+          'context'     => 'contribution',
+          'crid'        => $recurringContribution['id'],
+        ), TRUE, NULL, FALSE);
       }
 
       return CRM_Utils_System::url('civicrm/contact/view/contribution', array(
@@ -427,9 +435,17 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
    * @return string
    */
 
-    function getSuccessfulPaymentReturnUrl($params) {
+    function getSuccessfulPaymentReturnUrl($params, $recurringContribution = NULL) {
       if ($this->isFromContributionPage($params)) {
         return $this->getReturnSuccessUrl($params['qfKey']);
+      }
+
+      if (Civi::$statics['openedeWayForm'] == 'CRM_Contribute_Form_UpdateBilling' && $recurringContribution != NULL) {
+        return CRM_Utils_System::url('civicrm/ewayrecurring/verifyupdatetoken', array(
+          'recurringContributionID'         => $recurringContribution['id'],
+          'qfKey'                 => $params['qfKey'],
+          'paymentProcessorID'    => ($this->getPaymentProcessor())['id'],
+        ), TRUE, NULL, FALSE);
       }
 
       return CRM_Utils_System::url('civicrm/ewayrecurring/verifypayment', array(
@@ -610,16 +626,50 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         }
 
         //----------------------------------------------------------------------------------------------------
-        // Hook to allow customer info to be changed before submitting it
+        // Now set the payment details - see https://eway.io/api-v3/#direct-connection
         //----------------------------------------------------------------------------------------------------
-        CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayCustomer);
+
+        $eWayTransaction = array(
+          'Customer' => $eWayCustomer,
+          'Method'    => \Eway\Rapid\Enum\PaymentMethod::UPDATE_TOKEN_CUSTOMER,
+          'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params, $contribution),
+          'CancelUrl' => $this->getCancelPaymentReturnUrl($params, $contribution),
+          'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
+          'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
+          'SaveCustomer' => TRUE,
+          'Capture' => FALSE,
+          'Options' => [
+            'RecurContributionID' => $contribution['contributionID'],
+          ],
+          'CustomerReadOnly' => TRUE,
+        );
 
         $eWayClient = $this->getEWayClient();
 
         //----------------------------------------------------------------------------------------------------
-        // Create eWay Customer.
+        // Throw error if there are some errors while creating eWAY Client.
+        // This could be due to incorrect Api Username or Api Password.
         //----------------------------------------------------------------------------------------------------
-        $eWayCustomerResponse = $eWayClient->updateCustomer(\Eway\Rapid\Enum\ApiMethod::DIRECT, $eWayCustomer);
+
+        if(is_null($eWayClient) || count($eWayClient->getErrors())) {
+          return self::errorExit( 9001, "Error: Unable to create eWAY Client object.");
+        }
+
+        //----------------------------------------------------------------------------------------------------
+        // Allow further manipulation of the arguments via custom hooks ..
+        //----------------------------------------------------------------------------------------------------
+
+        CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayTransaction );
+
+        $eWayCustomerResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
+
+        //----------------------------------------------------------------------------------------------------
+        // If null data returned - tell 'em and bail out
+        //----------------------------------------------------------------------------------------------------
+
+        if ( is_null($eWayCustomerResponse) ) {
+          return self::errorExit( 9006, "Error: Connection to payment gateway failed - no data returned.");
+        }
 
         //----------------------------------------------------------------------------------------------------
         // See if we got an OK result - if not tell 'em and bail out
@@ -629,27 +679,51 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
           return self::errorExit( 9008, implode("<br>", $transactionErrors));
         }
 
-        //----------------------------------------------------------------------------------------------------
-        // Updating the billing details should fixed failed contributions
-        //----------------------------------------------------------------------------------------------------
+        $this->updateContactBillingAddress($params, $contribution);
 
-        if(_contribution_status_id('Failed') == $contribution['contribution_status_id']) {
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution['id'],
-          'contribution_status_id',
-          _contribution_status_id('In Progress') );
-        }
-
-        CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
-          $contribution['id'],
-          'failure_count',
-          0 );
+        CRM_Utils_System::redirect($eWayCustomerResponse->SharedPaymentUrl);
 
         return $eWayCustomerResponse;
     }
     catch(Exception $e) {
       return self::errorExit(9010, $e->getMessage());
     }
+  }
+
+  private function updateContactBillingAddress($params, $contribution) {
+    $billingAddress = civicrm_api3('Address', 'get', [
+      'sequential' => 1,
+      'contact_id' => $contribution['contact_id'],
+      'is_billing' => 1,
+    ]);
+    $billingAddress = $billingAddress['values'];
+
+    if (count($billingAddress)) {
+      $billingAddress = $billingAddress[0];
+    }
+
+    $billingAddress['contact_id'] = $contribution['contact_id'];
+    $billingAddress['location_type_id'] = 'Billing';
+
+    $billingAddress['is_primary'] = 0;
+    $billingAddress['is_billing'] = 1;
+
+    $billingAddress['street_address'] = $params['street_address'];
+    $billingAddress['city'] = $params['city'];
+
+    if (isset($params['state_province_id']) && !empty($params['state_province_id'])) {
+      $billingAddress['state_province_id'] = $params['state_province_id'];
+    }
+
+    if (isset($params['postal_code']) && !empty($params['postal_code'])) {
+      $billingAddress['postal_code'] = $params['postal_code'];
+    }
+
+    if (isset($params['country_id']) && !empty($params['country_id'])) {
+      $billingAddress['country_id'] = $params['country_id'];
+    }
+
+    civicrm_api3('Address', 'create', $billingAddress);
   }
 
 }

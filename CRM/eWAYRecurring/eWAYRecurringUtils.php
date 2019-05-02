@@ -113,16 +113,13 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
   }
 
   /**
-   * Validate contribution on successful response.
+   * Validating eWay Access code.
    *
    * @param $eWayAccessCode
-   * @param $contributionID
+   * @param $paymentProcessor
+   * @return array
    */
-  public static function validateContribution($eWayAccessCode, $contribution, $paymentProcessor) {
-
-    $contributionID = $contribution['id'];
-    $isRecurring = (isset($contribution['contribution_recur_id']) && $contribution['contribution_recur_id'] != '') ? TRUE: FALSE;
-
+  public static function validateEwayAccessCode($eWayAccessCode, $paymentProcessor) {
     $eWayClient = self::getEWayClient($paymentProcessor);
     $transactionResponse = $eWayClient->queryTransaction($eWayAccessCode);
 
@@ -148,14 +145,13 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
 
         $hasTransactionFailed = TRUE;
         $transactionResponseError = implode(",", $transactionErrors);
-      }
-      else {
+      } else {
         $transactionResponse = $transactionResponse->Transactions[0];
         if ($transactionResponse->TransactionID == '') {
           $transactionNotProcessedYet = TRUE;
         }
 
-        if(!$transactionResponse->TransactionStatus) {
+        if (!$transactionResponse->TransactionStatus) {
           $hasTransactionFailed = TRUE;
 
           $transactionMessages = implode(', ', array_map('\Eway\Rapid::getMessage', explode(', ', $transactionResponse->ResponseMessage)));
@@ -163,33 +159,63 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
           $transactionResponseError = 'Your payment was declined: ' . $transactionMessages;
         }
       }
-
-      if (!$hasTransactionFailed) {
-        if ($isRecurring) {
-          $customerTokenID = $transactionResponse->TokenCustomerID;
-          $customerResponse = $eWayClient->queryCustomer($customerTokenID);
-          if (isset($customerResponse->Customers) && count($customerResponse->Customers)) {
-            $customerResponse = $customerResponse->Customers[0];
-          }
-          else {
-            $customerResponse = NULL;
-          }
-          self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $customerResponse, $transactionID);
-        }
-
-        civicrm_api3('Contribution', 'completetransaction', array(
-          'id'                   => $contributionID,
-          'trxn_id'              => $transactionID,
-          'payment_processor_id' => $paymentProcessor['id'],
-        ));
-      }
-      else {
-        self::deleteRecurringContribution($contribution);
-      }
     }
     else {
       $hasTransactionFailed = TRUE;
       $transactionResponseError = 'Sorry, Your payment was declined. Extension error code: 1001';
+    }
+
+    return array(
+      'hasTransactionFailed'       => $hasTransactionFailed,
+      'transactionNotProcessedYet' => $transactionNotProcessedYet,
+      'transactionResponseError'   => $transactionResponseError,
+      'transactionID'              => $transactionID,
+      'transactionResponse'        => $transactionResponse,
+      'eWayClient'                 => $eWayClient,
+    );
+  }
+
+  /**
+   * Validate contribution on successful response.
+   *
+   * @param $eWayAccessCode
+   * @param $contributionID
+   */
+  public static function validateContribution($eWayAccessCode, $contribution, $paymentProcessor) {
+
+    $contributionID = $contribution['id'];
+    $isRecurring = (isset($contribution['contribution_recur_id']) && $contribution['contribution_recur_id'] != '') ? TRUE: FALSE;
+
+    $accessCodeResponse = self::validateEwayAccessCode($eWayAccessCode, $paymentProcessor);
+
+    $hasTransactionFailed = $accessCodeResponse['hasTransactionFailed'];
+    $transactionNotProcessedYet = $accessCodeResponse['transactionNotProcessedYet'];
+    $transactionResponseError = $accessCodeResponse['transactionResponseError'];
+    $transactionID = $accessCodeResponse['transactionID'];
+    $transactionResponse = $accessCodeResponse['transactionResponse'];
+    $eWayClient = $accessCodeResponse['eWayClient'];
+
+    if (!$hasTransactionFailed) {
+      if ($isRecurring) {
+        $customerTokenID = $transactionResponse->TokenCustomerID;
+        $customerResponse = $eWayClient->queryCustomer($customerTokenID);
+        if (isset($customerResponse->Customers) && count($customerResponse->Customers)) {
+          $customerResponse = $customerResponse->Customers[0];
+        }
+        else {
+          $customerResponse = NULL;
+        }
+        self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $customerResponse, $transactionID);
+      }
+
+      civicrm_api3('Contribution', 'completetransaction', array(
+        'id'                   => $contributionID,
+        'trxn_id'              => $transactionID,
+        'payment_processor_id' => $paymentProcessor['id'],
+      ));
+    }
+    else {
+      self::deleteRecurringContribution($contribution);
     }
 
     return array(
