@@ -629,20 +629,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
         // Now set the payment details - see https://eway.io/api-v3/#direct-connection
         //----------------------------------------------------------------------------------------------------
 
-        $eWayTransaction = array(
-          'Customer' => $eWayCustomer,
-          'Method'    => \Eway\Rapid\Enum\PaymentMethod::UPDATE_TOKEN_CUSTOMER,
-          'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params, $contribution),
-          'CancelUrl' => $this->getCancelPaymentReturnUrl($params, $contribution),
-          'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
-          'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
-          'SaveCustomer' => TRUE,
-          'Capture' => FALSE,
-          'Options' => [
-            'RecurContributionID' => $contribution['contributionID'],
-          ],
-          'CustomerReadOnly' => TRUE,
-        );
+        $eWayCustomer['RedirectUrl'] = $this->getSuccessfulPaymentReturnUrl($params, $contribution);
+        $eWayCustomer['CancelUrl'] = $this->getCancelPaymentReturnUrl($params, $contribution);
+        $eWayCustomer['CustomerIP'] = (isset($params['ip_address'])) ? $params['ip_address']: '';
+        $eWayCustomer['CustomerReadOnly'] = TRUE;
+        $eWayCustomer['SaveCustomer'] = TRUE;
+        $eWayCustomer['Capture'] = FALSE;
 
         $eWayClient = $this->getEWayClient();
 
@@ -661,7 +653,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
 
         CRM_Utils_Hook::alterPaymentProcessorParams( $this, $params, $eWayTransaction );
 
-        $eWayCustomerResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
+        $eWayCustomerResponse = $eWayClient->updateCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayCustomer);
 
         //----------------------------------------------------------------------------------------------------
         // If null data returned - tell 'em and bail out

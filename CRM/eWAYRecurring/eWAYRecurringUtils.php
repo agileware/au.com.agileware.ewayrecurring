@@ -119,7 +119,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
    * @param $paymentProcessor
    * @return array
    */
-  public static function validateEwayAccessCode($eWayAccessCode, $paymentProcessor) {
+  public static function validateEwayAccessCode($eWayAccessCode, $paymentProcessor, $validatingUpdateToken = FALSE) {
     $eWayClient = self::getEWayClient($paymentProcessor);
     $transactionResponse = $eWayClient->queryTransaction($eWayAccessCode);
 
@@ -145,7 +145,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
 
         $hasTransactionFailed = TRUE;
         $transactionResponseError = implode(",", $transactionErrors);
-      } else {
+      } else if (!$validatingUpdateToken) {
         $transactionResponse = $transactionResponse->Transactions[0];
         if ($transactionResponse->TransactionID == '') {
           $transactionNotProcessedYet = TRUE;
@@ -176,6 +176,78 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
   }
 
   /**
+   * Update customer token in DB.
+   *
+   * @param $response
+   * @param $recurringContribution
+   * @return |null
+   * @throws CiviCRM_API3_Exception
+   */
+  public static function updateCustomerDetails($response, $recurringContribution) {
+    $transactionResponse = $response['transactionResponse'];
+    $eWayClient = $response['eWayClient'];
+
+    $customerTokenID = self::getCustomerTokenFromResponse($transactionResponse);
+    $customerResponse = $eWayClient->queryCustomer($customerTokenID);
+
+    if (isset($customerResponse->Customers) && count($customerResponse->Customers)) {
+      $customerResponse = $customerResponse->Customers[0];
+    }
+    else {
+      $customerResponse = NULL;
+    }
+
+    $paymentTokenID = NULL;
+    if ($customerResponse && isset($customerResponse->CardDetails)) {
+      $ccNumber = $customerResponse->CardDetails->Number;
+      $ccName = $customerResponse->CardDetails->Name;
+      $ccExpMonth = $customerResponse->CardDetails->ExpiryMonth;
+      $ccExpYear = $customerResponse->CardDetails->ExpiryYear;
+
+      $expiryDate = new DateTime();
+      $expiryDate->setDate($ccExpYear, $ccExpMonth, 1);
+      $expiryDate = $expiryDate->format("Y-m-d");
+
+      $params = [
+        'contact_id'            => $recurringContribution['contact_id'],
+        'payment_processor_id'  => $recurringContribution['payment_processor_id'],
+        'token'                 => $customerTokenID,
+        'created_date'          => date("Y-m-d"),
+        'created_id'            => CRM_Core_Session::getLoggedInContactID(),
+        'expiry_date'           => $expiryDate,
+        'billing_first_name'    => $ccName,
+        'masked_account_number' => $ccNumber,
+      ];
+
+      if (isset($recurringContribution['payment_token_id']) && !empty($recurringContribution['payment_token_id'])) {
+        $params['id'] = $recurringContribution['payment_token_id'];
+      }
+      $paymentToken = civicrm_api3('PaymentToken', 'create', $params);
+      $paymentTokenID = $paymentToken['id'];
+    }
+
+    return $paymentTokenID;
+  }
+
+  /**
+   * Get customer token from response.
+   *
+   * @param $transactionResponse
+   * @return string
+   */
+  private function getCustomerTokenFromResponse($transactionResponse) {
+    if (isset($transactionResponse->TokenCustomerID) && $transactionResponse->TokenCustomerID != "") {
+      return $transactionResponse->TokenCustomerID;
+    }
+
+    if (isset($transactionResponse->Transactions[0]) && isset($transactionResponse->Transactions[0]->TokenCustomerID) && !empty($transactionResponse->Transactions[0]->TokenCustomerID)) {
+      return $transactionResponse->Transactions[0]->TokenCustomerID;
+    }
+
+    return "";
+  }
+
+  /**
    * Validate contribution on successful response.
    *
    * @param $eWayAccessCode
@@ -197,15 +269,8 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
 
     if (!$hasTransactionFailed) {
       if ($isRecurring) {
-        $customerTokenID = $transactionResponse->TokenCustomerID;
-        $customerResponse = $eWayClient->queryCustomer($customerTokenID);
-        if (isset($customerResponse->Customers) && count($customerResponse->Customers)) {
-          $customerResponse = $customerResponse->Customers[0];
-        }
-        else {
-          $customerResponse = NULL;
-        }
-        self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $customerResponse, $transactionID);
+        $customerTokenID = self::getCustomerTokenFromResponse($transactionResponse);
+        self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $accessCodeResponse, $transactionID);
       }
 
       civicrm_api3('Contribution', 'completetransaction', array(
@@ -251,7 +316,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
    * @param $customerTokenId
    * @throws CRM_Core_Exception
    */
-  private static function updateRecurringContribution($contribution, $customerTokenId, $paymentProcessorId, $customerResponse, $transactionID){
+  private static function updateRecurringContribution($contribution, $customerTokenId, $paymentProcessorId, $accessCodeResponse, $transactionID){
     //----------------------------------------------------------------------------------------------------
     // Save the eWay customer token in the recurring contribution's processor_id field
     //----------------------------------------------------------------------------------------------------
@@ -302,30 +367,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
             "{$recurringContribution['frequency_unit']}s"));
       }
 
-      $paymentTokenID = NULL;
-      if ($customerResponse && isset($customerResponse->CardDetails)) {
-        $ccNumber = $customerResponse->CardDetails->Number;
-        $ccName = $customerResponse->CardDetails->Name;
-        $ccExpMonth = $customerResponse->CardDetails->ExpiryMonth;
-        $ccExpYear = $customerResponse->CardDetails->ExpiryYear;
-
-        $expiryDate = new DateTime();
-        $expiryDate->setDate($ccExpYear, $ccExpMonth, 1);
-        $expiryDate = $expiryDate->format("Y-m-d");
-
-        $paymentToken = civicrm_api3('PaymentToken', 'create', [
-          'contact_id'            => $recurringContribution['contact_id'],
-          'payment_processor_id'  => $recurringContribution['payment_processor_id'],
-          'token'                 => $customerTokenId,
-          'created_date'          => date("Y-m-d"),
-          'created_id'            => CRM_Core_Session::getLoggedInContactID(),
-          'expiry_date'           => $expiryDate,
-          'billing_first_name'    => $ccName,
-          'masked_account_number' => $ccNumber,
-        ]);
-
-        $paymentTokenID = $paymentToken['id'];
-      }
+      $paymentTokenID = self::updateCustomerDetails($accessCodeResponse, $recurringContribution);
 
       $recurringContribution['next_sched_contribution_date'] = CRM_Utils_Date::isoToMysql ($next_sched);
       $recurringContribution['cycle_day'] = $cycle_day;
