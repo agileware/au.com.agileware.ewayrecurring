@@ -312,7 +312,9 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment
           'Customer' => $eWayCustomer,
           'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params),
           'CancelUrl' => $this->getCancelPaymentReturnUrl($params),
-          'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
+          'TransactionType' => (($this->isBackOffice() && !Civi::settings()->get('cvv_backoffice_required'))
+                             ? \Eway\Rapid\Enum\TransactionType::MOTO
+                             : \Eway\Rapid\Enum\TransactionType::PURCHASE),
           'Payment' => [
             'TotalAmount' => $amountInCents,
             'InvoiceNumber' => $uniqueTrnxNum,
