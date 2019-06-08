@@ -2,7 +2,7 @@
 <extension key="au.com.agileware.ewayrecurring" type="module">
   <file>eWAYRecurring</file>
   <name>eWAY Recurring Payment Processor</name>
-  <description>Recurring payments payment processor for eWay.  This payment process now uses eWAY's Rapid API with the Responsive Shared page, so credentials need to be updated.</description>
+  <description>Payment processor using the eWAY payment gateway and eWAY Rapid API v4.</description>
   <urls>
     <url desc="Main Extension Page">https://github.com/agileware/au.com.agileware.ewayrecurring</url>
     <url desc="Documentation">https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/README.md</url>
@@ -14,8 +14,8 @@
     <author>Agileware</author>
     <email>support@agileware.com.au</email>
   </maintainer>
-  <releaseDate>2019-05-29</releaseDate>
-  <version>2.1.3</version>
+  <releaseDate>2019-06-08</releaseDate>
+  <version>2.1.4</version>
   <compatibility>
     <ver>4.7</ver>
     <ver>5.0</ver>
