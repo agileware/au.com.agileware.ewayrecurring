@@ -4,13 +4,13 @@
     <path>civicrm/ewayrecurring/verifypayment</path>
     <page_callback>CRM_eWAYRecurring_Page_VerifyPayment</page_callback>
     <title>VerifyPayment</title>
-    <access_arguments>access CiviCRM</access_arguments>
+    <access_arguments>make online contributions</access_arguments>
   </item>
   <item>
     <path>civicrm/ewayrecurring/verifyupdatetoken</path>
     <page_callback>CRM_eWAYRecurring_Page_VerifyUpdateToken</page_callback>
     <title>VerifyPayment</title>
-    <access_arguments>access CiviCRM</access_arguments>
+    <access_arguments>make online contributions</access_arguments>
   </item>
   <item>
     <path>civicrm/ewayrecurring/settings</path>
