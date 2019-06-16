@@ -11,47 +11,43 @@ use Eway\Rapid\Model\Support\HasAttributesTrait;
 /**
  * Class AbstractModel.
  */
-abstract class AbstractModel implements Arrayable
-{
-    use HasAttributesTrait, CanValidateInstanceTrait, CanValidateEnumTrait, CanGetClassTrait;
+abstract class AbstractModel implements Arrayable {
 
-    /**
-     * @param array $attributes
-     */
-    public function __construct(array $attributes = [])
-    {
-        $this->fill($attributes);
-    }
+  use HasAttributesTrait, CanValidateInstanceTrait, CanValidateEnumTrait, CanGetClassTrait;
 
-    /**
-     * Convert the model instance to JSON.
-     *
-     * @param int $options
-     *
-     * @return string
-     */
-    public function toJson($options = 0)
-    {
-        return json_encode($this->toArray(), $options);
-    }
+  /**
+   * @param array $attributes
+   */
+  public function __construct(array $attributes = []) {
+    $this->fill($attributes);
+  }
 
-    /**
-     * Convert the model instance to an array.
-     *
-     * @return array
-     */
-    public function toArray()
-    {
-        return $this->attributesToArray();
-    }
+  /**
+   * Convert the model instance to JSON.
+   *
+   * @param int $options
+   *
+   * @return string
+   */
+  public function toJson($options = 0) {
+    return json_encode($this->toArray(), $options);
+  }
 
-    /**
-     * Convert the model to its string representation.
-     *
-     * @return string
-     */
-    public function __toString()
-    {
-        return $this->toJson();
-    }
+  /**
+   * Convert the model instance to an array.
+   *
+   * @return array
+   */
+  public function toArray() {
+    return $this->attributesToArray();
+  }
+
+  /**
+   * Convert the model to its string representation.
+   *
+   * @return string
+   */
+  public function __toString() {
+    return $this->toJson();
+  }
 }

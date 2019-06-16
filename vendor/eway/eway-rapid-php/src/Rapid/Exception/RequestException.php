@@ -7,6 +7,6 @@ use RuntimeException;
 /**
  * Class RequestException.
  */
-class RequestException extends RuntimeException
-{
+class RequestException extends RuntimeException {
+
 }

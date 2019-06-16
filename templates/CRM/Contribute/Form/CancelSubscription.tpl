@@ -25,30 +25,30 @@
 *}
 
 <div class="crm-block crm-form-block crm-auto-renew-membership-cancellation">
-<div id="help">
-  <div class="icon inform-icon"></div>&nbsp;
-  {if $mode eq 'auto_renew'}
-      {ts}Click the button below if you want to cancel the auto-renewal option for your {$membershipType} membership. This will not cancel your membership. However you will need to arrange payment for renewal when your membership expires.{/ts}  
-  {else}
-			<strong>{ts 1=$amount|crmMoney 2=$frequency_interval 3=$frequency_unit}Recurring Contribution Details: %1 every %2 %3{/ts}
-			{if $installments}
-				{ts 1=$installments}for %1 installments{/ts}.
-			{/if}</strong>
-      <div class="content">{ts}Click the button below to cancel this commitment and stop future transactions. This does not affect contributions which have already been completed.{/ts}</div>
-	{/if}
-	{if !$cancelSupported}
-		<div class="status-warning">
-			{ts}Automatic cancellation is not supported for this payment processor. You or the contributor will need to manually cancel this recurring contribution using the payment processor website.{/ts}
-		</div>
-	{/if}
-</div>
-{if !$self_service}
-<table class="form-layout">
-   <tr>
-      <td class="label">{$form.is_notify.label}</td>
-      <td class="html-adjust">{$form.is_notify.html}</td>
-   </tr>
-</table>
-{/if}
-<div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
+    <div id="help">
+        <div class="icon inform-icon"></div>&nbsp;
+        {if $mode eq 'auto_renew'}
+            {ts}Click the button below if you want to cancel the auto-renewal option for your {$membershipType} membership. This will not cancel your membership. However you will need to arrange payment for renewal when your membership expires.{/ts}
+        {else}
+            <strong>{ts 1=$amount|crmMoney 2=$frequency_interval 3=$frequency_unit}Recurring Contribution Details: %1 every %2 %3{/ts}
+                {if $installments}
+                    {ts 1=$installments}for %1 installments{/ts}.
+                {/if}</strong>
+            <div class="content">{ts}Click the button below to cancel this commitment and stop future transactions. This does not affect contributions which have already been completed.{/ts}</div>
+        {/if}
+        {if !$cancelSupported}
+            <div class="status-warning">
+                {ts}Automatic cancellation is not supported for this payment processor. You or the contributor will need to manually cancel this recurring contribution using the payment processor website.{/ts}
+            </div>
+        {/if}
+    </div>
+    {if !$self_service}
+        <table class="form-layout">
+            <tr>
+                <td class="label">{$form.is_notify.label}</td>
+                <td class="html-adjust">{$form.is_notify.html}</td>
+            </tr>
+        </table>
+    {/if}
+    <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
 </div>

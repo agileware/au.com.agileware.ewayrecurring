@@ -1,21 +1,11 @@
 eWAY Recurring Payment Processor for CiviCRM
 --------------------------------------------
 
-CiviCRM payment processor extension for [eWAY](https://eway.com.au) which
-implements recurring payments using tokens. This method is essential for
-automating the process setting up recurring donations and memberships in your
-CiviCRM securely and reliably.
+CiviCRM payment processor extension for [eWAY](https://eway.com.au) which uses the latest [eWAY Rapid API](https://www.eway.com.au/features/api-rapid-api/) and ensures [PCI DSS compliance](https://www.eway.com.au/about-eway/technology-security/pci-dss/). Supports both once-off and recurring payment utilising the secure token payment method. This essential for automating the process setting up recurring donations and memberships in your CiviCRM securely and reliably. This payment processor also allows you to specify a particular day of the month to process all recurring payments together.
 
-This payment processor also allows you to specify a particular day of the month
-to process all recurring payments together.
+This extension previously utilised the eWAY token API which has been deprecated by eWAY. [eWAY Rapid API](https://www.eway.com.au/features/api-rapid-api/) is now used with the Responsive Shared Page method for a higher standard of [PCI DSS compliance](https://www.eway.com.au/about-eway/technology-security/pci-dss/).
 
-You will need to have a [eWAY account](https://eway.com.au) to use this payment
-processor on your CiviCRM website.
-
-This extension previously utilised the eWAY token API which has been deprecated
-by eWAY.  [eWAY Rapid API](https://www.eway.com.au/features/api-rapid-api/) is
-now used with the Responsive Shared Page method, reducing the level of PCI DSS
-compliance required on your site.
+You will need to have a [eWAY account](https://eway.com.au) to use this payment processor on your CiviCRM website.
 
 Installation
 ------------

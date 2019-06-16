@@ -9,11 +9,11 @@ namespace Eway\Rapid\Model;
  * @property string $ResponseCode      The bank/gateway Response code
  * @property string $ResponseMessage   The bank/gateway response message
  */
-class ProcessingDetails extends AbstractModel
-{
-    protected $fillable = [
-        'AuthorisationCode',
-        'ResponseCode',
-        'ResponseMessage',
-    ];
+class ProcessingDetails extends AbstractModel {
+
+  protected $fillable = [
+    'AuthorisationCode',
+    'ResponseCode',
+    'ResponseMessage',
+  ];
 }

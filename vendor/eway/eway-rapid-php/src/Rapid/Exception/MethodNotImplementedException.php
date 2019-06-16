@@ -7,6 +7,6 @@ use RuntimeException;
 /**
  * Class MethodNotImplementedException.
  */
-class MethodNotImplementedException extends RuntimeException
-{
+class MethodNotImplementedException extends RuntimeException {
+
 }

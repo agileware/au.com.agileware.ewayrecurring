@@ -75,4 +75,11 @@
         <default>0</default>
     </field>
 
+    <field>
+        <name>is_email_receipt</name>
+        <type>int unsigned</type>
+        <default>1</default>
+        <comment>Should CRM send receipt email when payment completed?</comment>
+    </field>
+
 </table>

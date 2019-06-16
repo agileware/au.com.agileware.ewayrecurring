@@ -54,13 +54,15 @@ class CRM_eWAYRecurring_Upgrader_Base {
   }
 
   /**
-   * Adapter that lets you add normal (non-static) member functions to the queue.
+   * Adapter that lets you add normal (non-static) member functions to the
+   * queue.
    *
    * Note: Each upgrader instance should only be associated with one
    * task-context; otherwise, this will be non-reentrant.
    *
    * @code
-   * CRM_eWAYRecurring_Upgrader_Base::_queueAdapter($ctx, 'methodName', 'arg1', 'arg2');
+   * CRM_eWAYRecurring_Upgrader_Base::_queueAdapter($ctx, 'methodName', 'arg1',
+   *   'arg2');
    * @endcode
    */
   static public function _queueAdapter() {
@@ -69,7 +71,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
     $instance->ctx = array_shift($args);
     $instance->queue = $instance->ctx->queue;
     $method = array_shift($args);
-    return call_user_func_array(array($instance, $method), $args);
+    return call_user_func_array([$instance, $method], $args);
   }
 
   public function __construct($extensionName, $extensionDir) {
@@ -82,7 +84,9 @@ class CRM_eWAYRecurring_Upgrader_Base {
   /**
    * Run a CustomData file.
    *
-   * @param string $relativePath the CustomData XML file path (relative to this extension's dir)
+   * @param string $relativePath the CustomData XML file path (relative to this
+   *   extension's dir)
+   *
    * @return bool
    */
   public function executeCustomDataFile($relativePath) {
@@ -93,7 +97,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
   /**
    * Run a CustomData file
    *
-   * @param string $xml_file  the CustomData XML file path (absolute path)
+   * @param string $xml_file the CustomData XML file path (absolute path)
    *
    * @return bool
    */
@@ -106,7 +110,8 @@ class CRM_eWAYRecurring_Upgrader_Base {
   /**
    * Run a SQL file.
    *
-   * @param string $relativePath the SQL file path (relative to this extension's dir)
+   * @param string $relativePath the SQL file path (relative to this
+   *   extension's dir)
    *
    * @return bool
    */
@@ -122,6 +127,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
    * @param string $tplFile
    *   The SQL file path (relative to this extension's dir).
    *   Ex: "sql/mydata.mysql.tpl".
+   *
    * @return bool
    */
   public function executeSqlTemplate($tplFile) {
@@ -144,7 +150,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
    * provides syntatic sugar for queueing several tasks that
    * run different queries
    */
-  public function executeSql($query, $params = array()) {
+  public function executeSql($query, $params = []) {
     // FIXME verify that we raise an exception on error
     CRM_Core_DAO::executeQuery($query, $params);
     return TRUE;
@@ -163,11 +169,11 @@ class CRM_eWAYRecurring_Upgrader_Base {
     $args = func_get_args();
     $title = array_shift($args);
     $task = new CRM_Queue_Task(
-      array(get_class($this), '_queueAdapter'),
+      [get_class($this), '_queueAdapter'],
       $args,
       $title
     );
-    return $this->queue->createItem($task, array('weight' => -1));
+    return $this->queue->createItem($task, ['weight' => -1]);
   }
 
   // ******** Revision-tracking helpers ********
@@ -200,23 +206,23 @@ class CRM_eWAYRecurring_Upgrader_Base {
     $currentRevision = $this->getCurrentRevision();
     foreach ($this->getRevisions() as $revision) {
       if ($revision > $currentRevision) {
-        $title = ts('Upgrade %1 to revision %2', array(
+        $title = ts('Upgrade %1 to revision %2', [
           1 => $this->extensionName,
           2 => $revision,
-        ));
+        ]);
 
         // note: don't use addTask() because it sets weight=-1
 
         $task = new CRM_Queue_Task(
-          array(get_class($this), '_queueAdapter'),
-          array('upgrade_' . $revision),
+          [get_class($this), '_queueAdapter'],
+          ['upgrade_' . $revision],
           $title
         );
         $this->queue->createItem($task);
 
         $task = new CRM_Queue_Task(
-          array(get_class($this), '_queueAdapter'),
-          array('setCurrentRevision', $revision),
+          [get_class($this), '_queueAdapter'],
+          ['setCurrentRevision', $revision],
           $title
         );
         $this->queue->createItem($task);
@@ -231,7 +237,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
    */
   public function getRevisions() {
     if (!is_array($this->revisions)) {
-      $this->revisions = array();
+      $this->revisions = [];
 
       $clazz = new ReflectionClass(get_class($this));
       $methods = $clazz->getMethods();
@@ -302,7 +308,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
         $this->executeCustomDataFileByAbsPath($file);
       }
     }
-    if (is_callable(array($this, 'install'))) {
+    if (is_callable([$this, 'install'])) {
       $this->install();
     }
   }
@@ -315,7 +321,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
     if (!empty($revisions)) {
       $this->setCurrentRevision(max($revisions));
     }
-    if (is_callable(array($this, 'postInstall'))) {
+    if (is_callable([$this, 'postInstall'])) {
       $this->postInstall();
     }
   }
@@ -330,7 +336,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
         $this->executeSqlTemplate($file);
       }
     }
-    if (is_callable(array($this, 'uninstall'))) {
+    if (is_callable([$this, 'uninstall'])) {
       $this->uninstall();
     }
     $files = glob($this->extensionDir . '/sql/*_uninstall.sql');
@@ -346,7 +352,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
    */
   public function onEnable() {
     // stub for possible future use
-    if (is_callable(array($this, 'enable'))) {
+    if (is_callable([$this, 'enable'])) {
       $this->enable();
     }
   }
@@ -356,7 +362,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
    */
   public function onDisable() {
     // stub for possible future use
-    if (is_callable(array($this, 'disable'))) {
+    if (is_callable([$this, 'disable'])) {
       $this->disable();
     }
   }
@@ -364,7 +370,7 @@ class CRM_eWAYRecurring_Upgrader_Base {
   public function onUpgrade($op, CRM_Queue_Queue $queue = NULL) {
     switch ($op) {
       case 'check':
-        return array($this->hasPendingRevisions());
+        return [$this->hasPendingRevisions()];
 
       case 'enqueue':
         return $this->enqueuePendingRevisions($queue);

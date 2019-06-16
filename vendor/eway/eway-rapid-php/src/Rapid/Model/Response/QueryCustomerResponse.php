@@ -9,14 +9,14 @@ use Eway\Rapid\Model\Support\HasCustomersTrait;
  * Class QueryCustomerResponse.
  *
  * @property Customer[] Customers
- * @property array      Errors
+ * @property array Errors
  */
-class QueryCustomerResponse extends AbstractResponse
-{
-    use HasCustomersTrait;
+class QueryCustomerResponse extends AbstractResponse {
 
-    protected $fillable = [
-        'Customers',
-        'Errors',
-    ];
+  use HasCustomersTrait;
+
+  protected $fillable = [
+    'Customers',
+    'Errors',
+  ];
 }

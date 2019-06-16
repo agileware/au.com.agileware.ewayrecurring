@@ -13,14 +13,14 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
     if (!empty($recurringContributionID)) {
 
       try {
-        $recurringContribution = civicrm_api3('ContributionRecur', 'getsingle', array(
+        $recurringContribution = civicrm_api3('ContributionRecur', 'getsingle', [
           'id' => $recurringContributionID,
-        ));
+        ]);
 
-        $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', array(
-          'id'         => $paymentProcessorID,
+        $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [
+          'id' => $paymentProcessorID,
           'sequential' => 1,
-        ));
+        ]);
 
         $paymentProcessorInfo = $paymentProcessorInfo['values'];
 
@@ -37,11 +37,11 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
               ts('Failed to update billing details, Error: ' . $transactionResponseError),
               ts('Update Billing Details'), 'error');
 
-            $redirectUrl = CRM_Utils_System::url('civicrm/contribute/updatebilling', array(
-              'cid'         => $recurringContribution['contact_id'],
-              'context'     => 'contribution',
-              'crid'        => $recurringContribution['id'],
-            ), TRUE, NULL, FALSE);
+            $redirectUrl = CRM_Utils_System::url('civicrm/contribute/updatebilling', [
+              'cid' => $recurringContribution['contact_id'],
+              'context' => 'contribution',
+              'crid' => $recurringContribution['id'],
+            ], TRUE, NULL, FALSE);
           }
           else {
             //----------------------------------------------------------------------------------------------------
@@ -50,31 +50,30 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
 
             CRM_eWAYRecurring_eWAYRecurringUtils::updateCustomerDetails($response, $recurringContribution);
 
-            if(_contribution_status_id('Failed') == $recurringContribution['contribution_status_id']) {
-              CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+            if (_contribution_status_id('Failed') == $recurringContribution['contribution_status_id']) {
+              CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
                 $recurringContribution['id'],
                 'contribution_status_id',
-                _contribution_status_id('In Progress') );
+                _contribution_status_id('In Progress'));
             }
 
-            CRM_Core_DAO::setFieldValue( 'CRM_Contribute_DAO_ContributionRecur',
+            CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
               $recurringContribution['id'],
               'failure_count',
-              0 );
+              0);
 
             CRM_Core_Session::setStatus(
               ts('Billing details has been updated successfully.'),
               ts('Update Billing Details'), 'success');
 
-            $redirectUrl = CRM_Utils_System::url('civicrm/contact/view', array(
-              'cid'         => $recurringContribution['contact_id'],
-            ), TRUE, NULL, FALSE);
+            $redirectUrl = CRM_Utils_System::url('civicrm/contact/view', [
+              'cid' => $recurringContribution['contact_id'],
+            ], TRUE, NULL, FALSE);
 
           }
         }
 
-      }
-      catch (CiviCRM_API3_Exception $e) {
+      } catch (CiviCRM_API3_Exception $e) {
 
       }
     }

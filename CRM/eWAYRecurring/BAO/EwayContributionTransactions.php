@@ -1,4 +1,5 @@
 <?php
+
 class CRM_eWAYRecurring_BAO_EwayContributionTransactions extends CRM_eWAYRecurring_DAO_EwayContributionTransactions {
 
 }

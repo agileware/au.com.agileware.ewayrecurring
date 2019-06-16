@@ -1,27 +1,28 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <extension key="au.com.agileware.ewayrecurring" type="module">
-  <file>eWAYRecurring</file>
-  <name>eWAY Recurring Payment Processor</name>
-  <description>Payment processor using the eWAY payment gateway and eWAY Rapid API v4.</description>
-  <urls>
-    <url desc="Main Extension Page">https://github.com/agileware/au.com.agileware.ewayrecurring</url>
-    <url desc="Documentation">https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/README.md</url>
-    <url desc="Support">https://agileware.com.au/contact</url>
-    <url desc="Licensing">https://www.gnu.org/licenses/agpl-3.0.html</url>
-  </urls>
-  <license>AGPL</license>
-  <maintainer>
-    <author>Agileware</author>
-    <email>support@agileware.com.au</email>
-  </maintainer>
-  <releaseDate>2019-06-08</releaseDate>
-  <version>2.1.4</version>
-  <compatibility>
-    <ver>4.7</ver>
-    <ver>5.0</ver>
-   </compatibility>
-  <comments></comments>
-  <civix>
-    <namespace>CRM/eWAYRecurring</namespace>
-  </civix>
+    <file>eWAYRecurring</file>
+    <name>eWAY Recurring Payment Processor</name>
+    <description>Payment processor using the eWAY payment gateway and eWAY Rapid API v4.</description>
+    <urls>
+        <url desc="Main Extension Page">https://github.com/agileware/au.com.agileware.ewayrecurring</url>
+        <url desc="Documentation">https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/README.md
+        </url>
+        <url desc="Support">https://agileware.com.au/contact</url>
+        <url desc="Licensing">https://www.gnu.org/licenses/agpl-3.0.html</url>
+    </urls>
+    <license>AGPL</license>
+    <maintainer>
+        <author>Agileware</author>
+        <email>support@agileware.com.au</email>
+    </maintainer>
+    <releaseDate>2019-06-08</releaseDate>
+    <version>2.1.5</version>
+    <compatibility>
+        <ver>4.7</ver>
+        <ver>5.0</ver>
+    </compatibility>
+    <comments></comments>
+    <civix>
+        <namespace>CRM/eWAYRecurring</namespace>
+    </civix>
 </extension>

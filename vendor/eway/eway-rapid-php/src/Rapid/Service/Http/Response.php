@@ -8,36 +8,32 @@ use Eway\Rapid\Model\Support\CanGetClassTrait;
 /**
  * Class Response.
  */
-class Response implements ResponseInterface
-{
-    use CanGetClassTrait;
+class Response implements ResponseInterface {
 
-    /** @var int */
-    private $statusCode = 200;
+  use CanGetClassTrait;
 
-    /**
-     * @param int    $status Status code for the response, if any.
-     * @param string $body   Response body.
-     */
-    public function __construct($status = 200, $body = null, $error = null)
-    {
-        $this->statusCode = (int)$status;
-        $this->body = $body;
-        $this->error = $error;
-    }
+  /** @var int */
+  private $statusCode = 200;
 
-    public function getBody()
-    {
-        return $this->body;
-    }
+  /**
+   * @param int $status Status code for the response, if any.
+   * @param string $body Response body.
+   */
+  public function __construct($status = 200, $body = NULL, $error = NULL) {
+    $this->statusCode = (int) $status;
+    $this->body = $body;
+    $this->error = $error;
+  }
 
-    public function getStatusCode()
-    {
-        return $this->statusCode;
-    }
+  public function getBody() {
+    return $this->body;
+  }
 
-    public function getError()
-    {
-        return $this->error;
-    }
+  public function getStatusCode() {
+    return $this->statusCode;
+  }
+
+  public function getError() {
+    return $this->error;
+  }
 }

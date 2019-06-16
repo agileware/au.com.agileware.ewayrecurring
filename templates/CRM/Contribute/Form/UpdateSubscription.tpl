@@ -24,45 +24,61 @@
  +--------------------------------------------------------------------+
 *}
 <div class="crm-block crm-form-block crm-recurcontrib-form-block">
-  {if $isChangeSupported}
-    <div id="help">
-      {ts}Use this form to change the amount or number of installments for this recurring contribution. Changes will be automatically sent to the payment processor. You can not change the contribution frequency.{/ts}
-  </div>
-  {/if}
-  <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
-  <table class="form-layout">
-    <tr>
-      <td class="label">{$form.amount.label}</td>
-      <td>{$form.currency.html|crmAddClass:eight}&nbsp;{$form.amount.html|crmAddClass:eight} ({ts}every{/ts} {$frequency_interval} {$frequency_unit})</td>
-    </tr>
-    <tr><td class="label">{$form.installments.label}</td><td>{$form.installments.html}<br />
-          <span class="description">{ts}Total number of payments to be made. Set this to 0 if this is an open-ended commitment i.e. no set end date.{/ts}</span></td></tr>
-    {if $form.next_scheduled_date}
-    <tr class="crm-contribution-form-block-receive_date">
-      <td class="label">{$form.next_scheduled_date.label}</td>
-      <td>{include file="CRM/common/jcalendar.tpl" elementName=next_scheduled_date}<br />
-        <span class="description">{ts}The next date on which this contribution will be made.{/ts}</span></td>
-    </tr>
+    {if $isChangeSupported}
+        <div id="help">
+            {ts}Use this form to change the amount or number of installments for this recurring contribution. Changes will be automatically sent to the payment processor. You can not change the contribution frequency.{/ts}
+        </div>
     {/if}
-    {if !$self_service}
-    <tr><td class="label">{$form.is_notify.label}</td><td>{$form.is_notify.html}</td></tr>
-    <tr><td class="label">{$form.campaign_id.label}</td><td>{$form.campaign_id.html}</td></tr>
-    <tr><td class="label">{$form.financial_type_id.label}</td><td>{$form.financial_type_id.html}</td></tr>
-    {/if}
+    <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
+    <table class="form-layout">
+        <tr>
+            <td class="label">{$form.amount.label}</td>
+            <td>{$form.currency.html|crmAddClass:eight}&nbsp;{$form.amount.html|crmAddClass:eight}
+                ({ts}every{/ts} {$frequency_interval} {$frequency_unit})
+            </td>
+        </tr>
+        <tr>
+            <td class="label">{$form.installments.label}</td>
+            <td>{$form.installments.html}<br/>
+                <span class="description">{ts}Total number of payments to be made. Set this to 0 if this is an open-ended commitment i.e. no set end date.{/ts}</span>
+            </td>
+        </tr>
+        {if $form.next_scheduled_date}
+            <tr class="crm-contribution-form-block-receive_date">
+                <td class="label">{$form.next_scheduled_date.label}</td>
+                <td>{include file="CRM/common/jcalendar.tpl" elementName=next_scheduled_date}<br/>
+                    <span class="description">{ts}The next date on which this contribution will be made.{/ts}</span>
+                </td>
+            </tr>
+        {/if}
+        {if !$self_service}
+            <tr>
+                <td class="label">{$form.is_notify.label}</td>
+                <td>{$form.is_notify.html}</td>
+            </tr>
+            <tr>
+                <td class="label">{$form.campaign_id.label}</td>
+                <td>{$form.campaign_id.html}</td>
+            </tr>
+            <tr>
+                <td class="label">{$form.financial_type_id.label}</td>
+                <td>{$form.financial_type_id.html}</td>
+            </tr>
+        {/if}
 
-    {* Currently changes to interval, unit and cycle day are not supported. *}
-    {*
-      <tr><td class="label">{$form.frequency_interval.label}</td><td>{$form.frequency_interval.html}<br />
-          <span class="description">{ts}Number of time units for recurrence of payment.{/ts}</span></td></tr>
-      <tr><td class="label">{$form.frequency_unit.label}</td><td>{$form.frequency_unit.html}<br />
-        <span class="description">{ts}Time unit for recurrence of payment. For example, "month".{/ts}</span></td></tr>
-      <tr><td class="label">{$form.cycle_day.label}</td><td>{$form.cycle_day.html}<br />
-        <span class="description">{ts}Day in the period when the payment should be charged.{/ts}</span></td></tr>
-    *}
-  </table>
+        {* Currently changes to interval, unit and cycle day are not supported. *}
+        {*
+          <tr><td class="label">{$form.frequency_interval.label}</td><td>{$form.frequency_interval.html}<br />
+              <span class="description">{ts}Number of time units for recurrence of payment.{/ts}</span></td></tr>
+          <tr><td class="label">{$form.frequency_unit.label}</td><td>{$form.frequency_unit.html}<br />
+            <span class="description">{ts}Time unit for recurrence of payment. For example, "month".{/ts}</span></td></tr>
+          <tr><td class="label">{$form.cycle_day.label}</td><td>{$form.cycle_day.html}<br />
+            <span class="description">{ts}Day in the period when the payment should be charged.{/ts}</span></td></tr>
+        *}
+    </table>
 
-  <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="bottom"}</div>
+    <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="bottom"}</div>
 </div>
-  
+
 {* include jscript to warn if unsaved form field changes *}
 {include file="CRM/common/formNavigate.tpl"}

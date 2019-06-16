@@ -7,8 +7,9 @@
  */
 class CRM_eWAYRecurring_Form_Settings extends CRM_Core_Form {
 
-  private $_settingFilter = array('group' => 'eWAYRecurring');
-  private $_settings = array();
+  private $_settingFilter = ['group' => 'eWAYRecurring'];
+
+  private $_settings = [];
 
   public function buildQuickForm() {
     $this->addFormElements();
@@ -39,34 +40,35 @@ class CRM_eWAYRecurring_Form_Settings extends CRM_Core_Form {
       if (isset($setting['quick_form_type'])) {
         $add = 'add' . $setting['quick_form_type'];
         if ($add == 'addElement') {
-          $this->$add($setting['html_type'], $name, $setting['title'], CRM_Utils_Array::value('html_attributes', $setting, array(), TRUE), TRUE);
+          $this->$add($setting['html_type'], $name, $setting['title'], CRM_Utils_Array::value('html_attributes', $setting, [], TRUE), TRUE);
         }
         elseif ($setting['html_type'] == 'Select') {
-          $optionValues = array();
+          $optionValues = [];
           if (!empty($setting['pseudoconstant']) && !empty($setting['pseudoconstant']['optionGroupName'])) {
             $optionValues = CRM_Core_OptionGroup::values($setting['pseudoconstant']['optionGroupName'], FALSE, FALSE, FALSE, NULL, 'name');
           }
           elseif (!empty($setting['pseudoconstant']) && !empty($setting['pseudoconstant']['callback'])) {
-            $callBack = Civi\Core\Resolver::singleton()->get($setting['pseudoconstant']['callback']);
+            $callBack = Civi\Core\Resolver::singleton()
+              ->get($setting['pseudoconstant']['callback']);
             $optionValues = call_user_func_array($callBack, $optionValues);
           }
           $this->add('select', $setting['name'], $setting['title'], $optionValues, FALSE, $setting['html_attributes']);
         }
         else {
-          $this->$add($name, $setting['title'], array());
+          $this->$add($name, $setting['title'], []);
         }
       }
     }
 
     $this->assign('elementNames', $this->getRenderableElementNames());
 
-    $this->addButtons(array(
-      array(
+    $this->addButtons([
+      [
         'type' => 'submit',
         'name' => ts('Submit'),
         'isDefault' => TRUE,
-      ),
-    ));
+      ],
+    ]);
 
   }
 
@@ -77,7 +79,7 @@ class CRM_eWAYRecurring_Form_Settings extends CRM_Core_Form {
    */
   public function getFormSettings() {
     if (empty($this->_settings)) {
-      $settings = civicrm_api3('setting', 'getfields', array('filters' => $this->_settingFilter));
+      $settings = civicrm_api3('setting', 'getfields', ['filters' => $this->_settingFilter]);
       $settings = $settings['values'];
       $this->_settings = $settings;
     }
@@ -114,8 +116,8 @@ class CRM_eWAYRecurring_Form_Settings extends CRM_Core_Form {
    * @see CRM_Core_Form::setDefaultValues()
    */
   public function setDefaultValues() {
-    $existing = civicrm_api3('setting', 'get', array('return' => array_keys($this->getFormSettings())));
-    $defaults = array();
+    $existing = civicrm_api3('setting', 'get', ['return' => array_keys($this->getFormSettings())]);
+    $defaults = [];
     $domainID = CRM_Core_Config::domainID();
     foreach ($existing['values'][$domainID] as $name => $value) {
       $defaults[$name] = $value;
@@ -129,14 +131,14 @@ class CRM_eWAYRecurring_Form_Settings extends CRM_Core_Form {
    * @return array (string)
    */
   public function getRenderableElementNames() {
-    $elementNames = array();
+    $elementNames = [];
     foreach ($this->_elements as $element) {
       $label = $element->getLabel();
       if (!empty($label)) {
-        $elementNames[] = array(
-          "name"        => $element->getName(),
+        $elementNames[] = [
+          "name" => $element->getName(),
           "description" => (isset($this->_settings[$element->getName()]["description"])) ? $this->_settings[$element->getName()]["description"] : '',
-        );
+        ];
       }
     }
     return $elementNames;
