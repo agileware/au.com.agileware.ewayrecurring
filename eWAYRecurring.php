@@ -233,7 +233,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
     'module' => 'au.com.agileware.ewayrecurring',
     'name' => 'eWay_Recurring_cron',
     'entity' => 'Job',
-    'update' => 'never',
+    'update' => 'always',
     // Ensure local changes are kept, eg. setting the job active
     'params' => [
       'version' => 3,
@@ -243,7 +243,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'api_entity' => 'Job',
       'api_action' => 'run_payment_cron',
       'parameters' => "processor_name=eWay_Recurring",
-      'is_active' => '0',
+      'is_active' => '1',
     ],
   ];
   $entities[] = [
