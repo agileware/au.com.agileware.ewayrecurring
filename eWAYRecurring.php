@@ -95,6 +95,9 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
     if ($schemaVersion < 6) {
       CRM_Core_Session::setStatus(ts('Version 2.0.0 of the eWAYRecurring extension changes the method of authentication with eWAY. To upgrade you will need to enter a new API Key and Password.  For more details see <a href="%1">the upgrade notes.</a>', [1 => 'https://github.com/agileware/au.com.agileware.ewayrecurring/blob/2.0.0/UPGRADE.md#200']), ts('eWAYRecurring Action Required'));
     }
+    if ($schemaVersion < 7) {
+      CRM_Core_Session::setStatus(ts('Please edit and save (without any changes) your existing EWay payment processor after updating.', ts('eWAYRecurring Action Required')));
+    }
     return [$schemaVersion < 7];
   }
   elseif ($op == 'enqueue') {
@@ -140,11 +143,11 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
           'Perform Rapid API related changes'
         )
       );
-    }
-    if ($schemaVersion < 7) {
+
+      // add the table if not exist
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          7,
+          6,
           "CREATE TABLE IF NOT EXISTS `civicrm_eway_contribution_transactions`(
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Unique EwayContributionTransactions ID',
     `contribution_id` INT UNSIGNED COMMENT 'FK to Contact',
@@ -158,9 +161,12 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
     CONSTRAINT FK_civicrm_eway_contribution_transactions_payment_processor_id FOREIGN KEY(`payment_processor_id`) REFERENCES `civicrm_payment_processor`(`id`) ON DELETE CASCADE
 );",
         ],
-          'Create table if not exists.'
+          'Create the table if not exist.'
         )
       );
+    }
+    if ($schemaVersion < 7) {
+      // those fields are marked as deprecated.
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
           7,
@@ -169,6 +175,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
           'Change processor billing mode.'
         )
       );
+
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
           7,
@@ -177,16 +184,16 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
           'Updating existing processors.'
         )
       );
+
+      // CIVIEWAY-76 remember the send email option
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
           7,
           "ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1",
         ],
-          'Updating existing processors.'
+          'Save the send email option.'
         )
       );
-
-
     }
   }
   return _ewayrecurring_civix_civicrm_upgrade($op, $queue);

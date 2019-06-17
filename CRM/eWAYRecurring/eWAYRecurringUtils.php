@@ -290,6 +290,7 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
         self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $accessCodeResponse, $transactionID);
       }
 
+      // check receipt sent or not
       $result = civicrm_api3('Contribution', 'get', [
         'sequential' => 1,
         'return' => ["receipt_date"],

@@ -426,7 +426,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       'contributionInvoiceID' => $params['invoiceID'],
       'qfKey' => $params['qfKey'],
       'paymentProcessorID' => ($this->getPaymentProcessor())['id'],
-      'entryURL' => $params['entryURL'],
       'component' => $component,
     ], TRUE, NULL, FALSE);
   }
