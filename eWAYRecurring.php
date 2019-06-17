@@ -93,7 +93,11 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
 
   if ($op == 'check') {
     if ($schemaVersion < 6) {
-      CRM_Core_Session::setStatus(ts('Version 2.0.0 of the eWAYRecurring extension changes the method of authentication with eWAY. To upgrade you will need to enter a new API Key and Password.  For more details see <a href="%1">the upgrade notes.</a>', [1 => 'https://github.com/agileware/au.com.agileware.ewayrecurring/blob/2.0.0/UPGRADE.md#200']), ts('eWAYRecurring Action Required'));
+      $setting_url = CRM_Utils_System::url('civicrm/admin/paymentProcessor', ['reset' => 1]);
+      CRM_Core_Session::setStatus(ts('Version 2.x of the eWay Payment Processor extension uses the new eWay Rapid API. Please go to the <a href="%2">Payment Processor page</a> and update the eWay API credentials with the new API Key and API Password. For more details see the <a href="%1">upgrade notes</a>.', [
+        1 => 'https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/UPGRADE.md',
+        2 => $setting_url,
+      ]), ts('eWay Payment Processor Update'));
     }
     if ($schemaVersion < 7) {
       CRM_Core_Session::setStatus(ts('Please edit and save (without any changes) your existing EWay payment processor after updating.', ts('eWAYRecurring Action Required')));
