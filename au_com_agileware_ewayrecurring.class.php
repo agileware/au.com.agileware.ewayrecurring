@@ -346,7 +346,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     if ($component == 'event') {
       //$ewayParams['amount'] = $params['amount'];
     }
-    echo $eWAYResponse->SharedPaymentUrl;
 
     civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
 

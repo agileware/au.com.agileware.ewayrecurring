@@ -7,6 +7,6 @@ use RuntimeException;
 /**
  * Class MassAssignmentException.
  */
-class MassAssignmentException extends RuntimeException {
-
+class MassAssignmentException extends RuntimeException
+{
 }

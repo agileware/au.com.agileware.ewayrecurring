@@ -5,6 +5,6 @@
 $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
-return [
-  'Eway\\' => [$vendorDir . '/eway/eway-rapid-php/src'],
-];
+return array(
+    'Eway\\' => array($vendorDir . '/eway/eway-rapid-php/src'),
+);

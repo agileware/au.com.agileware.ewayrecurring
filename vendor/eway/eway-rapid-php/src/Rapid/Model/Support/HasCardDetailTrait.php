@@ -7,16 +7,17 @@ namespace Eway\Rapid\Model\Support;
  *
  * @property CardDetails $CardDetails
  */
-trait HasCardDetailTrait {
+trait HasCardDetailTrait
+{
+    /**
+     * @param $cardDetails
+     *
+     * @return $this
+     */
+    public function setCardDetailsAttribute($cardDetails)
+    {
+        $this->validateInstance('Eway\Rapid\Model\CardDetails', 'CardDetails', $cardDetails);
 
-  /**
-   * @param $cardDetails
-   *
-   * @return $this
-   */
-  public function setCardDetailsAttribute($cardDetails) {
-    $this->validateInstance('Eway\Rapid\Model\CardDetails', 'CardDetails', $cardDetails);
-
-    return $this;
-  }
+        return $this;
+    }
 }

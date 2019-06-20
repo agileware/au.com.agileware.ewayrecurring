@@ -296,19 +296,12 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
         'return' => ["receipt_date"],
         'id' => $contributionID,
       ]);
-
-      if (!empty($result['values'][0]['receipt_date'])) {
-        $send_email = 0;
-      }
-      else {
-        $result = civicrm_api3('EwayContributionTransactions', 'get', [
-          'sequential' => 1,
-          'return' => ["is_email_receipt"],
-          'contribution_id' => $contributionID,
-        ]);
-
-        $send_email = $result['values'][0]['is_email_receipt'];
-      }
+      $result = civicrm_api3('EwayContributionTransactions', 'get', [
+        'sequential' => 1,
+        'return' => ["is_email_receipt"],
+        'contribution_id' => $contributionID,
+      ]);
+      $send_email = $result['values'][0]['is_email_receipt'];
 
       civicrm_api3('Contribution', 'completetransaction', [
         'id' => $contributionID,
