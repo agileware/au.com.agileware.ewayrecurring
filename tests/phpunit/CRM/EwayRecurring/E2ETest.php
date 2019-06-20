@@ -56,33 +56,12 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     parent::tearDown();
   }
 
-  /**
-   * Example: Test that a version is returned.
-   */
-  public function testWellFormedVersion() {
-    $this->assertNotEmpty(E::SHORT_NAME);
-    $this->assertRegExp('/^([0-9\.]|alpha|beta)*$/', \CRM_Utils_System::version());
-  }
-
-  /**
-   * Example: Test that we're using a real CMS (Drupal, WordPress, etc).
-   */
-  public function testWellFormedUF() {
-    $this->assertRegExp('/^(Drupal|Backdrop|WordPress|Joomla)/', CIVICRM_UF);
-  }
-
   public function testEventRegistration() {
-    // FIXME event id
     $ppid = $this->createPaymentProcessor();
-//    $event = $this->eventCreatePaid([
-//      'is_monetary' => 1,
-//      'financial_type_id' => $this->getFinancialTypeId('Event Fee'),
-//      'payment_processor' => $ppid,
-//    ]);
-//    print_r($event['id']);
-    $result = civicrm_api3('Event', 'create', [
+    civicrm_api3('Event', 'create', [
       'id' => 3,
       'payment_processor' => $ppid,
+      'allow_same_participant_emails' => 1,
     ]);
 
     $url = cv("url -d '[cms.root]/civicrm/?page=CiviCRM&q=civicrm%2Fevent%2Fregister&reset=1&id=3'");
@@ -100,7 +79,6 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     $pfvid = array_pop($result['values'])['id'];
 
     $hidden = [];
-    // FIXME dynamic values, price set id
     $params = [
       'additional_participants' => '',
       'first_name' => 'unit',
@@ -128,7 +106,113 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     // Check qfKey
     $this->assertTrue(array_key_exists('qfKey', $params));
 
+    // Post form
     $url = cv("url -d '[cms.root]/civicrm/?page=CiviCRM&q=civicrm/event/register'");
+    $options = [
+      'http' => [
+        'header' => "Content-type: application/x-www-form-urlencoded\r\n" .
+          "User-Agent: PHP\r\n" .
+          "Accept: */*\r\n" .
+          "Cookie: {$cookie}\r\n",
+        'method' => 'POST',
+        'content' => http_build_query($params),
+      ],
+    ];
+    $context = stream_context_create($options);
+    $result = file_get_contents($url, FALSE, $context);
+
+    // Confirm
+    $confirm_params = [
+      'qfKey' => $params['qfKey'],
+      'entryURL' => $params['entryURL'],
+      '_qf_default' => 'Confirm:next',
+    ];
+    $options['http']['content'] = http_build_query($confirm_params);
+    $context = stream_context_create($options);
+    $result = file_get_contents($url, FALSE, $context);
+    // Pay on eway page and get url from
+    list($access_code, $url) = $this->ewayPage($result);
+    $this->assertTrue(strpos($url, cv("url -d '[cms.root]/civicrm/?page=CiviCRM&q=civicrm%2Fewayrecurring%2Fverifypayment'")) !== FALSE, 'Eway payment failed.');
+    list($header, $body) = $this->httpRequest($url, NULL, $cookie);
+
+    // Check redirect
+    $url = cv("url -d '[cms.root]/civicrm/?page=CiviCRM&q=civicrm%2Fevent%2Fregister'");
+    $url .= "&qfKey={$params['qfKey']}&_qf_ThankYou_display=true";
+    $this->assertTrue(strpos($header, $url) !== FALSE, 'Failed to redirect to thank you page.');
+
+    // check contribution and event participant
+    $result = civicrm_api3('EwayContributionTransactions', 'get', [
+      'sequential' => 1,
+      'access_code' => $access_code,
+    ]);
+    $result = array_pop($result['values']);
+    $this->assertEquals(1, $result['status'], 'Eway transaction not completed.');
+    $pp_result = civicrm_api3('ParticipantPayment', 'get', [
+      'sequential' => 1,
+      "contribution_id" => $result['contribution_id'],
+      'api.Participant.getsingle' => ['sequential' => 1, 'id' => "\$value.id"],
+    ]);
+    $c_result = civicrm_api3('Contribution', 'get', [
+      'sequential' => 1,
+      'id' => $result['contribution_id'],
+      'contribution_status_id' => "Completed",
+    ]);
+    $this->assertEquals(1, $c_result['count'], 'Contribution not completed.');
+    $this->assertEquals('Registered', $pp_result['values'][0]['api.Participant.getsingle']['participant_status']);
+  }
+
+  public function testContributionPage() {
+    $ppid = $this->createPaymentProcessor();
+    civicrm_api3('ContributionPage', 'create', [
+      'sequential' => 1,
+      'id' => 1,
+      'payment_processor' => $ppid,
+    ]);
+
+    $url = cv("url -d '[cms.root]/civicrm/?page=CiviCRM&q=civicrm%2Fcontribute%2Ftransact&reset=1&id=1'");
+    list($header, $body) = $this->httpRequest($url);
+
+    // Get the cookie
+    $cookie = [];
+    preg_match_all('/Set-Cookie: (.*);/', $header, $cookie);
+    $cookie = $cookie[1][0];
+
+    // What we have when submitting the form
+    $params = [
+      "qfKey" => "0fc87d040aa3e00f56f047a231d5622c_2332",
+      "entryURL" => "http://localhost:8080/civicrm/?page=CiviCRM&amp;q=civicrm/contribute/transact&amp;page=CiviCRM&amp;reset=1&amp;id=1",
+      "hidden_processor" => "1",
+      "payment_processor_id" => "3",
+      "priceSetId" => "3",
+      "selectProduct" => "no_thanks",
+      "pledge_frequency_interval" => "1",
+      "_qf_default" => "Main:upload",
+      "MAX_FILE_SIZE" => "2097152",
+      "price_2" => "2",
+      "price_3" => "",
+      "is_pledge" => "0",
+      "pledge_frequency_unit" => "week",
+      "pledge_installments" => "",
+      "email-5" => "unit-tester@test.com",
+      "options_1" => "White",
+      "billing_first_name" => "unit",
+      "billing_middle_name" => "",
+      "billing_last_name" => "tester",
+      "billing_street_address-5" => "Box",
+      "billing_city-5" => "Belconnen",
+      "billing_country_id-5" => "1013",
+      "billing_state_province_id-5" => "1641",
+      "billing_postal_code-5" => "4444",
+      "_qf_Main_upload" => "Confirm Contribution",
+    ];
+
+    // Get hidden fields in form and add it the the post data
+    preg_match_all('/name="(.*)" type="hidden" value="(.*)"/', $body, $hidden);
+    foreach ($hidden[1] as $index => $value) {
+      $params[$value] = $hidden[2][$index];
+    }
+
+    $url = cv("url -d '[cms.root]/civicrm/?page=CiviCRM&q=civicrm%2Fcontribute%2Ftransact'");
 
     $options = [
       'http' => [
@@ -142,6 +226,8 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     ];
     $context = stream_context_create($options);
     $result = file_get_contents($url, FALSE, $context);
+
+    // Confirm
     $confirm_params = [
       'qfKey' => $params['qfKey'],
       'entryURL' => $params['entryURL'],
@@ -151,17 +237,35 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     $context = stream_context_create($options);
     $result = file_get_contents($url, FALSE, $context);
 
-    $url = $this->ewayPage($result);
+    // Pay on eway page and get url from
+    list($access_code, $url) = $this->ewayPage($result);
+    $this->assertTrue(strpos($url, cv("url -d '[cms.root]/civicrm/?page=CiviCRM&q=civicrm%2Fcontribute%2Ftransact'")) !== FALSE, 'Eway payment failed.');
     list($header, $body) = $this->httpRequest($url, NULL, $cookie);
 
-    // TODO check the header for redirect
-    // TODO check contribution and event participant
+    // check contribution
+    $result = civicrm_api3('EwayContributionTransactions', 'get', [
+      'sequential' => 1,
+      'access_code' => $access_code,
+    ]);
+    $result = array_pop($result['values']);
+    $this->assertEquals(1, $result['status'], 'Eway transaction not completed.');
+    $c_result = civicrm_api3('Contribution', 'get', [
+      'sequential' => 1,
+      'id' => $result['contribution_id'],
+      'contribution_status_id' => "Completed",
+    ]);
+    $this->assertEquals(1, $c_result['count'], 'Contribution not completed.');
+  }
+
+  function assertRedirect($header, $dest, $message) {
+    // Check redirect
+    $this->assertTrue(strpos($header, $dest) !== FALSE, $message);
   }
 
   /**
    * @param $page
    *
-   * @return string url when user click the finalise button
+   * @return array
    */
   function ewayPage($page) {
     // Get hidden and pre-filled fields
@@ -203,9 +307,9 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     $result = file_get_contents($url, FALSE, $context);
 
     // Return the url
-    $re = '/<a class="uibutton finaliseBtn" id="EWAYFinaliseButton" href="(.*)">/mU';
+    $re = '/id="EWAYFinaliseButton".*href="(.*)"/mU';
     preg_match_all($re, $result, $matches, PREG_SET_ORDER, 0);
-    return html_entity_decode($matches[0][1]);
+    return [$params['EWAY_ACCESSCODE'], html_entity_decode($matches[0][1])];
   }
 
   /**
