@@ -190,7 +190,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         );
       }
 
-      $new_contribution_record['source'] = "eWAY Recurring {$financial_type['name']}:\n{$contributionSource}";
+      $new_contribution_record['source'] = "eWay Recurring {$financial_type['name']}:\n{$contributionSource}";
       $new_contribution_record['contribution_page_id'] = $contributionPageId;
       $new_contribution_record['is_test'] = $contributionIsTest;
 
@@ -446,7 +446,7 @@ function process_eway_payment($eWayClient, $managed_customer_id, $amount_in_cent
 
   if (isset($prev_response) && $prev_response->getAttribute('TransactionID') == $eWayResponse->getAttribute('TransactionID')) {
     throw new Exception (
-      'eWAY ProcessPayment returned duplicate transaction number: ' .
+      'eWay ProcessPayment returned duplicate transaction number: ' .
       $prev_response->getAttribute('TransactionID') . ' vs ' . $eWayResponse->getAttribute('TransactionID')
     );
   }

@@ -53,8 +53,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @return \Eway\Rapid\Contract\Client
    */
   function getEWayClient() {
-    $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWAY Api Key
-    $eWayApiPassword = $this->_paymentProcessor['password']; // eWAY Api Password
+    $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
+    $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
     $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
 
     $eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
@@ -212,11 +212,11 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
   /**
    * This function sends request and receives response from
-   * eWAY payment process
+   * eWay payment process
    */
   public function doPayment(&$params, $component = 'contribute') {
     if (!defined('CURLOPT_SSLCERT')) {
-      CRM_Core_Error::fatal(ts('eWAY - Gateway requires curl with SSL support'));
+      CRM_Core_Error::fatal(ts('eWay - Gateway requires curl with SSL support'));
     }
 
     $eWayClient = $this->getEWayClient();
@@ -229,12 +229,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
 
     //----------------------------------------------------------------------------------------------------
-    // Throw error if there are some errors while creating eWAY Client.
+    // Throw error if there are some errors while creating eWay Client.
     // This could be due to incorrect Api Username or Api Password.
     //----------------------------------------------------------------------------------------------------
 
     if (is_null($eWayClient) || count($eWayClient->getErrors())) {
-      return self::errorExit(9001, "Error: Unable to create eWAY Client object.");
+      return self::errorExit(9001, "Error: Unable to create eWay Client object.");
     }
 
     //----------------------------------------------------------------------------------------------------
@@ -243,8 +243,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
 
     //----------------------------------------------------------------------------------------------------
-    // We use CiviCRM's param's 'invoiceID' as the unique transaction token to feed to eWAY
-    // Trouble is that eWAY only accepts 16 chars for the token, while CiviCRM's invoiceID is an 32.
+    // We use CiviCRM's param's 'invoiceID' as the unique transaction token to feed to eWay
+    // Trouble is that eWay only accepts 16 chars for the token, while CiviCRM's invoiceID is an 32.
     // As its made from a "$invoiceID = md5(uniqid(rand(), true));" then using the first 12 chars
     // should be alright
     //----------------------------------------------------------------------------------------------------
@@ -308,7 +308,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $this->checkDupe($params['invoiceID'], CRM_Utils_Array::value('contributionID', $params)) :
       $this->_checkDupe($params['invoiceID'])
     ) {
-      return self::errorExit(9003, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWAY.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.');
+      return self::errorExit(9003, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWay.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.');
     }
 
     $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
@@ -444,7 +444,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
   }
 
   /**
-   * This function checks the eWAY response status - returning a boolean false
+   * This function checks the eWay response status - returning a boolean false
    * if status != 'true'
    *
    * @param $response
@@ -500,11 +500,11 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     $errorMsg = [];
 
     if (empty($this->_paymentProcessor['user_name'])) {
-      $errorMsg[] = ts('eWAY API Key is not set for this payment processor');
+      $errorMsg[] = ts('eWay API Key is not set for this payment processor');
     }
 
     if (empty($this->_paymentProcessor['password'])) {
-      $errorMsg[] = ts('eWAY API Password is not set for this payment processor');
+      $errorMsg[] = ts('eWay API Password is not set for this payment processor');
     }
 
     // TODO: Check that recurring config values have been set
@@ -518,7 +518,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
   }
 
   /**
-   * Function handles eWAY Recurring Payments cron job.
+   * Function handles eWay Recurring Payments cron job.
    *
    * @return bool
    */
@@ -555,7 +555,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @return bool
    */
   function cancelSubscription(&$message = '', $params = []) {
-    // TODO: Implement this - request token deletion from eWAY?
+    // TODO: Implement this - request token deletion from eWay?
     return TRUE;
   }
 
@@ -577,7 +577,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     CRM_Core_PseudoConstant::flush();
 
     //----------------------------------------------------------------------------------------------------
-    // Build the customer info for eWAY
+    // Build the customer info for eWay
     //----------------------------------------------------------------------------------------------------
 
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
@@ -621,12 +621,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $eWayClient = $this->getEWayClient();
 
       //----------------------------------------------------------------------------------------------------
-      // Throw error if there are some errors while creating eWAY Client.
+      // Throw error if there are some errors while creating eWay Client.
       // This could be due to incorrect Api Username or Api Password.
       //----------------------------------------------------------------------------------------------------
 
       if (is_null($eWayClient) || count($eWayClient->getErrors())) {
-        return self::errorExit(9001, "Error: Unable to create eWAY Client object.");
+        return self::errorExit(9001, "Error: Unable to create eWay Client object.");
       }
 
       //----------------------------------------------------------------------------------------------------

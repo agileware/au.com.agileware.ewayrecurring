@@ -97,8 +97,8 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
    * @return \Eway\Rapid\Contract\Client
    */
   public static function getEWayClient($paymentProcessor) {
-    $eWayApiKey = $paymentProcessor['user_name'];   // eWAY Api Key
-    $eWayApiPassword = $paymentProcessor['password']; // eWAY Api Password
+    $eWayApiKey = $paymentProcessor['user_name'];   // eWay Api Key
+    $eWayApiPassword = $paymentProcessor['password']; // eWay Api Password
     $eWayEndPoint = ($paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
 
     $eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);

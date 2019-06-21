@@ -101,7 +101,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       ]), ts('eWay Payment Processor Update'));
     }
     if ($schemaVersion < 7) {
-      CRM_Core_Session::setStatus(ts('Please edit and save (without any changes) your existing EWay payment processor after updating.'), ts('eWay Payment Processor Update'));
+      CRM_Core_Session::setStatus(ts('Please edit and save (without any changes) your existing eWay payment processor after updating.'), ts('eWay Payment Processor Update'));
     }
     return [$schemaVersion < 7];
   }
@@ -220,7 +220,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
     'params' => [
       'version' => 3,
       'name' => 'eWay_Recurring',
-      'title' => 'eWAY Recurring',
+      'title' => 'eWay Recurring',
       'description' => 'Recurring payments payment processor for eWay',
       'class_name' => 'au.com.agileware.ewayrecurring',
       'user_name_label' => 'API Key',
@@ -239,7 +239,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
     'params' => [
       'version' => 3,
       'run_frequency' => 'Always',
-      'name' => 'eWAY Recurring Payments',
+      'name' => 'eWay Recurring Payments',
       'description' => 'Process pending and scheduled payments in the eWay_Recurring processor',
       'api_entity' => 'Job',
       'api_action' => 'run_payment_cron',
@@ -278,7 +278,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
     'params' => [
       'version' => 3,
       'run_frequency' => 'Always',
-      'name' => 'eWAY Transaction Verifications',
+      'name' => 'eWay Transaction Verifications',
       'description' => 'Process pending transaction verifications in the eWay_Recurring processor',
       'api_entity' => 'EwayContributionTransactions',
       'api_action' => 'validate',
@@ -542,7 +542,7 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
 }
 
 /**
- * Validate eWAY contribution by AccessCode, Invoice ID and Payment Processor.
+ * Validate eWay contribution by AccessCode, Invoice ID and Payment Processor.
  *
  * @param $paymentProcessor
  * @param $invoiceID

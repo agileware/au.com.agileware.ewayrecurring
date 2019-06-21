@@ -1,9 +1,9 @@
-# eWAY Recurring payment processor Upgrade notes.
+# eWay Recurring payment processor Upgrade notes.
 
 ## 2.0.0
 
-The 2.0.0 version introduces use of the eWAY RapidAPI 3.1, which requires a
-different method of authentication with eWAY from that used in the 1.x series.
+The 2.0.0 version introduces use of the eWay RapidAPI 3.1, which requires a
+different method of authentication with eWay from that used in the 1.x series.
 
 You will need to Download and extract the extension as usual, and after running
 the Extensions upgrades, you will need to [generate an API Key and
