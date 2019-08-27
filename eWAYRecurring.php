@@ -38,13 +38,8 @@ function ewayrecurring_civicrm_install() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
  */
 function ewayrecurring_civicrm_postInstall() {
-  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 7);
   // Update schemaVersion if added new version in upgrade process.
-  // Also add database related CREATE queries.
-  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
-  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
-  CRM_Core_DAO::executeQuery("UPDATE `civicrm_payment_processor_type` SET billing_mode = 3 WHERE name = 'eWay_Recurring'");
-  CRM_Core_DAO::executeQuery("ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1");
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 7);
   _ewayrecurring_civix_civicrm_postInstall();
 }
 
@@ -143,7 +138,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
           6,
-          "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password', billing_mode = 3 WHERE name = 'eWay_Recurring'",
+          "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password' WHERE name = 'eWay_Recurring'",
         ],
           'Perform Rapid API related changes'
         )
@@ -217,6 +212,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
     'module' => 'au.com.agileware.ewayrecurring',
     'name' => 'eWay_Recurring',
     'entity' => 'PaymentProcessorType',
+    'update' => 'always',
     'params' => [
       'version' => 3,
       'name' => 'eWay_Recurring',
@@ -669,4 +665,3 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
     CRM_Core_Resources::singleton()->addVars('agilewareEwayExtension', array('paymentProcessorId' => $ids));
   }
 }
-
