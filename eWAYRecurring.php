@@ -38,9 +38,8 @@ function ewayrecurring_civicrm_install() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
  */
 function ewayrecurring_civicrm_postInstall() {
-  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 20200);
   // Update schemaVersion if added new version in upgrade process.
-  // Also add database related CREATE queries.
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 20200);
   _ewayrecurring_civix_civicrm_postInstall();
 }
 
@@ -170,29 +169,31 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       // those fields are marked as deprecated.
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          20200,
+          7,
           "UPDATE civicrm_payment_processor_type SET billing_mode = 4 WHERE name = 'eWay_Recurring'",
         ],
           'Change processor billing mode.'
         )
       );
 
+      // CIVIEWAY-76 remember the send email option
+      $queue->createItem(
+        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
+          7,
+          "ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1",
+        ],
+          'Save the send email option.'
+        )
+      );
+    }
+
+    if ($schemaVersion < 20200) {
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
           20200,
           "UPDATE civicrm_payment_processor SET billing_mode = 4 WHERE payment_processor_type_id = (SELECT id FROM civicrm_payment_processor_type WHERE name = 'eWay_Recurring')",
         ],
           'Updating existing processors.'
-        )
-      );
-
-      // CIVIEWAY-76 remember the send email option
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          20200,
-          "ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1",
-        ],
-          'Save the send email option.'
         )
       );
     }
@@ -213,6 +214,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
     'module' => 'au.com.agileware.ewayrecurring',
     'name' => 'eWay_Recurring',
     'entity' => 'PaymentProcessorType',
+    'update' => 'always',
     'params' => [
       'version' => 3,
       'name' => 'eWay_Recurring',
@@ -665,4 +667,3 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
     CRM_Core_Resources::singleton()->addVars('agilewareEwayExtension', array('paymentProcessorId' => $ids));
   }
 }
-

@@ -11,7 +11,7 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
     $component = CRM_Utils_Request::retrieve('component', 'String', $store, FALSE, "");
 
     // Missing any parameter should be a bad request
-    if (empty($contributionInvoiceID) || empty($paymentProcessorID) || empty($qfKey) || empty($component)) {
+    if (empty($contributionInvoiceID) || empty($paymentProcessorID) || empty($component)) {
       header("HTTP/1.1 400 Bad Request");
       die();
     }

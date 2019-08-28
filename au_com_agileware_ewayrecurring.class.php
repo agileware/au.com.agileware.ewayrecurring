@@ -457,7 +457,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @return string
    */
   function getCancelPaymentReturnUrl($params, $component = 'contribute', $recurringContribution = NULL) {
-    if ($this->isFromContributionPage($params)) {
+    if ($this->cancelUrl) {
+      return $this->cancelUrl;
+    }
+    else if ($this->isFromContributionPage($params)) {
       return $this->getCancelUrl($params['qfKey'], '');
     }
 
@@ -493,7 +496,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    */
 
   function getSuccessfulPaymentReturnUrl($params, $component, $recurringContribution = NULL) {
-    if ($this->isFromContributionPage($params)) {
+    if ($this->successUrl) {
+      return $this->successUrl;
+    }
+    else if ($this->isFromContributionPage($params)) {
       return $this->getReturnSuccessUrl($params['qfKey']);
     }
 
