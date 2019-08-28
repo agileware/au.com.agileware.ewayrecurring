@@ -63,6 +63,8 @@
 SET FOREIGN_KEY_CHECKS=0;
 
 DROP TABLE IF EXISTS `civicrm_eway_contribution_transactions`;
+DROP TABLE IF EXISTS `civicrm_contribution_page_recur_cycle`;
+DROP TABLE IF EXISTS `civicrm_ewayrecurring`;
 
 SET FOREIGN_KEY_CHECKS=1;
 -- /*******************************************************
@@ -78,20 +80,20 @@ SET FOREIGN_KEY_CHECKS=1;
 -- * FIXME
 -- *
 -- *******************************************************/
-CREATE TABLE `civicrm_eway_contribution_transactions` (
+CREATE TABLE `civicrm_eway_contribution_transactions`(
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Unique EwayContributionTransactions ID',
+    `contribution_id` INT UNSIGNED COMMENT 'FK to Contact',
+    `payment_processor_id` INT UNSIGNED COMMENT 'FK to PaymentProcessor',
+    `access_code` TEXT,
+    `failed_message` TEXT DEFAULT NULL,
+    `status` INT UNSIGNED DEFAULT 0,
+    `tries` INT UNSIGNED DEFAULT 0,
+    `is_email_receipt` TINYINT(1) DEFAULT 1,
+    PRIMARY KEY(`id`),
+    CONSTRAINT FK_civicrm_eway_contribution_transactions_contribution_id FOREIGN KEY(`contribution_id`) REFERENCES `civicrm_contribution`(`id`) ON DELETE CASCADE,
+    CONSTRAINT FK_civicrm_eway_contribution_transactions_payment_processor_id FOREIGN KEY(`payment_processor_id`) REFERENCES `civicrm_payment_processor`(`id`) ON DELETE CASCADE
+);
 
+CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-     `id` int unsigned NOT NULL AUTO_INCREMENT  COMMENT 'Unique EwayContributionTransactions ID',
-     `contribution_id` int unsigned    COMMENT 'FK to Contact',
-     `payment_processor_id` int unsigned    COMMENT 'FK to PaymentProcessor',
-     `access_code` text    ,
-     `failed_message` text    DEFAULT NULL,
-     `status` int unsigned   DEFAULT 0 ,
-     `tries` int unsigned   DEFAULT 0
-,
-        PRIMARY KEY (`id`)
-
-
-,          CONSTRAINT FK_civicrm_eway_contribution_transactions_contribution_id FOREIGN KEY (`contribution_id`) REFERENCES `civicrm_contribution`(`id`) ON DELETE CASCADE,          CONSTRAINT FK_civicrm_eway_contribution_transactions_payment_processor_id FOREIGN KEY (`payment_processor_id`) REFERENCES `civicrm_payment_processor`(`id`) ON DELETE CASCADE
-)    ;
-
+CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8

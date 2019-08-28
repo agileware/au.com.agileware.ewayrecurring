@@ -38,13 +38,9 @@ function ewayrecurring_civicrm_install() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
  */
 function ewayrecurring_civicrm_postInstall() {
-  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 7);
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 20200);
   // Update schemaVersion if added new version in upgrade process.
   // Also add database related CREATE queries.
-  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
-  CRM_Core_DAO::executeQuery("CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
-  CRM_Core_DAO::executeQuery("UPDATE `civicrm_payment_processor_type` SET billing_mode = 3 WHERE name = 'eWay_Recurring'");
-  CRM_Core_DAO::executeQuery("ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1");
   _ewayrecurring_civix_civicrm_postInstall();
 }
 
@@ -143,7 +139,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
           6,
-          "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password', billing_mode = 3 WHERE name = 'eWay_Recurring'",
+          "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password' WHERE name = 'eWay_Recurring'",
         ],
           'Perform Rapid API related changes'
         )
@@ -174,7 +170,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       // those fields are marked as deprecated.
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          7,
+          20200,
           "UPDATE civicrm_payment_processor_type SET billing_mode = 4 WHERE name = 'eWay_Recurring'",
         ],
           'Change processor billing mode.'
@@ -183,7 +179,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
 
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          7,
+          20200,
           "UPDATE civicrm_payment_processor SET billing_mode = 4 WHERE payment_processor_type_id = (SELECT id FROM civicrm_payment_processor_type WHERE name = 'eWay_Recurring')",
         ],
           'Updating existing processors.'
@@ -193,7 +189,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       // CIVIEWAY-76 remember the send email option
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          7,
+          20200,
           "ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1",
         ],
           'Save the send email option.'
