@@ -1,17 +1,92 @@
-CRM.$(function($) {
-    $("#payment_processor_id")
-        .after('<p id="eway_help_text" class="description">Click on the Save button to display the credit card payment page and complete this transaction. Credit card details are not entered directly into CiviCRM and are processed directly by eWay, <a href="https://www.eway.com.au/about-eway/technology-security/pci-dss/">learn more on this page.</a></p>')
-        .on('change', function() {
-            showOrHideHelpText(this.value);
+CRM.eway = {};
+CRM.eway.paymentTokens = [];
+
+CRM.eway.setPaymentTokenOptions = function () {
+    CRM.api3('PaymentToken', 'get', {
+        "sequential": 1,
+        "contact_id": CRM.vars.coreForm.contact_id,
+        "expiry_date": {">": "now"},
+        "options": {"sort": "expiry_date DESC"}
+    }).then(function (result) {
+        CRM.eway.updateOptions(result);
+    }, function (error) {
+        console.error(error);
     });
+};
 
-    showOrHideHelpText($("#payment_processor_id").val());
-
-    function showOrHideHelpText(value) {
-        if (CRM.vars.agilewareEwayExtension.paymentProcessorId.includes(value)) {
-            $("#eway_help_text").show();
-        } else {
-            $("#eway_help_text").hide();
-        }
+CRM.eway.updateOptions = function(result) {
+    let options = {};
+    options.result = result.values;
+    if (JSON.stringify(CRM.eway.paymentTokens) === JSON.stringify(options.result)) {
+        return;
     }
-});
+    options.html = "";
+    options.result.forEach(function (value) {
+        let expireDate = new Date(value.expiry_date);
+        let month = expireDate.getMonth() + 1;
+        if (month < 10) {
+            month = '0' + month;
+        }
+        let text = value.masked_account_number.slice(-4) + " - " + month + "/" + expireDate.getFullYear();
+        html = "<option value=\"" + value.id + "\">" + text + "</option>";
+        options.html += html;
+    });
+    //console.info(options);
+    let $elect = CRM.$('#contact_payment_token');
+    if ($elect)
+        $elect.find('option').remove();
+    if (options.result.length === 0) {
+        $elect.append("<option value>No cards found.</option>");
+    } else {
+        $elect.append(options.html);
+    }
+    if (CRM.eway.paymentTokens.length !== 0) {
+        CRM.alert(
+            ts('The credit card list has been updated.'),
+            ts('eWay'),
+            'info',
+            {
+                'expires': 10000
+            }
+        );
+    }
+    CRM.eway.paymentTokens = options.result;
+};
+
+CRM.eway.paymentTokenInitialize = function () {
+    CRM.eway.paymentTokens = [];
+    CRM.eway.setPaymentTokenOptions();
+};
+
+CRM.eway.addCreditCard = function () {
+    let url = CRM.url('civicrm/ewayrecurring/createtoken', {
+        'contact_id': CRM.vars.coreForm.contact_id,
+        'pp_id': CRM.$("#payment_processor_id").val()
+    }, 'front');
+    window.open(url, '_blank');
+    CRM.confirm({
+        'message': 'Click Ok to update the card list.',
+        'options': {
+            'yes': 'Ok'
+        }
+    }).on('crmConfirm:yes', function () {
+        let url = CRM.url('civicrm/ewayrecurring/savetoken', {
+            'pp_id': CRM.$("#payment_processor_id").val()
+        }, 'front');
+        CRM.$.ajax({
+            "url": url
+        }).done(function(data) {
+            console.info(data);
+            if (data['is_error']) {
+                CRM.alert(
+                    ts('Error: The credit card is not saved. Please try again.'),
+                    ts('eWay'),
+                    'error'
+                );
+            } else {
+                CRM.eway.updateOptions(data['message']);
+            }
+        });
+        CRM.eway.setPaymentTokenOptions();
+    });
+};

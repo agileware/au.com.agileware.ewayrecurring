@@ -18,4 +18,14 @@
         <title>eWay Recurring Contributions Settings</title>
         <access_arguments>administer CiviCRM</access_arguments>
     </item>
+    <item>
+        <path>civicrm/ewayrecurring/createtoken</path>
+        <page_callback>CRM_eWAYRecurring_PaymentToken::createToken</page_callback>
+        <access_arguments>administer CiviCRM</access_arguments>
+    </item>
+    <item>
+        <path>civicrm/ewayrecurring/savetoken</path>
+        <page_callback>CRM_eWAYRecurring_PaymentToken::saveToken</page_callback>
+        <access_arguments>make online contributions</access_arguments>
+    </item>
 </menu>

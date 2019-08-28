@@ -17,6 +17,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    */
   static private $_singleton = NULL;
 
+  private $jsEmbeded = FALSE;
+
   /**
    * Constructor
    *
@@ -101,7 +103,44 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @return array
    */
   function getPaymentFormFields() {
-    return [];
+    if ($this->backOffice) {
+      return [
+        'contact_payment_token',
+        'add_credit_card'
+      ];
+    }
+    return [
+    ];
+  }
+
+  function getPaymentFormFieldsMetadata() {
+    if (!$this->jsEmbeded && $this->backOffice) {
+      CRM_Core_Resources::singleton()->addScript('CRM.eway.paymentTokenInitialize();');
+      $this->jsEmbeded = TRUE;
+    }
+    return [
+      'contact_payment_token' => [
+        'htmlType' => 'select',
+        'name' => 'contact_payment_token',
+        'title' => ts('Stored Credit Card'),
+        'attributes' => [],
+        'is_required' => TRUE,
+        'description' => ts(
+          '<div><span class="description">Credit card details are not entered directly into CiviCRM and are processed directly by eWay, <a href="https://www.eway.com.au/about-eway/technology-security/pci-dss/" target="_blank">learn more on this page</a>.</span></div>'
+        )
+      ],
+      'add_credit_card' => [
+        'htmlType' => 'button',
+        'name' => 'add_credit_card',
+        'title' => ts('Add Credit Card'),
+        'attributes' => [
+          'onclick' => 'CRM.eway.addCreditCard();'
+        ],
+        'description' => ts(
+          '<span class="description">Make sure to click the button <b>RETURN TO MERCHANT</b> after adding a credit card.</span>'
+        )
+      ]
+  ];
   }
 
   function getBillingAddressFields($billingLocationID = NULL) {
@@ -255,29 +294,51 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $invoiceDescription = 'Invoice ID: ' . $params['invoiceID'];
     }
 
-    $eWayTransaction = [
-      'Customer' => $eWayCustomer,
-      'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params, $component),
-      'CancelUrl' => $this->getCancelPaymentReturnUrl($params, $component),
-      'TransactionType' => (($this->isBackOffice() && !Civi::settings()
-          ->get('cvv_backoffice_required'))
-        ? \Eway\Rapid\Enum\TransactionType::MOTO
-        : \Eway\Rapid\Enum\TransactionType::PURCHASE),
-      'Payment' => [
-        'TotalAmount' => $amountInCents,
-        'InvoiceNumber' => $uniqueTrnxNum,
-        'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
-        'InvoiceReference' => $params['invoiceID'],
-      ],
-      'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
-      'Capture' => TRUE,
-      'SaveCustomer' => TRUE,
-      'Options' => [
-        'ContributionID' => $params['contributionID'],
-      ],
-      'CustomerReadOnly' => TRUE,
-    ];
-
+    if ($this->backOffice) {
+      $result = civicrm_api3('PaymentToken', 'getsingle', [
+        'sequential' => 1,
+        'id' => $params['contact_payment_token'],
+      ]);
+      if ($result['is_error']) {
+        return self::errorExit();
+      }
+      $token = $result['token'];
+      $eWayTransaction = [
+        'Customer' => [
+          'TokenCustomerID' =>$token
+        ],
+        'Payment' => [
+          'TotalAmount' => $amountInCents,
+          'InvoiceNumber' => $uniqueTrnxNum,
+          'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
+          'InvoiceReference' => $params['invoiceID'],
+        ],
+        'TransactionType' => \Eway\Rapid\Enum\TransactionType::MOTO
+      ];
+    } else {
+      $eWayTransaction = [
+        'Customer' => $eWayCustomer,
+        'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params, $component),
+        'CancelUrl' => $this->getCancelPaymentReturnUrl($params, $component),
+        'TransactionType' => (($this->isBackOffice() && !Civi::settings()
+            ->get('cvv_backoffice_required'))
+          ? \Eway\Rapid\Enum\TransactionType::MOTO
+          : \Eway\Rapid\Enum\TransactionType::PURCHASE),
+        'Payment' => [
+          'TotalAmount' => $amountInCents,
+          'InvoiceNumber' => $uniqueTrnxNum,
+          'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
+          'InvoiceReference' => $params['invoiceID'],
+        ],
+        'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
+        'Capture' => TRUE,
+        'SaveCustomer' => TRUE,
+        'Options' => [
+          'ContributionID' => $params['contributionID'],
+        ],
+        'CustomerReadOnly' => TRUE,
+      ];
+    }
 
     // Was the recurring payment check box checked?
     if (CRM_Utils_Array::value('is_recur', $params, FALSE)) {
@@ -311,7 +372,11 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       return self::errorExit(9003, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWay.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.');
     }
 
-    $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
+    if ($this->backOffice) {
+      $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::DIRECT, $eWayTransaction);
+    } else {
+      $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
+    }
 
     //----------------------------------------------------------------------------------------------------
     // If null data returned - tell 'em and bail out
@@ -347,9 +412,28 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       //$ewayParams['amount'] = $params['amount'];
     }
 
-    civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
-
-    CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
+    if ($this->backOffice) {
+      $statuses = CRM_Contribute_BAO_Contribution::buildOptions('contribution_status_id', 'validate');
+      if ($eWAYResponse->TransactionStatus) {
+        $params['payment_status_id'] = array_search('Completed', $statuses);;
+        $params['trxn_id'] = $eWAYResponse->TransactionID;
+      } else {
+        $params['payment_status_id'] = array_search('Pending', $statuses);;
+        $errorMessage = implode(', ', array_map(
+            '\Eway\Rapid::getMessage',
+            explode(', ', $eWAYResponse->ResponseMessage))
+        );
+        CRM_Core_Session::setStatus(
+          ts($errorMessage),
+          ts('eWay Payment Error'),
+          'error'
+          );
+        self::errorExit(9008, $errorMessage);
+      }
+    } else {
+      civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
+      CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
+    }
 
     return $params;
   }
