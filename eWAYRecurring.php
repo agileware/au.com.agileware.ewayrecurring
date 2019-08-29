@@ -98,7 +98,7 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
     if ($schemaVersion < 7) {
       CRM_Core_Session::setStatus(ts('Please edit and save (without any changes) your existing eWay payment processor after updating.'), ts('eWay Payment Processor Update'));
     }
-    return [$schemaVersion < 7];
+    return [$schemaVersion < 20201];
   }
   elseif ($op == 'enqueue') {
     if (NULL == $queue) {
@@ -166,16 +166,6 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       );
     }
     if ($schemaVersion < 7) {
-      // those fields are marked as deprecated.
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          7,
-          "UPDATE civicrm_payment_processor_type SET billing_mode = 4 WHERE name = 'eWay_Recurring'",
-        ],
-          'Change processor billing mode.'
-        )
-      );
-
       // CIVIEWAY-76 remember the send email option
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
@@ -214,7 +204,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
     'module' => 'au.com.agileware.ewayrecurring',
     'name' => 'eWay_Recurring',
     'entity' => 'PaymentProcessorType',
-    'update' => 'always',
+    'update' => 'never',
     'params' => [
       'version' => 3,
       'name' => 'eWay_Recurring',
