@@ -1,7 +1,7 @@
 <?php
 
-include_once 'au_com_agileware_ewayrecurring.class.php';
 require_once 'eWAYRecurring.civix.php';
+include_once 'au_com_agileware_ewayrecurring.class.php';
 
 use CRM_eWAYRecurring_ExtensionUtil as E;
 

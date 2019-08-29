@@ -79,8 +79,8 @@ CRM.eway.addCreditCard = function () {
             console.info(data);
             if (data['is_error']) {
                 CRM.alert(
-                    ts('Error: The credit card is not saved. Please try again.'),
-                    ts('eWay'),
+                    ts('The credit card was not saved. Please try again.'),
+                    ts('eWAY Error'),
                     'error'
                 );
             } else {

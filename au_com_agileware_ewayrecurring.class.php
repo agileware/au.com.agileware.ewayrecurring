@@ -6,6 +6,8 @@ require_once 'eWAYRecurring.process.inc';
 // Include eWay SDK.
 require_once extensionPath('vendor/autoload.php');
 
+use CRM_eWAYRecurring_ExtensionUtil as E;
+
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
   /**
@@ -122,12 +124,14 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       'contact_payment_token' => [
         'htmlType' => 'select',
         'name' => 'contact_payment_token',
-        'title' => ts('Stored Credit Card'),
+        'title' => E::ts('Stored Credit Card'),
         'attributes' => [],
         'is_required' => TRUE,
-        'description' => ts(
-          '<div><span class="description">Credit card details are not entered directly into CiviCRM and are processed directly by eWay, <a href="https://www.eway.com.au/about-eway/technology-security/pci-dss/" target="_blank">learn more on this page</a>.</span></div>'
-        )
+        'description' =>
+        '<div><span class="description">' . E::ts(
+            'Credit card details are entered directly into eWAY and not stored in CiviCRM. %1',
+            [ 1 => '<a href="https://www.eway.com.au/about-eway/technology-security/pci-dss/" target="_blank">' . E::ts('Learn more on eWAY\'s PCI DSS page') . '</a>' ]
+        ) .  '</span></div>'
       ],
       'add_credit_card' => [
         'htmlType' => 'button',
@@ -137,10 +141,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
           'onclick' => 'CRM.eway.addCreditCard();'
         ],
         'description' => ts(
-          '<span class="description">Make sure to click the button <b>RETURN TO MERCHANT</b> after adding a credit card.</span>'
+          '<span class="description">' . E::ts('Please be sure to click <b>RETURN TO MERCHANT</b> after adding a credit card.') . '</span>'
         )
       ]
-  ];
+    ];
   }
 
   function getBillingAddressFields($billingLocationID = NULL) {
