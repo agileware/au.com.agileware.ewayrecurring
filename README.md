@@ -1,41 +1,52 @@
 eWay Recurring Payment Processor for CiviCRM
 --------------------------------------------
 
-CiviCRM payment processor extension for [eWay](https://eway.com.au) which uses the latest [eWay Rapid API](https://www.eway.com.au/features/api-rapid-api/) and ensures [PCI DSS compliance](https://www.eway.com.au/about-eway/technology-security/pci-dss/). Supports both once-off and recurring payment utilising the secure token payment method. This essential for automating the process setting up recurring donations and memberships in your CiviCRM securely and reliably. This payment processor also allows you to specify a particular day of the month to process all recurring payments together.
+CiviCRM payment processor extension for [eWay](https://eway.com.au) which uses
+the latest [eWay Rapid API](https://www.eway.com.au/features/api-rapid-api/) and
+ensures [PCI DSS compliance](https://www.eway.com.au/about-eway/technology-security/pci-dss/). 
 
-This extension previously utilised the eWay token API which has been deprecated by eWay. [eWay Rapid API](https://www.eway.com.au/features/api-rapid-api/) is now used with the Responsive Shared Page method for a higher standard of [PCI DSS compliance](https://www.eway.com.au/about-eway/technology-security/pci-dss/).
+Supports both once-off and recurring payment utilising the secure token payment
+method. This essential for automating the process setting up recurring donations
+and memberships in your CiviCRM securely and reliably. This payment processor
+also allows you to specify a particular day of the month to process all
+recurring payments together.
 
-You will need to have a [eWay account](https://eway.com.au) to use this payment processor on your CiviCRM website.
+You will need to have an [eWay account](https://eway.com.au) to use this payment
+processor on your CiviCRM website.
 
 Installation
 ------------
 
 1. Download the [latest version of this
    extension](https://github.com/agileware/au.com.agileware.ewayrecurring/archive/master.zip)
-2. Extract in your CiviCRM extensions directory, as defined in "System Settings /
-   Directories".
+2. Extract it to your CiviCRM extensions directory, as defined in "System
+   Settings / Directories".
 3. Go to "Administer / System Settings / Extensions" and enable the "eWay
    Recurring Payment Processor (au.com.agileware.ewayrecurring)" extension.
 4. Configure the payment processor with your eWay API Key and Password as
    obtained from your [eWay Account](https://go.eway.io). eWay provides 
    [step by step instructions](https://go.eway.io/s/article/How-do-I-setup-my-Live-eWAY-API-Key-and-Password)
    for generating these details.
-   
+
 ### eWay Transactions Verification
 
-eWay Transactions get verified as soon as the user is redirected back to the CiviCRM website. This is true only for Contribution pages created from CiviCRM.
-
-If you've created a WebForm (in Drupal) to take the contributions using eWay Payment processor, make sure **eWay Transaction Verifications** Schedule job is active in CiviCRM. 
-
-**eWay Transaction Verifications** schedule job verifies the pending transactions of eWay. This is required when CiviCRM is unable to verify the transaction right after redirection.
+The **eWay Transaction Verifications** job verifies the pending transactions in
+eway. This is required for when CiviCRM is unable to verify the transaction
+immediately, for example if the end user does not press the *Return to Merchant*
+button or if the contribution was made via a Drupal Webform.
 
 Visit `civicrm/admin/job` to enable **eWay Transaction Verifications** job.
 
-### eWay Failed Transactions
+### Failed eWay Transactions
 
-Recurring contribution transactions get failed because of several reasons. In such situation extension will mark the recurring contribution as failed and will retry the transaction for **x** number of times at **y (days)** of interval.
+Recurring contribution transactions could fail for one of several reasons; in
+these situations, the extension will mark the recurring contribution as failed
+and retry the transaction at an interval up to a maximum number of times, both
+of which can be configured.
 
-To update the **Maximum retries** and **Retry delay (in days)** go to `civicrm/ewayrecurring/settings`. By default value of **Maximum retries** is 3 and value of **Retry delay (in days)** is 4. 
+To update the **Maximum retries** and **Retry delay (in days)** go to
+`civicrm/ewayrecurring/settings`. The default **Maximum retries** is 3
+and **Retry delay** is 4 days.
 
 
 Upgrading from 1.x
