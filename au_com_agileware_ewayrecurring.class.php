@@ -116,7 +116,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
   }
 
   function getPaymentFormFieldsMetadata() {
+    // try to generate the token from here, but missing cid sometime
+    $tokens = [
+      '' => 'No cards found.',
+    ];
     if (!$this->jsEmbeded && $this->backOffice) {
+      $cid = CRM_Utils_Request::retrieve('cid', 'String');
+      if (!empty($cid)) {
+        CRM_Core_Resources::singleton()
+          ->addScript("CRM.eway.contact_id = {$cid};");
+      }
       CRM_Core_Resources::singleton()->addScript('CRM.eway.paymentTokenInitialize();');
       $this->jsEmbeded = TRUE;
     }
@@ -125,20 +134,25 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
         'htmlType' => 'select',
         'name' => 'contact_payment_token',
         'title' => E::ts('Stored Credit Card'),
-        'attributes' => [],
+        'attributes' => $tokens,
         'is_required' => TRUE,
+        'extra' => [
+          'class' => 'eway_credit_card_field',
+        ],
         'description' =>
-        '<div><span class="description">' . E::ts(
+          '<div><span class="description">' . E::ts(
             'Credit card details are entered directly into eWAY and not stored in CiviCRM. %1',
-            [ 1 => '<a href="https://www.eway.com.au/about-eway/technology-security/pci-dss/" target="_blank">' . E::ts('Learn more on eWAY\'s PCI DSS page') . '</a>' ]
-        ) .  '</span></div>'
+            [1 => '<a href="https://www.eway.com.au/about-eway/technology-security/pci-dss/" target="_blank">' . E::ts('Learn more on eWAY\'s PCI DSS page') . '</a>']
+          ) . '</span></div><script>CRM.$(function ($) {CRM.eway.paymentTokenInitialize();});</script>',
       ],
       'add_credit_card' => [
         'htmlType' => 'button',
         'name' => 'add_credit_card',
+        'class' => 'eway_credit_card_field',
         'title' => ts('Add Credit Card'),
         'attributes' => [
-          'onclick' => 'CRM.eway.addCreditCard();'
+          'onclick' => 'CRM.eway.addCreditCard();',
+          'class' => 'eway_credit_card_field',
         ],
         'description' => ts(
           '<span class="description">' . E::ts('Please be sure to click <b>RETURN TO MERCHANT</b> after adding a credit card.') . '</span>'
