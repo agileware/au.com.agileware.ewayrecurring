@@ -246,10 +246,19 @@ function process_recurring_payments($payment_processor, $paymentObject) {
           $contribution->id, 'failure_retry_date', '');
       }
 
-      $repeated = civicrm_api3('Contribution', 'repeattransaction', [
+      $repeat_params = [
         'contribution_recur_id' => $contribution->id,
         'contribution_status_id' => $new_contribution_record['contribution_status_id'],
-      ]);
+      ];
+
+
+      // CIVIEWAY-107 -- don't send receipts for failed contributions
+      // @todo make this configurable.
+      if(_contribution_status_id('Completed') != $new_contribution_record['contribution_status_id']) {
+          $repeat_params['is_email_receipt'] = 0;
+      }
+      
+      $repeated = civicrm_api3('Contribution', 'repeattransaction', $repeat_params);
 
       $new_contribution_record['id'] = $repeated['id'];
 
