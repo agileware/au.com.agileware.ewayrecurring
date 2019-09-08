@@ -313,9 +313,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     }
 
     if ($this->backOffice) {
+      $payment_token = CRM_Utils_Request::retrieve('contact_payment_token', CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
       $result = civicrm_api3('PaymentToken', 'getsingle', [
         'sequential' => 1,
-        'id' => $params['contact_payment_token'],
+        'id' => $params['contact_payment_token'] ? $params['contact_payment_token'] : $payment_token,
       ]);
       if ($result['is_error']) {
         return self::errorExit();
