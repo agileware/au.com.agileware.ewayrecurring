@@ -308,7 +308,13 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
         ]);
       }
       else {
-        self::deleteRecurringContribution($contribution);
+        civicrm_api3('Contribution', 'create', [
+          'id' => $contributionID,
+          'trxn_id' => $transactionID,
+          'payment_processor_id' => $paymentProcessor['id'],
+          'is_email_receipt' => 0,
+          'contribution_status_id' => 'Failed',
+        ]);
       }
     }
 
