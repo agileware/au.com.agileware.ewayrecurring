@@ -6,6 +6,7 @@ require_once 'eWAYRecurring.process.inc';
 // Include eWay SDK.
 require_once extensionPath('vendor/autoload.php');
 
+use Civi\Payment\Exception\PaymentProcessorException;
 use CRM_eWAYRecurring_ExtensionUtil as E;
 
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
@@ -270,6 +271,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
   /**
    * This function sends request and receives response from
    * eWay payment process
+   *
+   * @throws \Civi\Payment\Exception\PaymentProcessorException
    */
   public function doPayment(&$params, $component = 'contribute') {
     if (!defined('CURLOPT_SSLCERT')) {
@@ -434,20 +437,15 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     if ($this->backOffice) {
       $statuses = CRM_Contribute_BAO_Contribution::buildOptions('contribution_status_id', 'validate');
       if ($eWAYResponse->TransactionStatus) {
-        $params['payment_status_id'] = array_search('Completed', $statuses);;
+        $params['payment_status_id'] = array_search('Completed', $statuses);
         $params['trxn_id'] = $eWAYResponse->TransactionID;
       } else {
-        $params['payment_status_id'] = array_search('Pending', $statuses);;
+        $params['payment_status_id'] = array_search('Failed', $statuses);
         $errorMessage = implode(', ', array_map(
             '\Eway\Rapid::getMessage',
             explode(', ', $eWAYResponse->ResponseMessage))
         );
-        CRM_Core_Session::setStatus(
-          ts($errorMessage),
-          ts('eWay Payment Error'),
-          'error'
-          );
-        self::errorExit(9008, $errorMessage);
+        throw new PaymentProcessorException($errorMessage);
       }
     } else {
       civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
