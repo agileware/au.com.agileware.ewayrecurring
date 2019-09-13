@@ -592,24 +592,6 @@ function _ewayrecurring_get_pp_id($processor) {
 }
 
 /**
- * Disable AJAX for contribution tab.
- *
- * @param $pattern
- *
- * @return array|false
- */
-function ewayrecurring_civicrm_tabset($tabsetName, &$tabs, $context) {
-  if ($tabsetName == 'civicrm/contact/view') {
-    foreach ($tabs as $index => $tab) {
-      if ($tab['id'] == 'contribute') {
-        $tabs[$index]['class'] = str_replace('livePage', '', $tabs[$index]['class']);
-        break;
-      }
-    }
-  }
-}
-
-/**
  * Get the path of a resource file (in this extension).
  *
  * @param string|NULL $file
