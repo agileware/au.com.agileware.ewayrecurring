@@ -5,8 +5,8 @@ CRM.eway.setPaymentTokenOptions = function () {
     CRM.api3('PaymentToken', 'get', {
         "sequential": 1,
         "contact_id": CRM.eway.contact_id,
-        "expiry_date": {">": "now"},
-        "options": {"sort": "expiry_date DESC"}
+        "expiry_date": { ">": "now" },
+        "options": { "sort": "expiry_date DESC" }
     }).then(function (result) {
         CRM.eway.updateOptions(result);
     }, function (error) {
@@ -81,32 +81,50 @@ CRM.eway.addCreditCard = function () {
         'contact_id': CRM.eway.contact_id,
         'pp_id': CRM.$("#payment_processor_id").val()
     }, 'front');
-    window.open(url, '_blank');
-    CRM.confirm({
-        'message': 'Click Ok to update the card list.',
-        'options': {
-            'yes': 'Ok'
+    let data = CRM.$('form').serialize();
+    CRM.$.ajax({
+        "url": url,
+        "type": "POST",
+        "data": data
+    }).done(function (data) {
+        console.info(data);
+        if (data['is_error']) {
+            CRM.alert(
+                ts(data['message']),
+                ts('eWAY Error'),
+                'error'
+            );
+        } else {
+            window.open(data['url'], '_blank');
+            CRM.confirm({
+                'message': 'Click Ok to update the card list.',
+                'options': {
+                    'yes': 'Ok'
+                }
+            }).on('crmConfirm:yes', function () {
+                let url = CRM.url('civicrm/ewayrecurring/savetoken', {
+                    'pp_id': CRM.$("#payment_processor_id").val()
+                }, 'front');
+                console.log(data);
+                CRM.$.ajax({
+                    "url": url,
+                }).done(function (data) {
+                    console.info(data);
+                    if (data['is_error']) {
+                        CRM.alert(
+                            ts('The credit card was not saved. Please try again.'),
+                            ts('eWAY Error'),
+                            'error'
+                        );
+                    } else {
+                        CRM.eway.updateOptions(data['message']);
+                    }
+                });
+                CRM.eway.setPaymentTokenOptions();
+            });
         }
-    }).on('crmConfirm:yes', function () {
-        let url = CRM.url('civicrm/ewayrecurring/savetoken', {
-            'pp_id': CRM.$("#payment_processor_id").val()
-        }, 'front');
-        CRM.$.ajax({
-            "url": url
-        }).done(function (data) {
-            console.info(data);
-            if (data['is_error']) {
-                CRM.alert(
-                    ts('The credit card was not saved. Please try again.'),
-                    ts('eWAY Error'),
-                    'error'
-                );
-            } else {
-                CRM.eway.updateOptions(data['message']);
-            }
-        });
-        CRM.eway.setPaymentTokenOptions();
     });
+
 };
 
 CRM.eway.getUrlParameter = function (name) {
