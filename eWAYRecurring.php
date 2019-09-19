@@ -214,6 +214,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'user_name_label' => 'API Key',
       'password_label' => 'API Password',
       'billing_mode' => 'notify',
+      'is_active' => '1',
       'is_recur' => '1',
       'payment_type' => '1',
     ],

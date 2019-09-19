@@ -294,7 +294,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     //----------------------------------------------------------------------------------------------------
 
     if (is_null($eWayClient) || count($eWayClient->getErrors())) {
-      return self::errorExit(9001, "Error: Unable to create eWay Client object.");
+      $this->paymentFailed($params, "Error: Unable to create eWay Client object.");
     }
 
     //----------------------------------------------------------------------------------------------------
@@ -317,12 +317,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
     if ($this->backOffice) {
       $payment_token = CRM_Utils_Request::retrieve('contact_payment_token', CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
-      $result = civicrm_api3('PaymentToken', 'getsingle', [
-        'sequential' => 1,
-        'id' => $params['contact_payment_token'] ? $params['contact_payment_token'] : $payment_token,
-      ]);
+      try {
+        $result = civicrm_api3('PaymentToken', 'getsingle', [
+          'sequential' => 1,
+          'id' => isset($params['contact_payment_token']) ? $params['contact_payment_token'] : $payment_token,
+        ]);
+      } catch (CiviCRM_API3_Exception $e) {
+        $this->paymentFailed($params, 'Please select a valid credit card token.');
+      }
       if ($result['is_error']) {
-        return self::errorExit();
+        $this->paymentFailed($params, 'Cannot find the payment token.');
       }
       $token = $result['token'];
       $eWayTransaction = [
@@ -391,7 +395,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $this->checkDupe($params['invoiceID'], CRM_Utils_Array::value('contributionID', $params)) :
       $this->_checkDupe($params['invoiceID'])
     ) {
-      return self::errorExit(9003, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWay.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.');
+      $this->paymentFailed($params, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWay.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.');
     }
 
     if ($this->backOffice) {
@@ -405,7 +409,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     //----------------------------------------------------------------------------------------------------
 
     if (is_null($eWAYResponse)) {
-      return self::errorExit(9006, "Error: Connection to payment gateway failed - no data returned.");
+      $this->paymentFailed($params, "Error: Connection to payment gateway failed - no data returned.");
     }
 
     //----------------------------------------------------------------------------------------------------
@@ -413,7 +417,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     //----------------------------------------------------------------------------------------------------
     $transactionErrors = $this->getEWayResponseErrors($eWAYResponse);
     if (count($transactionErrors)) {
-      return self::errorExit(9008, implode("<br>", $transactionErrors));
+      $this->paymentFailed($params, implode("<br>", $transactionErrors));
     }
 
     $paymentProcessor = $this->getPaymentProcessor();
@@ -440,12 +444,11 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
         $params['payment_status_id'] = array_search('Completed', $statuses);
         $params['trxn_id'] = $eWAYResponse->TransactionID;
       } else {
-        $params['payment_status_id'] = array_search('Failed', $statuses);
         $errorMessage = implode(', ', array_map(
             '\Eway\Rapid::getMessage',
             explode(', ', $eWAYResponse->ResponseMessage))
         );
-        throw new PaymentProcessorException($errorMessage);
+        $this->paymentFailed($params, $errorMessage);
       }
     } else {
       civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
@@ -453,6 +456,18 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     }
 
     return $params;
+  }
+
+  /**
+   * @param $params
+   * @param $messages
+   *
+   * @throws \Civi\Payment\Exception\PaymentProcessorException
+   */
+  private function paymentFailed(&$params, $messages) {
+    $statuses = CRM_Contribute_BAO_Contribution::buildOptions('contribution_status_id', 'validate');
+    $params['payment_status_id'] = array_search('Failed', $statuses);
+    throw new PaymentProcessorException($messages);
   }
 
   /**

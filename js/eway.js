@@ -58,8 +58,42 @@ CRM.eway.updateOptions = function (result) {
 };
 
 CRM.eway.toggleCreditCardFields = function () {
-    CRM.$('.eway_credit_card_field').prop('disabled', function (i, v) {
-        return !v;
+    CRM.$('select.eway_credit_card_field').prop('disabled', function (i, v) {
+        if (CRM.eway.contact_id === 0) {
+            CRM.$(this).prop('title', 'No contact selected');
+            return true;
+        }
+        CRM.$(this).prop('title', '');
+        return false;
+    });
+
+    CRM.$('input.eway_credit_card_field').prop('disabled', function (i, v) {
+        if (CRM.eway.contact_id === 0) {
+            CRM.$(this).prop('title', 'No contact selected');
+            return true;
+        }
+        const requiredFields = [
+            'billing_first_name',
+            'billing_last_name',
+            'billing_street_address',
+            'billing_city',
+            'billing_country_id',
+            'billing_state_province_id',
+            'billing_postal_code'
+        ];
+        for (const field of CRM.$('form').serializeArray()) {
+            for (const required of requiredFields) {
+                if (field.name.includes(required)) {
+                    if (field.value.length === 0) {
+                        CRM.$(this).prop('title', 'Missing field: ' + required);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        CRM.$(this).prop('title', '');
+        return false;
     });
 };
 
@@ -67,10 +101,27 @@ CRM.eway.paymentTokenInitialize = function () {
     CRM.eway.paymentTokens = [];
     if (typeof CRM.eway.contact_id === 'undefined') {
         CRM.eway.contact_id = 0;
-        CRM.eway.toggleCreditCardFields();
     } else {
         CRM.eway.setPaymentTokenOptions();
     }
+    CRM.eway.toggleCreditCardFields();
+
+    // add listener
+
+    /**
+     * For contribution form with no contact selected at the beginning
+     */
+    CRM.$("#contact_id").on('change', function (event) {
+        if (event.val <= 0) {
+            return;
+        }
+        CRM.eway.contact_id = event.val;
+        CRM.eway.setPaymentTokenOptions();
+    });
+
+    CRM.$(':input').on('change', function (event) {
+        CRM.eway.toggleCreditCardFields();
+    });
 };
 
 /**
@@ -81,32 +132,54 @@ CRM.eway.addCreditCard = function () {
         'contact_id': CRM.eway.contact_id,
         'pp_id': CRM.$("#payment_processor_id").val()
     }, 'front');
-    window.open(url, '_blank');
-    CRM.confirm({
-        'message': 'Click Ok to update the card list.',
-        'options': {
-            'yes': 'Ok'
+    let data = CRM.$('form').serialize();
+    let deferred = CRM.$.Deferred();
+    CRM.status({
+        start: ts('processing'),
+        success: ts('done')
+    }, deferred);
+    CRM.$.ajax({
+        "url": url,
+        "type": "POST",
+        "data": data
+    }).done(function (data) {
+        console.info(data);
+        if (data['is_error']) {
+            deferred.reject({
+                error_message: data['message']
+            });
+        } else {
+            deferred.resolve();
+            window.open(data['url'], '_blank');
+            CRM.confirm({
+                'message': 'Click Ok to update the card list.',
+                'options': {
+                    'yes': 'Ok'
+                }
+            }).on('crmConfirm:yes', function () {
+                let url = CRM.url('civicrm/ewayrecurring/savetoken', {
+                    'pp_id': CRM.$("#payment_processor_id").val()
+                }, 'front');
+                console.log(data);
+                CRM.$.ajax({
+                    "url": url,
+                }).done(function (data) {
+                    console.info(data);
+                    if (data['is_error']) {
+                        CRM.alert(
+                            ts('The credit card was not saved. Please try again.'),
+                            ts('eWAY Error'),
+                            'error'
+                        );
+                    } else {
+                        CRM.eway.updateOptions(data['message']);
+                    }
+                });
+                CRM.eway.setPaymentTokenOptions();
+            });
         }
-    }).on('crmConfirm:yes', function () {
-        let url = CRM.url('civicrm/ewayrecurring/savetoken', {
-            'pp_id': CRM.$("#payment_processor_id").val()
-        }, 'front');
-        CRM.$.ajax({
-            "url": url
-        }).done(function (data) {
-            console.info(data);
-            if (data['is_error']) {
-                CRM.alert(
-                    ts('The credit card was not saved. Please try again.'),
-                    ts('eWAY Error'),
-                    'error'
-                );
-            } else {
-                CRM.eway.updateOptions(data['message']);
-            }
-        });
-        CRM.eway.setPaymentTokenOptions();
     });
+
 };
 
 CRM.eway.getUrlParameter = function (name) {
@@ -116,15 +189,5 @@ CRM.eway.getUrlParameter = function (name) {
 };
 
 CRM.$(function ($) {
-    /**
-     * For contribution form with no contact selected at the beginning
-     */
-    $("#contact_id").on('change', function (event) {
-        if (event.val <= 0) {
-            return;
-        }
-        CRM.eway.contact_id = event.val;
-        CRM.eway.setPaymentTokenOptions();
-        CRM.eway.toggleCreditCardFields();
-    });
+
 });

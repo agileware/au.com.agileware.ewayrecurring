@@ -12,11 +12,65 @@ class CRM_eWAYRecurring_PaymentToken {
   public static function createToken() {
     $contact_id = CRM_Utils_Request::retrieve('contact_id', 'String', $store, TRUE);
     $pp_id = CRM_Utils_Request::retrieve('pp_id', 'String', $store, TRUE);
+    //Civi::log()->info(print_r($_POST, TRUE));
 
+    // get information from post data
+    $billingDetails = [];
+    $billingDetails['first_name'] = CRM_Utils_Request::retrieve('billing_first_name', 'String');
+    $billingDetails['middle_name'] = CRM_Utils_Request::retrieve('billing_middle_name', 'String');
+    $billingDetails['last_name'] = CRM_Utils_Request::retrieve('billing_last_name', 'String');
+    foreach ($_POST as $key => $data) {
+      if (strpos($key, 'billing_street_address') !== FALSE) {
+        $billingDetails['billing_street_address'] = $data;
+      }
+      elseif (strpos($key, 'billing_city') !== FALSE) {
+        $billingDetails['billing_city'] = $data;
+      }
+      elseif (strpos($key, 'billing_postal_code') !== FALSE) {
+        $billingDetails['billing_postal_code'] = $data;
+      }
+      elseif (strpos($key, 'billing_country_id') !== FALSE) {
+        $country = civicrm_api3('Country', 'get', [
+          'id' => $data,
+          'return' => ["iso_code"],
+        ]);
+        $country = array_shift($country['values']);
+        $billingDetails['billing_country'] = $country['iso_code'];
+      }
+      elseif (strpos($key, 'billing_state_province_id') !== FALSE) {
+        $country = civicrm_api3('StateProvince', 'get', [
+          'id' => $data,
+        ]);
+        $country = array_shift($country['values']);
+        $billingDetails['billing_state_province'] = $country['name'];
+      }
+    }
+    Civi::log()->info(print_r($billingDetails, TRUE));
+    $requiredBillingFields = [
+      'first_name',
+      'last_name',
+      'billing_street_address',
+      'billing_city',
+      'billing_postal_code',
+      'billing_country',
+      'billing_state_province',
+    ];
+
+    foreach ($requiredBillingFields as $field) {
+      if (empty($billingDetails[$field])) {
+        CRM_Utils_JSON::output([
+          'is_error' => 1,
+          'message' => 'Missing field: ' . $field,
+        ]);
+      }
+    }
     $paymentProcessor = self::getPaymentProcessorById($pp_id);
     if (!$paymentProcessor) {
       // TODO error header
-      die();
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no payment processor found.',
+      ]);
     }
 
     // get contact info
@@ -31,7 +85,7 @@ class CRM_eWAYRecurring_PaymentToken {
         "state_province",
         "postal_code",
         "email",
-        'phone'
+        'phone',
       ],
       'id' => $contact_id,
       'api.Country.getsingle' => [
@@ -41,8 +95,10 @@ class CRM_eWAYRecurring_PaymentToken {
     ]);
     if ($contact['is_error'] || $contact['api.Country.getsingle']['is_error']) {
       // TODO add error header
-      print_r($contact);
-      die();
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no contact found or country not set.',
+      ]);
     }
 
     $client = CRM_eWAYRecurring_eWAYRecurringUtils::getEWayClient($paymentProcessor);
@@ -62,17 +118,17 @@ class CRM_eWAYRecurring_PaymentToken {
       'RedirectUrl' => $redirectUrl,
       'CancelUrl' => CRM_Utils_System::url('', NULL, TRUE, NULL, FALSE),
       'Title' => $contact['formal_title'],
-      'FirstName' => $contact['first_name'],
-      'LastName' => $contact['last_name'],
-      'Country' => $contact['api.Country.getsingle']['iso_code'],
+      'FirstName' => $billingDetails['first_name'],
+      'LastName' => $billingDetails['last_name'],
+      'Country' => $billingDetails['billing_country'],
       'Reference' => 'civi-' . $contact_id,
-      'Street1' => $contact['street_address'],
-      'City' => $contact['city'],
-      'State' => $contact['state_province_name'],
-      'PostalCode' => $contact['postal_code'],
+      'Street1' => $billingDetails['billing_street_address'],
+      'City' => $billingDetails['billing_city'],
+      'State' => $billingDetails['billing_state_province'],
+      'PostalCode' => $billingDetails['billing_postal_code'],
       'Email' => $contact['email'],
       'Phone' => $contact['phone'],
-      'CustomerReadOnly' => TRUE
+      'CustomerReadOnly' => TRUE,
     ];
 
     $response = $client->createCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $ewayParams);
@@ -80,8 +136,23 @@ class CRM_eWAYRecurring_PaymentToken {
     // store access code to session
     CRM_Core_Session::singleton()
       ->set('eway_accesscode', $response->AccessCode);
+    $errorMessage = implode(', ', array_map(
+        '\Eway\Rapid::getMessage',
+        $response->getErrors())
+    );
+    if (!empty($errorMessage)) {
+      //CRM_Core_Session::setStatus($errorMessage, ts('eWay error'), 'error', ['expires' => 0]);
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => $errorMessage,
+      ]);
+    }
 
-    CRM_Utils_System::redirect($response->SharedPaymentUrl);
+    CRM_Utils_JSON::output([
+      'is_error' => 0,
+      'url' => $response->SharedPaymentUrl,
+    ]);
+    //CRM_Utils_System::redirect($response->SharedPaymentUrl);
   }
 
   /**
@@ -178,7 +249,8 @@ class CRM_eWAYRecurring_PaymentToken {
 
     if ($isFromeWay) {
       echo "<script>window.close();</script>";
-    } else {
+    }
+    else {
       $result = civicrm_api3('PaymentToken', 'get', [
         'sequential' => 1,
         'contact_id' => $cid,
@@ -187,7 +259,7 @@ class CRM_eWAYRecurring_PaymentToken {
       ]);
       CRM_Utils_JSON::output([
         'is_error' => 0,
-        'message' => $result
+        'message' => $result,
       ]);
     }
 
