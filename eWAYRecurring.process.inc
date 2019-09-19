@@ -365,8 +365,13 @@ function get_scheduled_contributions($payment_processor) {
   $scheduled_today->whereAdd("`next_sched_contribution_date` <= now()");
   // Don't get cancelled or failed contributions
   $scheduled_today->whereAdd("`contribution_status_id` IN (2, 5)");
-  // Or test transactions
-  // $scheduled_today->whereAdd("`is_test` != 1");
+  // CIVIEWAY-124: Exclude contributions that never completed
+  $t = $scheduled_today->tableName();
+  $ct = CRM_Contribute_BAO_Contribution::getTableName();
+  $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = contribution_recur_id)");
+  // Exclude contributions that have already been processed
+  $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `next_sched_contribution_date`)");
+
   $scheduled_today->find();
 
   $scheduled_contributions = [];
@@ -405,6 +410,11 @@ function get_scheduled_failed_contributions($payment_processor) {
 
   $scheduled_today->whereAdd("`contribution_status_id` = 4");
   $scheduled_today->whereAdd("`failure_count` < " . $maxFailRetry);
+
+  // CIVIEWAY-124: Exclude contributions that never completed
+  $t = $scheduled_today->tableName();
+  $ct = CRM_Contribute_BAO_Contribution::getTableName();
+  $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = contribution_recur_id)");
 
   $scheduled_today->find();
 
