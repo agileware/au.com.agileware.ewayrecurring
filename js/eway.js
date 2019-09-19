@@ -5,8 +5,8 @@ CRM.eway.setPaymentTokenOptions = function () {
     CRM.api3('PaymentToken', 'get', {
         "sequential": 1,
         "contact_id": CRM.eway.contact_id,
-        "expiry_date": { ">": "now" },
-        "options": { "sort": "expiry_date DESC" }
+        "expiry_date": {">": "now"},
+        "options": {"sort": "expiry_date DESC"}
     }).then(function (result) {
         CRM.eway.updateOptions(result);
     }, function (error) {
@@ -58,8 +58,42 @@ CRM.eway.updateOptions = function (result) {
 };
 
 CRM.eway.toggleCreditCardFields = function () {
-    CRM.$('.eway_credit_card_field').prop('disabled', function (i, v) {
-        return !v;
+    CRM.$('select.eway_credit_card_field').prop('disabled', function (i, v) {
+        if (CRM.eway.contact_id === 0) {
+            CRM.$(this).prop('title', 'No contact selected');
+            return true;
+        }
+        CRM.$(this).prop('title', '');
+        return false;
+    });
+
+    CRM.$('input.eway_credit_card_field').prop('disabled', function (i, v) {
+        if (CRM.eway.contact_id === 0) {
+            CRM.$(this).prop('title', 'No contact selected');
+            return true;
+        }
+        const requiredFields = [
+            'billing_first_name',
+            'billing_last_name',
+            'billing_street_address',
+            'billing_city',
+            'billing_country_id',
+            'billing_state_province_id',
+            'billing_postal_code'
+        ];
+        for (const field of CRM.$('form').serializeArray()) {
+            for (const required of requiredFields) {
+                if (field.name.includes(required)) {
+                    if (field.value.length === 0) {
+                        CRM.$(this).prop('title', 'Missing field: ' + required);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        CRM.$(this).prop('title', '');
+        return false;
     });
 };
 
@@ -67,10 +101,27 @@ CRM.eway.paymentTokenInitialize = function () {
     CRM.eway.paymentTokens = [];
     if (typeof CRM.eway.contact_id === 'undefined') {
         CRM.eway.contact_id = 0;
-        CRM.eway.toggleCreditCardFields();
     } else {
         CRM.eway.setPaymentTokenOptions();
     }
+    CRM.eway.toggleCreditCardFields();
+
+    // add listener
+
+    /**
+     * For contribution form with no contact selected at the beginning
+     */
+    CRM.$("#contact_id").on('change', function (event) {
+        if (event.val <= 0) {
+            return;
+        }
+        CRM.eway.contact_id = event.val;
+        CRM.eway.setPaymentTokenOptions();
+    });
+
+    CRM.$(':input').on('change', function (event) {
+        CRM.eway.toggleCreditCardFields();
+    });
 };
 
 /**
@@ -82,6 +133,11 @@ CRM.eway.addCreditCard = function () {
         'pp_id': CRM.$("#payment_processor_id").val()
     }, 'front');
     let data = CRM.$('form').serialize();
+    let deferred = CRM.$.Deferred();
+    CRM.status({
+        start: ts('processing'),
+        success: ts('done')
+    }, deferred);
     CRM.$.ajax({
         "url": url,
         "type": "POST",
@@ -89,12 +145,11 @@ CRM.eway.addCreditCard = function () {
     }).done(function (data) {
         console.info(data);
         if (data['is_error']) {
-            CRM.alert(
-                ts(data['message']),
-                ts('eWAY Error'),
-                'error'
-            );
+            deferred.reject({
+                error_message: data['message']
+            });
         } else {
+            deferred.resolve();
             window.open(data['url'], '_blank');
             CRM.confirm({
                 'message': 'Click Ok to update the card list.',
@@ -134,15 +189,5 @@ CRM.eway.getUrlParameter = function (name) {
 };
 
 CRM.$(function ($) {
-    /**
-     * For contribution form with no contact selected at the beginning
-     */
-    $("#contact_id").on('change', function (event) {
-        if (event.val <= 0) {
-            return;
-        }
-        CRM.eway.contact_id = event.val;
-        CRM.eway.setPaymentTokenOptions();
-        CRM.eway.toggleCreditCardFields();
-    });
+
 });
