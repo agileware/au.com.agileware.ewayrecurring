@@ -257,7 +257,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       if(_contribution_status_id('Completed') != $new_contribution_record['contribution_status_id']) {
           $repeat_params['is_email_receipt'] = 0;
       }
-      
+
       $repeated = civicrm_api3('Contribution', 'repeattransaction', $repeat_params);
 
       $new_contribution_record['id'] = $repeated['id'];
@@ -362,6 +362,9 @@ function _eWAYRecurring_mark_recurring_contribution_Failed($contribution) {
  */
 function get_scheduled_contributions($payment_processor) {
   $scheduled_today = new CRM_Contribute_BAO_ContributionRecur();
+  // Only get contributions for the current processor
+  $scheduled_today->payment_processor_id = $payment_processor['id'];
+  // Only get contribution that are on or past schedule
   $scheduled_today->whereAdd("`next_sched_contribution_date` <= now()");
   // Don't get cancelled or failed contributions
   $scheduled_today->whereAdd("`contribution_status_id` IN (2, 5)");
@@ -377,18 +380,7 @@ function get_scheduled_contributions($payment_processor) {
   $scheduled_contributions = [];
 
   while ($scheduled_today->fetch()) {
-    if ($scheduled_today->payment_processor_id != $payment_processor['id']) {
-      continue;
-    }
-    // Check that there's no existing contribution record for today
-    $contribution = new CRM_Contribute_BAO_Contribution();
-    $contribution->contribution_recur_id = $scheduled_today->id;
-    $contribution->whereAdd
-    ("`receive_date` >= '{$scheduled_today->next_sched_contribution_date}'");
-
-    if (!($contribution->find(TRUE))) {
-      $scheduled_contributions[] = clone $scheduled_today;
-    }
+    $scheduled_contributions[] = clone $scheduled_today;
   }
 
   return $scheduled_contributions;
@@ -406,9 +398,13 @@ function get_scheduled_failed_contributions($payment_processor) {
     ->get('eway_recurring_contribution_max_retry');
 
   $scheduled_today = new CRM_Contribute_BAO_ContributionRecur();
+
+  // Only get contributions for the current processor
+  $scheduled_today->payment_processor_id = $payment_processor['id'];
+
   $scheduled_today->whereAdd("`failure_retry_date` <= now()");
 
-  $scheduled_today->whereAdd("`contribution_status_id` = 4");
+  $scheduled_today->contribution_status_id = 4;
   $scheduled_today->whereAdd("`failure_count` < " . $maxFailRetry);
 
   // CIVIEWAY-124: Exclude contributions that never completed
@@ -421,9 +417,6 @@ function get_scheduled_failed_contributions($payment_processor) {
   $scheduled_failed_contributions = [];
 
   while ($scheduled_today->fetch()) {
-    if ($scheduled_today->payment_processor_id != $payment_processor['id']) {
-      continue;
-    }
     $scheduled_failed_contributions[] = clone $scheduled_today;
   }
 
