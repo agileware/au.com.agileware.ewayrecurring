@@ -185,18 +185,17 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @param $params
    */
   private function setCustomerCountry(&$params) {
-    if (!isset($params['country']) || empty($params['country'])) {
+    if (empty($params['country'])) {
       $countryId = 0;
-      if (isset($params['country_id']) && !empty($params['country_id'])) {
+      if (!empty($params['country_id'])) {
         $countryId = $params['country_id'];
       }
       if ($countryId == 0) {
         try {
-          $billingLocationTypeId = civicrm_api3('LocationType', 'getsingle', [
-            'return' => ["id"],
+          $billingLocationTypeId = civicrm_api3('LocationType', 'getvalue', [
+            'return' => "id",
             'name' => "Billing",
           ]);
-          $billingLocationTypeId = $billingLocationTypeId['id'];
         } catch (CiviCRM_API3_Exception $e) {
         }
         $billingCountryIdKey = "billing_country_id-" . $billingLocationTypeId;
@@ -207,6 +206,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $isoCountryCode = CRM_Core_PseudoConstant::getName('CRM_Core_BAO_Address', 'country_id', $countryId);
       $params['country'] = $isoCountryCode;
     }
+  }
+
+  static private function getBillingParam($name, &$params) {
+    $billingLocationId = civicrm_api3('LocationType', 'getvalue', ['return' => "id", 'name' => "Billing" ]);
+
+    return CRM_Utils_Array::value("billing_{$name}-{$billingLocationId}", $params,
+      CRM_Utils_Array::value("{$name}-{$billingLocationId}", $params,
+        CRM_Utils_Array::value("{$name}-Primary", $params,
+          CRM_Utils_Array::value("{$name}", $params, NULL)
+        )));
   }
 
   /**
@@ -221,18 +230,19 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     if (empty($params['country'])) {
       return self::errorExit(9007, 'Not able to retrieve customer\'s country.');
     }
+
     $eWayCustomer = [
       'Reference' => (isset($params['contactID'])) ? 'Civi-' . $params['contactID'] : '',
       // Referencing eWay customer with CiviCRM id if we have.
       'FirstName' => $params['first_name'],
       'LastName' => $params['last_name'],
-      'Street1' => $params['street_address'],
-      'City' => $params['city'],
-      'State' => $params['state_province'],
-      'PostalCode' => $params['postal_code'],
+      'Street1' => self::getBillingParam('street_address', $params),
+      'City' => self::getBillingParam('city', $params),
+      'State' => self::getBillingParam('state_province', $params),
+      'PostalCode' => self::getBillingParam('postal_code', $params),
       'Country' => $params['country'],
-      'Email' => (isset($params['email']) ? $params['email'] : ''),
       // Email is not accessible for updateSubscriptionBillingInfo method.
+      'Email' => self::getBillingParam('email', $params),
     ];
 
     if (isset($params['subscriptionId']) && !empty($params['subscriptionId'])) {
