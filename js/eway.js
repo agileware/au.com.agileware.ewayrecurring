@@ -60,16 +60,16 @@ CRM.eway.updateOptions = function (result) {
 CRM.eway.toggleCreditCardFields = function () {
     CRM.$('select.eway_credit_card_field').prop('disabled', function (i, v) {
         if (CRM.eway.contact_id === 0) {
-            CRM.$(this).prop('title', 'No contact selected');
+            CRM.$('#add_credit_card_notification').text('No contact selected');
             return true;
         }
-        CRM.$(this).prop('title', '');
+        CRM.$('#add_credit_card_notification').text('');
         return false;
     });
 
     CRM.$('input.eway_credit_card_field').prop('disabled', function (i, v) {
         if (CRM.eway.contact_id === 0) {
-            CRM.$(this).prop('title', 'No contact selected');
+            CRM.$('#add_credit_card_notification').text('No contact selected');
             return true;
         }
         const requiredFields = [
@@ -85,14 +85,14 @@ CRM.eway.toggleCreditCardFields = function () {
             for (const required of requiredFields) {
                 if (field.name.includes(required)) {
                     if (field.value.length === 0) {
-                        CRM.$(this).prop('title', 'Missing field: ' + required);
+                        CRM.$('#add_credit_card_notification').text('The Billing Details section must be completed before a Credit Card can be added');
                         return true;
                     }
                 }
             }
         }
 
-        CRM.$(this).prop('title', '');
+        CRM.$('#add_credit_card_notification').text('');
         return false;
     });
 };
@@ -105,6 +105,9 @@ CRM.eway.paymentTokenInitialize = function () {
         CRM.eway.setPaymentTokenOptions();
     }
     CRM.eway.toggleCreditCardFields();
+
+    // move the button
+    CRM.$('div.add_credit_card-section').appendTo('.billing_name_address-group');
 
     // add listener
 
@@ -128,9 +131,13 @@ CRM.eway.paymentTokenInitialize = function () {
  * Trigger when add credit card button clicked
  */
 CRM.eway.addCreditCard = function () {
+    let ppid = CRM.$("#payment_processor_id").val();
+    if (typeof ppid === 'undefined') {
+        ppid = CRM.eway.contact_id;
+    }
     let url = CRM.url('civicrm/ewayrecurring/createtoken', {
-        'contact_id': CRM.eway.contact_id,
-        'pp_id': CRM.$("#payment_processor_id").val()
+        'contact_id': ppid,
+        'pp_id': CRM.eway.ppid
     }, 'front');
     let data = CRM.$('form').serialize();
     let deferred = CRM.$.Deferred();
