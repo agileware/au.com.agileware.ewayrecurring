@@ -127,6 +127,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
         CRM_Core_Resources::singleton()
           ->addScript("CRM.eway.contact_id = {$cid};");
       }
+      CRM_Core_Resources::singleton()->addScript("CRM.eway.ppid = {$this->_paymentProcessor['id']};");
       CRM_Core_Resources::singleton()->addScript('CRM.eway.paymentTokenInitialize();');
       $this->jsEmbeded = TRUE;
     }
@@ -156,7 +157,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
           'class' => 'eway_credit_card_field',
         ],
         'description' => ts(
-          '<span class="description">' . E::ts('Please be sure to click <b>RETURN TO MERCHANT</b> after adding a credit card.') . '</span>'
+          '<div><span id="add_credit_card_notification" class="crm-error"></span></div><span class="description">' . E::ts('Please be sure to click <b>RETURN TO MERCHANT</b> after adding a credit card.') . '</span>'
         )
       ]
     ];
@@ -317,10 +318,12 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
     if ($this->backOffice) {
       $payment_token = CRM_Utils_Request::retrieve('contact_payment_token', CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
+      $payment_token = isset($params['contact_payment_token']) ? $params['contact_payment_token'] : $payment_token;
+      $params['payment_token_id'] = $payment_token;
       try {
         $result = civicrm_api3('PaymentToken', 'getsingle', [
           'sequential' => 1,
-          'id' => isset($params['contact_payment_token']) ? $params['contact_payment_token'] : $payment_token,
+          'id' => $payment_token,
         ]);
       } catch (CiviCRM_API3_Exception $e) {
         $this->paymentFailed($params, 'Please select a valid credit card token.');
@@ -439,6 +442,24 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     }
 
     if ($this->backOffice) {
+      // assign the payment token to the recurring contribution
+      if ($params['contributionRecurID']) {
+        $cr =  new CRM_Contribute_BAO_ContributionRecur();
+        $cr->id = $params['contributionRecurID'];
+        $cr->find(TRUE);
+        $cr->processor_id = $token;
+        $cr->payment_token_id = $payment_token;
+        $cr->save();
+      } else if ($params['is_recur']) {
+        // remind user to fix the token
+        CRM_Core_Session::setStatus(
+          ts('Please update the credit card manually.'),
+          ts('eWay warning'),
+          'alert',
+          [
+            'expires' => 0
+          ]);
+      }
       $statuses = CRM_Contribute_BAO_Contribution::buildOptions('contribution_status_id', 'validate');
       if ($eWAYResponse->TransactionStatus) {
         $params['payment_status_id'] = array_search('Completed', $statuses);
@@ -688,7 +709,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @param string $message
    * @param array $params
    *
-   * @return \Eway\Rapid\Model\Response\CreateCustomerResponse|object
+   * @return bool|object
    */
   function updateSubscriptionBillingInfo(&$message = '', $params = []) {
     //----------------------------------------------------------------------------------------------------
@@ -703,15 +724,20 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     //----------------------------------------------------------------------------------------------------
 
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
-
+    $crid = CRM_Utils_Request::retrieve('crid',
+      CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
+    $tokenid = CRM_Utils_Request::retrieve('contact_payment_token',
+      CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
+    if (empty($crid) || empty($tokenid)) {
+      return $this->errorExit(9001, 'Missing contribution id and token id.');
+    }
     try {
       //----------------------------------------------------------------------------------------------------
       // Get the payment.  Why isn't this provided to the function.
       //----------------------------------------------------------------------------------------------------
 
       $contribution = civicrm_api3('ContributionRecur', 'getsingle', [
-        'payment_processor_id' => $this->_paymentProcessor['id'],
-        'processor_id' => $params['subscriptionId'],
+        'id' => $crid
       ]);
 
       //----------------------------------------------------------------------------------------------------
@@ -730,56 +756,91 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       }
 
       //----------------------------------------------------------------------------------------------------
-      // Now set the payment details - see https://eway.io/api-v3/#direct-connection
-      //----------------------------------------------------------------------------------------------------
-
-      $eWayCustomer['RedirectUrl'] = $this->getSuccessfulPaymentReturnUrl($params, $contribution);
-      $eWayCustomer['CancelUrl'] = $this->getCancelPaymentReturnUrl($params, $contribution);
-      $eWayCustomer['CustomerIP'] = (isset($params['ip_address'])) ? $params['ip_address'] : '';
-      $eWayCustomer['CustomerReadOnly'] = TRUE;
-      $eWayCustomer['SaveCustomer'] = TRUE;
-      $eWayCustomer['Capture'] = FALSE;
-
-      $eWayClient = $this->getEWayClient();
-
-      //----------------------------------------------------------------------------------------------------
-      // Throw error if there are some errors while creating eWay Client.
-      // This could be due to incorrect Api Username or Api Password.
-      //----------------------------------------------------------------------------------------------------
-
-      if (is_null($eWayClient) || count($eWayClient->getErrors())) {
-        return self::errorExit(9001, "Error: Unable to create eWay Client object.");
-      }
-
-      //----------------------------------------------------------------------------------------------------
       // Allow further manipulation of the arguments via custom hooks ..
       //----------------------------------------------------------------------------------------------------
 
       CRM_Utils_Hook::alterPaymentProcessorParams($this, $params, $eWayTransaction);
 
-      $eWayCustomerResponse = $eWayClient->updateCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayCustomer);
-
-      //----------------------------------------------------------------------------------------------------
-      // If null data returned - tell 'em and bail out
-      //----------------------------------------------------------------------------------------------------
-
-      if (is_null($eWayCustomerResponse)) {
-        return self::errorExit(9006, "Error: Connection to payment gateway failed - no data returned.");
-      }
-
-      //----------------------------------------------------------------------------------------------------
-      // See if we got an OK result - if not tell 'em and bail out
-      //----------------------------------------------------------------------------------------------------
-      $transactionErrors = $this->getEWayResponseErrors($eWayCustomerResponse);
-      if (count($transactionErrors)) {
-        return self::errorExit(9008, implode("<br>", $transactionErrors));
-      }
-
       $this->updateContactBillingAddress($params, $contribution);
+      //update token
+      // store token in processor_id is the legacy way
+      $tokenResult = civicrm_api3('PaymentToken', 'getsingle', ['id' => $tokenid]);
+      $contribution['payment_token_id'] = $tokenid;
+      $contribution['processor_id'] = $tokenResult['token'];
+      civicrm_api3('ContributionRecur', 'create', $contribution);
 
-      CRM_Utils_System::redirect($eWayCustomerResponse->SharedPaymentUrl);
+      // copy from CRM_eWAYRecurring_PaymentToken
+      $billingDetails = [];
+      $billingDetails['first_name'] = CRM_Utils_Request::retrieve('billing_first_name', 'String');
+      $billingDetails['middle_name'] = CRM_Utils_Request::retrieve('billing_middle_name', 'String');
+      $billingDetails['last_name'] = CRM_Utils_Request::retrieve('billing_last_name', 'String');
+      foreach ($_POST as $key => $data) {
+        if (strpos($key, 'billing_street_address') !== FALSE) {
+          $billingDetails['billing_street_address'] = $data;
+        }
+        elseif (strpos($key, 'billing_city') !== FALSE) {
+          $billingDetails['billing_city'] = $data;
+        }
+        elseif (strpos($key, 'billing_postal_code') !== FALSE) {
+          $billingDetails['billing_postal_code'] = $data;
+        }
+        elseif (strpos($key, 'billing_country_id') !== FALSE) {
+          $country = civicrm_api3('Country', 'get', [
+            'id' => $data,
+            'return' => ["iso_code"],
+          ]);
+          $country = array_shift($country['values']);
+          $billingDetails['billing_country'] = $country['iso_code'];
+        }
+        elseif (strpos($key, 'billing_state_province_id') !== FALSE) {
+          $country = civicrm_api3('StateProvince', 'get', [
+            'id' => $data,
+          ]);
+          $country = array_shift($country['values']);
+          $billingDetails['billing_state_province'] = $country['name'];
+        }
+      }
+      $redirectUrl = CRM_Utils_System::url(
+        "civicrm/ewayrecurring/savetoken",
+        [
+          'cid' => $contribution['contact_id'],
+          'pp_id' => $contribution['payment_processor_id'],
+        ],
+        TRUE,
+        NULL,
+        FALSE,
+        TRUE
+      );
+      $ewayParams = [
+        'RedirectUrl' => $redirectUrl,
+        'CancelUrl' => CRM_Utils_System::url('', NULL, TRUE, NULL, FALSE),
+        'FirstName' => $billingDetails['first_name'],
+        'LastName' => $billingDetails['last_name'],
+        'Country' => $billingDetails['billing_country'],
+        'Street1' => $billingDetails['billing_street_address'],
+        'City' => $billingDetails['billing_city'],
+        'State' => $billingDetails['billing_state_province'],
+        'PostalCode' => $billingDetails['billing_postal_code'],
+        'Reference' => 'civi-' . $contribution['contact_id'],
+        'CustomerReadOnly' => TRUE,
+      ];
 
-      return $eWayCustomerResponse;
+      $client = CRM_eWAYRecurring_eWAYRecurringUtils::getEWayClient(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById($contribution['payment_processor_id']));
+      $response = $client->updateCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $ewayParams);
+      //Civi::log()->info(print_r($response, TRUE));
+      // store access code to session
+      CRM_Core_Session::singleton()
+        ->set('eway_accesscode', $response->AccessCode);
+      $errorMessage = implode(', ', array_map(
+          '\Eway\Rapid::getMessage',
+          $response->getErrors())
+      );
+      if (!empty($errorMessage)) {
+        $this->errorExit(9000, $errorMessage);
+      }
+      CRM_Core_Session::singleton()->replaceUserContext($response->SharedPaymentUrl);
+
+      return TRUE;
     } catch (Exception $e) {
       return self::errorExit(9010, $e->getMessage());
     }

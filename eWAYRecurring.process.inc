@@ -194,9 +194,17 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       $new_contribution_record['contribution_page_id'] = $contributionPageId;
       $new_contribution_record['is_test'] = $contributionIsTest;
 
+      // get the associated token
+      $token = civicrm_api3('PaymentToken', 'getsingle', [
+        'sequential' => 1,
+        'return' => ["token"],
+        'id' => $contribution->payment_token_id,
+      ]);
+      $token = $token['token'];
+
       $eWayResponse = process_eway_payment(
         $eWayClient,
-        $contribution->processor_id,
+        $token ? $token : $contribution->processor_id,
         $amount_in_cents,
         substr($invoice_id, 0, 16),
         $financial_type['name'] . ($contributionSource ?
@@ -451,7 +459,7 @@ function process_eway_payment($eWayClient, $managed_customer_id, $amount_in_cent
       'InvoiceDescription' => substr(trim($invoice_description), 0, 64),
       'InvoiceReference' => $invoice_reference,
     ],
-    'TransactionType' => \Eway\Rapid\Enum\TransactionType::RECURRING,
+    'TransactionType' => \Eway\Rapid\Enum\TransactionType::MOTO
   ];
 
   $eWayResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::DIRECT, $paymentTransaction);

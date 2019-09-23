@@ -45,7 +45,6 @@ class CRM_eWAYRecurring_PaymentToken {
         $billingDetails['billing_state_province'] = $country['name'];
       }
     }
-    Civi::log()->info(print_r($billingDetails, TRUE));
     $requiredBillingFields = [
       'first_name',
       'last_name',
@@ -272,7 +271,7 @@ class CRM_eWAYRecurring_PaymentToken {
    * @return array|null
    * @throws \CiviCRM_API3_Exception
    */
-  private static function getPaymentProcessorById($id) {
+  public static function getPaymentProcessorById($id) {
     $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [
       'id' => $id,
       'sequential' => 1,

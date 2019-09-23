@@ -196,5 +196,14 @@ CRM.eway.getUrlParameter = function (name) {
 };
 
 CRM.$(function ($) {
+    $(document).ajaxSuccess((event, xhr, options, data) => {
+        if (typeof data['userContext'] === 'undefined') {
+            return;
+        }
+        if (!data['userContext'].contains('ewaypayments.com')) {
+            return;
+        }
 
+        window.open(data['userContext'], '_blank');
+    })
 });
