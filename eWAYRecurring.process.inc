@@ -35,6 +35,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     ->get('lockManager')
     ->create('worker.ewayrecurring');
   if (!$lock->isFree() || !$lock->acquire()) {
+    $log->log("Detected processing race for scheduled payments, aborting", PEAR_LOG_WARNING);
     return FALSE;
   }
 
@@ -59,11 +60,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       'next_sched_contribution_date',
       'id',
       TRUE);
-
-    if (strtotime($next_sched) > time() && $contribution->contribution_status_id != _contribution_status_id('Failed')) {
-      $log->log("Detected processing race for scheduled payments, aborting", PEAR_LOG_WARNING);
-      break;  // Assume parallel cron job called, exit loop.
-    }
 
     /* Get the number of Contributions already recorded for this Schedule. */
     $mainContributions = civicrm_api3('Contribution', 'get', [
@@ -357,7 +353,9 @@ function _eWAYRecurring_mark_recurring_contribution_Failed($contribution) {
     'id' => $contribution->id,
     'failure_count' => (++$contribution->failure_count),
     'failure_retry_date' => $today->format("Y-m-d H:i:s"),
-    'contribution_status_id' => _contribution_status_id('Failed'),
+    // CIVIEWAY-125: Don't actually mark as failed, because that causes the UI
+    // to melt down.
+    // 'contribution_status_id' => _contribution_status_id('Failed'),
   ]);
 }
 
@@ -375,13 +373,14 @@ function get_scheduled_contributions($payment_processor) {
   // Only get contribution that are on or past schedule
   $scheduled_today->whereAdd("`next_sched_contribution_date` <= now()");
   // Don't get cancelled or failed contributions
-  $scheduled_today->whereAdd("`contribution_status_id` IN (2, 5)");
+  $status_ids = implode(', ', [ _contribution_status_id('In Progress'), _contribution_status_id('Pending') ]);
+  $scheduled_today->whereAdd("`contribution_status_id` IN ({$status_ids})");
   // CIVIEWAY-124: Exclude contributions that never completed
   $t = $scheduled_today->tableName();
   $ct = CRM_Contribute_BAO_Contribution::getTableName();
-  $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = contribution_recur_id)");
+  $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
   // Exclude contributions that have already been processed
-  $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `next_sched_contribution_date`)");
+  $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`next_sched_contribution_date`)");
 
   $scheduled_today->find();
 
@@ -412,13 +411,18 @@ function get_scheduled_failed_contributions($payment_processor) {
 
   $scheduled_today->whereAdd("`failure_retry_date` <= now()");
 
-  $scheduled_today->contribution_status_id = 4;
+  $scheduled_today->contribution_status_id = _contribution_status_id('In Progress');
   $scheduled_today->whereAdd("`failure_count` < " . $maxFailRetry);
+  $scheduled_today->whereAdd("`failure_count` > 0");
+  $scheduled_today->whereAdd("`failure_count` IS NOT NULL");
+  $t = $scheduled_today->tableName();
+  $ct = CRM_Contribute_BAO_Contribution::getTableName();
+  $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`failure_retry_date`)");
 
   // CIVIEWAY-124: Exclude contributions that never completed
   $t = $scheduled_today->tableName();
   $ct = CRM_Contribute_BAO_Contribution::getTableName();
-  $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = contribution_recur_id)");
+  $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = `contribution_recur_id`)");
 
   $scheduled_today->find();
 
