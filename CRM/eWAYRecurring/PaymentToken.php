@@ -244,7 +244,8 @@ class CRM_eWAYRecurring_PaymentToken {
       $paymentToken['id'] = $result['values'][0]['id'];
     }
 
-    civicrm_api3('PaymentToken', 'create', $paymentToken);
+    $token = civicrm_api3('PaymentToken', 'create', $paymentToken);
+    $token = array_shift($token['values']);
 
     if ($isFromeWay) {
       echo "<script>window.close();</script>";
@@ -259,6 +260,7 @@ class CRM_eWAYRecurring_PaymentToken {
       CRM_Utils_JSON::output([
         'is_error' => 0,
         'message' => $result,
+        'token_id' => $token['id']
       ]);
     }
 
