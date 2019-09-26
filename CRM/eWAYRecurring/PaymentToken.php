@@ -147,6 +147,16 @@ class CRM_eWAYRecurring_PaymentToken {
       ]);
     }
 
+    if (!$response->SharedPaymentUrl) {
+      $errorMessage = 'No eWay URL returned. Please check the civi log for more details.';
+      Civi::log()
+        ->info($errorMessage . ' eway response: ' . print_r($response, TRUE));
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => $errorMessage,
+      ]);
+    }
+
     CRM_Utils_JSON::output([
       'is_error' => 0,
       'url' => $response->SharedPaymentUrl,
@@ -260,7 +270,7 @@ class CRM_eWAYRecurring_PaymentToken {
       CRM_Utils_JSON::output([
         'is_error' => 0,
         'message' => $result,
-        'token_id' => $token['id']
+        'token_id' => $token['id'],
       ]);
     }
 

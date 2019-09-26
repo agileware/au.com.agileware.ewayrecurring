@@ -136,8 +136,8 @@ CRM.eway.addCreditCard = function () {
         ppid = CRM.eway.ppid;
     }
     let url = CRM.url('civicrm/ewayrecurring/createtoken', {
-        'contact_id': ppid,
-        'pp_id': CRM.eway.ppid
+        'contact_id': CRM.eway.contact_id,
+        'pp_id': ppid
     }, 'front');
     let data = CRM.$('form').serialize();
     let deferred = CRM.$.Deferred();
@@ -150,11 +150,7 @@ CRM.eway.addCreditCard = function () {
         "type": "POST",
         "data": data
     }).done(function (data) {
-        if (data['is_error']) {
-            deferred.reject({
-                error_message: data['message']
-            });
-        } else {
+        if (data['is_error'] === 0) {
             deferred.resolve();
             window.open(data['url'], '_blank');
             CRM.confirm({
@@ -181,6 +177,10 @@ CRM.eway.addCreditCard = function () {
                     }
                 });
                 CRM.eway.setPaymentTokenOptions();
+            });
+        } else {
+            deferred.reject({
+                error_message: data['message']? data['message']: 'Unknown error. Please check Civi log for more information.'
             });
         }
     });
