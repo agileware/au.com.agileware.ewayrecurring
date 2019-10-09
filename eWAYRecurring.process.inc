@@ -26,6 +26,8 @@
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
+use CRM_eWAYRecurring_ExtensionUtil as E;
+
 function process_recurring_payments($payment_processor, $paymentObject) {
   // Create log handler
   $log = CRM_Core_Error::createDebugLogger();
@@ -190,17 +192,29 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       $new_contribution_record['contribution_page_id'] = $contributionPageId;
       $new_contribution_record['is_test'] = $contributionIsTest;
 
-      // get the associated token
-      $token = civicrm_api3('PaymentToken', 'getsingle', [
-        'sequential' => 1,
-        'return' => ["token"],
-        'id' => $contribution->payment_token_id,
-      ]);
-      $token = $token['token'];
+      // Retrieve the eWAY token
+
+      if (!empty($contribution->payment_token_id)) {
+        try {
+          $token = civicrm_api3('PaymentToken', 'getvalue', [
+                     'return' => 'token',
+                     'id'     => $contribution->payment_token_id,
+                   ]);
+        } catch (CiviCRM_API3_Exception $e) {
+          $token = $contribution->processor_id;
+        }
+      }
+      else {
+        $token = $contribution->procesor_id;
+      }
+
+      if (!$token) {
+        throw new CRM_Core_Exception(E::ts('No eWAY token found for Recurring Contribution %1', [1 => $contribution->id]));
+      }
 
       $eWayResponse = process_eway_payment(
         $eWayClient,
-        $token ? $token : $contribution->processor_id,
+        $token,
         $amount_in_cents,
         substr($invoice_id, 0, 16),
         $financial_type['name'] . ($contributionSource ?
