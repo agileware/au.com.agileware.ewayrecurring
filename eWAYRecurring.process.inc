@@ -310,17 +310,15 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
       _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
 
-      if (isset($responseErrors) && count($responseErrors)) {
-        $note = new CRM_Core_BAO_Note();
+      $note = new CRM_Core_BAO_Note();
 
-        $note->entity_table = 'civicrm_contribution';
-        $note->contact_id = $contribution->contact_id;
-        $note->entity_id = $new_contribution_record['id'];
-        $note->subject = ts('Contribution Error');
-        $note->note = $e->getMessage();
+      $note->entity_table = 'civicrm_contribution';
+      $note->contact_id = $contribution->contact_id;
+      $note->entity_id = $new_contribution_record['id'];
+      $note->subject = ts('Contribution Error');
+      $note->note = $e->getMessage();
 
-        $note->save();
-      }
+      $note->save();
     }
 
     unset($eWayResponse);
