@@ -205,7 +205,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         }
       }
       else {
-        $token = $contribution->procesor_id;
+        $token = $contribution->processor_id;
       }
 
       if (!$token) {
