@@ -26,6 +26,8 @@
 // TODO:  Variable receipt title based on interval and unit?
 define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 
+use CRM_eWAYRecurring_ExtensionUtil as E;
+
 function process_recurring_payments($payment_processor, $paymentObject) {
   // Create log handler
   $log = CRM_Core_Error::createDebugLogger();
@@ -190,17 +192,29 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       $new_contribution_record['contribution_page_id'] = $contributionPageId;
       $new_contribution_record['is_test'] = $contributionIsTest;
 
-      // get the associated token
-      $token = civicrm_api3('PaymentToken', 'getsingle', [
-        'sequential' => 1,
-        'return' => ["token"],
-        'id' => $contribution->payment_token_id,
-      ]);
-      $token = $token['token'];
+      // Retrieve the eWAY token
+
+      if (!empty($contribution->payment_token_id)) {
+        try {
+          $token = civicrm_api3('PaymentToken', 'getvalue', [
+                     'return' => 'token',
+                     'id'     => $contribution->payment_token_id,
+                   ]);
+        } catch (CiviCRM_API3_Exception $e) {
+          $token = $contribution->processor_id;
+        }
+      }
+      else {
+        $token = $contribution->processor_id;
+      }
+
+      if (!$token) {
+        throw new CRM_Core_Exception(E::ts('No eWAY token found for Recurring Contribution %1', [1 => $contribution->id]));
+      }
 
       $eWayResponse = process_eway_payment(
         $eWayClient,
-        $token ? $token : $contribution->processor_id,
+        $token,
         $amount_in_cents,
         substr($invoice_id, 0, 16),
         $financial_type['name'] . ($contributionSource ?
@@ -296,17 +310,15 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
       _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
 
-      if (isset($responseErrors) && count($responseErrors)) {
-        $note = new CRM_Core_BAO_Note();
+      $note = new CRM_Core_BAO_Note();
 
-        $note->entity_table = 'civicrm_contribution';
-        $note->contact_id = $contribution->contact_id;
-        $note->entity_id = $new_contribution_record['id'];
-        $note->subject = ts('Contribution Error');
-        $note->note = $e->getMessage();
+      $note->entity_table = 'civicrm_contribution';
+      $note->contact_id = $contribution->contact_id;
+      $note->entity_id = $new_contribution_record['id'];
+      $note->subject = ts('Contribution Error');
+      $note->note = $e->getMessage();
 
-        $note->save();
-      }
+      $note->save();
     }
 
     unset($eWayResponse);
@@ -380,7 +392,7 @@ function get_scheduled_contributions($payment_processor) {
   $ct = CRM_Contribute_BAO_Contribution::getTableName();
   $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
   // Exclude contributions that have already been processed
-  $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`next_sched_contribution_date`)");
+  $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`next_sched_contribution_date` AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
 
   $scheduled_today->find();
 
