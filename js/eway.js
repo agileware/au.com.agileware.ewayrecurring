@@ -106,7 +106,7 @@ CRM.eway.paymentTokenInitialize = function () {
     CRM.eway.toggleCreditCardFields();
 
     // move the button
-    CRM.$('div.add_credit_card-section').appendTo('.billing_name_address-group');
+    CRM.$('.credit_card_info-group').insertAfter('.billing_name_address-group');
 
     // add listener
 
