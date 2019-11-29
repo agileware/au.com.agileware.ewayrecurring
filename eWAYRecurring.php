@@ -334,6 +334,10 @@ function _contribution_status_id($name) {
   return CRM_Utils_Array::key($name, \CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name'));
 }
 
+/**
+ * @param $formName
+ * @param $form CRM_Core_Form
+ */
 function ewayrecurring_civicrm_buildForm($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
     if (!($page_id = $form->getVar('_id'))) {
@@ -350,6 +354,9 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
     if ($default_cd) {
       $form->setDefaults(['recur_cycleday' => $default_cd]);
     }
+    // add day field to the form
+    $template = $form->toSmarty();
+    Civi::resources()->addScript("CRM.eway.modifyAmountForm(" . json_encode($template['recur_cycleday']) . ");");
   }
   elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
     $paymentProcessor = $form->getVar('_paymentProcessorObj');
@@ -368,8 +375,15 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
             $defaults['next_scheduled_date_time']) = CRM_Utils_Date::setDateDefaults($default_nsd);
           $form->setDefaults($defaults);
         }
+        // add next scheduled date field
+        $template = $form->toSmarty();
+        Civi::resources()->addScript("CRM.eway.modifyUpdateSubscriptionForm(" . json_encode($template['next_scheduled_date']) . ");");
       }
     }
+  }
+  elseif ($formName == 'CRM_Contribute_Form_CancelSubscription' && $form->getVar('_paymentProcessorObj') instanceof au_com_agileware_ewayrecurring) {
+    // remove send request to eway field
+    $form->removeElement('send_cancel_request');
   }
   elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
         $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring')) &&
@@ -385,6 +399,9 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
     if ($default_cd) {
       $form->setDefaults(['recur_cycleday' => $default_cd]);
     }
+    // add recurring day field
+    $template = $form->toSmarty();
+    Civi::resources()->addScript("CRM.eway.modifyPaymentProcessorForm(" . json_encode($template['recur_cycleday']) . ");");
   }
 }
 

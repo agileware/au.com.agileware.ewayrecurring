@@ -180,7 +180,7 @@ CRM.eway.addCreditCard = function () {
             });
         } else {
             deferred.reject({
-                error_message: data['message']? data['message']: 'Unknown error. Please check Civi log for more information.'
+                error_message: data['message'] ? data['message'] : 'Unknown error. Please check Civi log for more information.'
             });
         }
     });
@@ -207,3 +207,31 @@ CRM.$(function ($) {
         window.open(data['userContext'], '_blank');
     })
 });
+
+// modify the templates
+CRM.eway.modifyUpdateSubscriptionForm = function (element = null) {
+    CRM.$('.crm-recurcontrib-form-block > table tbody').append('<tr class="crm-contribution-form-block-receive_date">\n' +
+        '                <td class="label">' + element.label + '</td>\n' +
+        '                <td>{include file="CRM/common/jcalendar.tpl" elementName=next_scheduled_date}<br/>\n' +
+        '                    <span class="description">The next date on which this contribution will be made.</span>\n' +
+        '                </td>\n' +
+        '            </tr>');
+};
+
+CRM.eway.modifyAmountForm = function (element = null) {
+    CRM.$('#recurFields > td > table > tbody').append('<tr class="crm-contribution-form-block-recur_cycleday">\n' +
+        '                                <th scope="row" class="label">' + element.label + '</th>\n' +
+        '                                <td>' + element.html + '<br/>\n' +
+        '                                    <span class="description">For monthly or yearly payments, what day of the month should the recurring charge be processed on?  Leave blank to disable this behaviour and process on the same date as the original contribution.</span>\n' +
+        '                                </td>\n' +
+        '                            </tr>');
+};
+
+CRM.eway.modifyPaymentProcessorForm = function (element = null) {
+    CRM.$('.crm-paymentProcessor-form-block > table.form-layout-compressed tbody').append('<tr class="crm-paymentProcessor-form-block-recur_cycleday">\n' +
+        '                <td class="label">' + element.label + '</td>\n' +
+        '                <td>' + element.html + '\n' +
+        '                    <p class="description">The default date (day of month) on which monthly recurring transactions are processed.\n' +
+        '                        <br/>\n' +
+        '                        Leave blank to allow processing on a &quot;date hence&quot; basis</p></td>\n' +
+        '            </tr>')};
