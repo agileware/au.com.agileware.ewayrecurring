@@ -377,7 +377,17 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
         }
         // add next scheduled date field
         $template = $form->toSmarty();
-        Civi::resources()->addScript("CRM.eway.modifyUpdateSubscriptionForm(" . json_encode($template['next_scheduled_date']) . ");");
+        $datePicker = CRM_Core_Smarty::singleton()->fetchWith('CRM/common/jcalendar.tpl', [
+          'elementName' => 'next_scheduled_date',
+          'form' => $template,
+        ]);
+        Civi::resources()
+          ->addScript("CRM.eway.modifyUpdateSubscriptionForm(" .
+            json_encode([
+              'next_scheduled_date' => $template['next_scheduled_date'],
+              'date_picker' => $datePicker,
+            ]) .
+            ");");
       }
     }
   }
