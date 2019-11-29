@@ -63,13 +63,6 @@ as above and update these details in your Payment Processor settings.
 Once your authentication details are updated, existing recurring payments will
 continue to operate as usual.
 
-Sponsorship
------------
-
-Initial development of this CiviCRM extension for recurring functionality and
-token payments was kindly sponsored by Stephen Garrett of [Good
-Reason](http://www.goodreason.com.au).
-
 About the Authors
 -----------------
 
