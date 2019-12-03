@@ -48,6 +48,15 @@ To update the **Maximum retries** and **Retry delay (in days)** go to
 `civicrm/ewayrecurring/settings`. The default **Maximum retries** is 3
 and **Retry delay** is 4 days.
 
+CiviCRM template overrides
+--------------------------
+
+This extension applies changes to the following CiviCRM templates:
+
+1. **CancelSubscription** - hides an option to send cancellation request, as all processing is done locally
+2. **Amount** - adds a field to specify the day for recurring payment in the contribution page settings
+3. **UpdateSubscription** - adds a field to change the next payment date
+4. **PaymentProcessor** - adds a default cycle_day fallback configuration for the payment processor
 
 Upgrading from 1.x
 ------------------
@@ -62,13 +71,6 @@ as above and update these details in your Payment Processor settings.
 
 Once your authentication details are updated, existing recurring payments will
 continue to operate as usual.
-
-Sponsorship
------------
-
-Initial development of this CiviCRM extension for recurring functionality and
-token payments was kindly sponsored by Stephen Garrett of [Good
-Reason](http://www.goodreason.com.au).
 
 About the Authors
 -----------------
