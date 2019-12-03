@@ -554,6 +554,10 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
     $paymentProcessor = $form->getVar('_paymentProcessor');
     $paymentProcessor = $paymentProcessor['object'];
     validateEwayContribution($paymentProcessor, $form->_params['invoiceID']);
+    // fixme CIVIEWAY-144 temporary fix, remove this if the issue is solved in core
+    if (!$form->_priceSetId || CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $form->_priceSetId, 'is_quick_config')) {
+      $form->assign('lineItem', FALSE);
+    }
   }
 }
 
