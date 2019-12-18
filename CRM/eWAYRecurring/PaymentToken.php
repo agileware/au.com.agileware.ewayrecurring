@@ -92,11 +92,11 @@ class CRM_eWAYRecurring_PaymentToken {
         'return' => ["iso_code"],
       ],
     ]);
-    if ($contact['is_error'] || $contact['api.Country.getsingle']['is_error']) {
+    if ($contact['is_error']) {
       // TODO add error header
       CRM_Utils_JSON::output([
         'is_error' => 1,
-        'message' => 'no contact found or country not set.',
+        'message' => 'no contact found.',
       ]);
     }
 
