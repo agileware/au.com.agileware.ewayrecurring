@@ -42,7 +42,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
   }
 
   // Create eWay token client
-  /** @var \Eway\Rapid\Client $eWayClient */
   $eWayClient = $paymentObject->getEWayClient();
 
   // Process today's scheduled contributions.
@@ -122,7 +121,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     $billing_address = array_shift($addresses['values']);
 
     $invoice_id = md5(uniqid(rand(), TRUE));
-    $eWayTransactionId = NULL;
 
     try {
       if ($contribution->contribution_status_id != _contribution_status_id('Failed')) {
@@ -222,7 +220,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $financial_type['name'] . ($contributionSource ?
           ":\n" . $contributionSource : '')
       );
-      $eWayTransactionId = $eWayResponse->TransactionID;
 
       $new_contribution_record['trxn_id'] = $eWayResponse->getAttribute('TransactionID');
 
@@ -307,24 +304,12 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
       // Record a failed contribution in this case.
       $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
-
-      // CIVIEWAY-147 we can query eWay to update Civi
-      if ($eWayTransactionId) {
-        $eWayResponse = $eWayClient->queryTransaction($eWayTransactionId);
-        if ($eWayResponse->Transactions[0] && $eWayResponse->Transactions[0]->TransactionStatus) {
-          // Record a completed contribution in this case
-          $new_contribution_record['contribution_status_id'] = _contribution_status_id('Completed');
-        }
-      }
-
       $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
-      $new_contribution_record = reset($updated['values']);
-      // Increment the failure count and set the next retry date when failed
-      if ($new_contribution_record['contribution_status_id'] == _contribution_status_id('Failed')) {
-        _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
-      }
 
-      // No matter success or not, we note down the exception for debugging
+      $new_contribution_record = reset($updated['values']);
+
+      _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
+
       $note = new CRM_Core_BAO_Note();
 
       $note->entity_table = 'civicrm_contribution';
@@ -472,14 +457,14 @@ function get_scheduled_failed_contributions($payment_processor) {
  *
  * Processes an eWay token payment
  *
- * @param \Eway\Rapid\Client $eWayClient An eWay client set up and ready to go
+ * @param object $eWayClient An eWay client set up and ready to go
  * @param string $managed_customer_id The eWay token ID for the credit card you
  *   want to process
  * @param string $amount_in_cents The amount in cents to charge the customer
  * @param string $invoice_reference InvoiceReference to send to eWay
  * @param string $invoice_description InvoiceDescription to send to eWay
  *
- * @return \Eway\Rapid\Model\Response\AbstractResponse eWay response object
+ * @return object eWay response object
  * @throws SoapFault exceptions
  */
 function process_eway_payment($eWayClient, $managed_customer_id, $amount_in_cents, $invoice_reference, $invoice_description) {
