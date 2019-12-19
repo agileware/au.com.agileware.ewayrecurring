@@ -62,6 +62,13 @@ class CRM_eWAYRecurring_eWAYRecurringUtils {
         $transactionToValidate['tries']++;
 
         if ($response['hasTransactionFailed']) {
+          // update recurring
+          if ($contribution['contribution_recur_id']) {
+            $bao = new CRM_Contribute_BAO_ContributionRecur();
+            $bao->id = $contribution['contribution_recur_id'];
+            $bao->find();
+            _eWAYRecurring_mark_recurring_contribution_Failed($bao);
+          }
           $transactionToValidate['status'] = self::$TRANSACTION_FAILED_STATUS;
           $transactionToValidate['failed_message'] = $response['transactionResponseError'];
           $apiResponse['failed']++;

@@ -121,6 +121,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     $billing_address = array_shift($addresses['values']);
 
     $invoice_id = md5(uniqid(rand(), TRUE));
+    $eWayResponse = NULL;
 
     try {
       if ($contribution->contribution_status_id != _contribution_status_id('Failed')) {
@@ -220,6 +221,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $financial_type['name'] . ($contributionSource ?
           ":\n" . $contributionSource : '')
       );
+      throw new CRM_Core_Exception('error after eway');
 
       $new_contribution_record['trxn_id'] = $eWayResponse->getAttribute('TransactionID');
 
@@ -302,13 +304,29 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     } catch (Exception $e) {
       $log->log("Processing payment {$contribution->id} for {$contribution->contact_id}: " . $e->getMessage(), PEAR_LOG_WARNING);
 
-      // Record a failed contribution in this case.
-      $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
+      // already talk to eway? then we need to check the payment status
+      if ($eWayResponse) {
+        $new_contribution_record['contribution_status_id'] = _contribution_status_id('Pending');
+      } else {
+        $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
+      }
+
       $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
-
       $new_contribution_record = reset($updated['values']);
-
-      _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
+      // CIVIEWAY-147 there is an unknown system error that happen after civi talks to eway
+      // It might be a cache cleaning task happening at the same time that break this task
+      // Defer the query later to update the contribution status
+      if ($eWayResponse) {
+        $ewayParams = [
+          'access_code' => $eWayResponse->TransactionID,
+          'contribution_id' => $new_contribution_record['id'],
+          'payment_processor_id' => $contribution->payment_processor_id,
+        ];
+        civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
+      } else {
+        // Just mark it failed when eWay have no info about this at all
+        _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
+      }
 
       $note = new CRM_Core_BAO_Note();
 
