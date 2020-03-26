@@ -655,7 +655,7 @@ function ewayrecurring_civicrm_navigationMenu(&$menu) {
  */
 function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
   if ($region == 'html-header') {
-    $list[] = 'ext/au.com.agileware.ewayrecurring/js/eway.js';
+    Civi::resources()->addScriptFile('au.com.agileware.ewayrecurring', 'js/eway.js', $region);
     $result = civicrm_api3('PaymentProcessorType', 'get', [
       'sequential' => 1,
       'name' => "eWay_Recurring",
