@@ -339,6 +339,25 @@ function _contribution_status_id($name) {
  * @param $form CRM_Core_Form
  */
 function ewayrecurring_civicrm_buildForm($formName, &$form) {
+  // add js resource
+  if (!isset(\Civi::$statics[E::LONG_NAME]['jsAdded'])) {
+    Civi::resources()->addScriptFile('au.com.agileware.ewayrecurring', 'js/eway.js', 'html-header');
+    $result = civicrm_api3('PaymentProcessorType', 'get', [
+      'sequential' => 1,
+      'name' => "eWay_Recurring",
+      'api.PaymentProcessor.get' => ['payment_processor_type_id' => "\$value.id"],
+    ]);
+    if ($result['is_error'] || $result['values'][0]['api.PaymentProcessor.get']['is_error']) {
+      return;
+    }
+    $ids = [];
+    foreach ($result['values'][0]['api.PaymentProcessor.get']['values'] as $pp) {
+      $ids[] = $pp['id'];
+    }
+    CRM_Core_Resources::singleton()->addVars('agilewareEwayExtension', array('paymentProcessorId' => $ids));
+    Civi::$statics[E::LONG_NAME]['jsAdded'] = TRUE;
+  }
+
   if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
     if (!($page_id = $form->getVar('_id'))) {
       return;
@@ -648,26 +667,4 @@ function ewayrecurring_civicrm_navigationMenu(&$menu) {
     'operator' => 'OR',
     'separator' => 0,
   ]);
-}
-
-/**
- * Implements hook_civicrm_coreResourceList().
- */
-function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
-  if ($region == 'html-header') {
-    Civi::resources()->addScriptFile('au.com.agileware.ewayrecurring', 'js/eway.js', $region);
-    $result = civicrm_api3('PaymentProcessorType', 'get', [
-      'sequential' => 1,
-      'name' => "eWay_Recurring",
-      'api.PaymentProcessor.get' => ['payment_processor_type_id' => "\$value.id"],
-    ]);
-    if ($result['is_error'] || $result['values'][0]['api.PaymentProcessor.get']['is_error']) {
-      return;
-    }
-    $ids = [];
-    foreach ($result['values'][0]['api.PaymentProcessor.get']['values'] as $pp) {
-      $ids[] = $pp['id'];
-    }
-    CRM_Core_Resources::singleton()->addVars('agilewareEwayExtension', array('paymentProcessorId' => $ids));
-  }
 }
