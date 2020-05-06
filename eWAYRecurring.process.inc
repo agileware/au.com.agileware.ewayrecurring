@@ -134,6 +134,16 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $mainContributions['tax_amount'] = 0;
       }
 
+      $repeat_params = [
+        'contribution_recur_id'  => $contribution->id,
+        'contribution_status_id' => _contribution_status_id('Pending'),
+        'is_email_receipt'       => 0,
+      ];
+
+      $repeated = civicrm_api3('Contribution', 'repeattransaction', $repeat_params);
+
+      $new_contribution_record = $repeated;
+
       // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
       $new_contribution_record['contact_id'] = $contribution->contact_id;
       $new_contribution_record['receive_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
@@ -145,6 +155,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       $new_contribution_record['campaign_id'] = $contribution->campaign_id;
       $new_contribution_record['financial_type_id'] = $contribution->financial_type_id;
       $new_contribution_record['payment_processor'] = $contribution->payment_processor_id;
+      $new_contribution_record['payment_processor_id'] = $contribution->payment_processor_id;
 
       $contributions = civicrm_api3(
         'Contribution', 'get', [
@@ -221,7 +232,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $financial_type['name'] . ($contributionSource ?
           ":\n" . $contributionSource : '')
       );
-      throw new CRM_Core_Exception('error after eway');
 
       $new_contribution_record['trxn_id'] = $eWayResponse->getAttribute('TransactionID');
 
@@ -238,11 +248,10 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
       }
       else {
-        // $log->log("Successfully processed payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
-
-        // $log->log("Sending receipt\n", PEAR_LOG_DEBUG);
         // send_receipt_email($new_contribution_record->id);
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Completed');
+
+        $new_contribution_record['is_email_receipt'] = 0;
 
         if ($contribution->failure_count > 0 && $contribution->contribution_status_id == _contribution_status_id('Failed')) {
           // Failed recurring contribution completed successfuly after several retry.
@@ -266,23 +275,13 @@ function process_recurring_payments($payment_processor, $paymentObject) {
           $contribution->id, 'failure_retry_date', '');
       }
 
-      $repeat_params = [
-        'contribution_recur_id' => $contribution->id,
-        'contribution_status_id' => $new_contribution_record['contribution_status_id'],
-      ];
+      $api_action = (
+        $new_contribution_record['contribution_status_id'] == _contribution_status_id('Completed')
+        ? 'completetransaction'
+        : 'create'
+      );
 
-
-      // CIVIEWAY-107 -- don't send receipts for failed contributions
-      // @todo make this configurable.
-      if(_contribution_status_id('Completed') != $new_contribution_record['contribution_status_id']) {
-          $repeat_params['is_email_receipt'] = 0;
-      }
-
-      $repeated = civicrm_api3('Contribution', 'repeattransaction', $repeat_params);
-
-      $new_contribution_record['id'] = $repeated['id'];
-
-      $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
+      $updated = civicrm_api3('Contribution', $api_action, $new_contribution_record);
 
       $new_contribution_record = reset($updated['values']);
 
