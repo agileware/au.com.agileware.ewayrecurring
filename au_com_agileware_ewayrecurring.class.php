@@ -11,15 +11,6 @@ use CRM_eWAYRecurring_ExtensionUtil as E;
 
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
-  /**
-   * We only need one instance of this object. So we use the singleton
-   * pattern and cache the instance in this variable
-   *
-   * @var object
-   * @static
-   */
-  static private $_singleton = NULL;
-
   private $jsEmbeded = FALSE;
 
   /**
@@ -33,23 +24,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     $this->_mode = $mode;             // live or test
     $this->_paymentProcessor = $paymentProcessor;
     $this->_processorName = ts('eWay Recurring');
-  }
-
-  /**
-   * singleton function used to manage this object
-   *
-   * @param string $mode the mode of operation: live or test
-   *
-   * @return object
-   * @static
-   *
-   */
-  static function &singleton($mode, &$paymentProcessor, &$paymentForm = NULL, $force = FALSE) {
-    $processorName = $paymentProcessor['name'];
-    if (self::$_singleton[$processorName] === NULL) {
-      self::$_singleton[$processorName] = new au_com_agileware_ewayrecurring($mode, $paymentProcessor);
-    }
-    return self::$_singleton[$processorName];
   }
 
   /**
