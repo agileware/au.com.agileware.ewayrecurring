@@ -76,23 +76,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
     /* Schedule next contribution */
     if (($contribution->installments <= 0) || ($contribution->installments > $ccount + 1)) {
-      if (($cd = $contribution->cycle_day) && ($contribution->frequency_unit == 'month' || $contribution->frequency_unit == 'year')) {
-        $d_now = new DateTime();
-        $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
-        $d_next->modify("+{$contribution->frequency_interval} " .
-          "{$contribution->frequency_unit}s");
-        $next_m = ($d_now->format('m') + $contribution->frequency_interval - 1) % 12 + 1;
-        if ($next_m != $d_next->format('m')) {
-          $daysover = $d_next->format('d');
-          $d_next->modify("-{$daysover} days");
-        }
-        $next_sched = $d_next->format('Y-m-d 00:00:00');
-      }
-      else {
-        $next_sched = date('Y-m-d 00:00:00',
-          strtotime("+{$contribution->frequency_interval} " .
-            "{$contribution->frequency_unit}s"));
-      }
+      $next_sched = date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}s"));
     }
     else {
       $next_sched = NULL;

@@ -73,18 +73,6 @@ SET FOREIGN_KEY_CHECKS=1;
 -- *
 -- *******************************************************/
 
-CREATE TABLE `civicrm_ewayrecurring` (
-     `processor_id` int(10) NOT NULL,
-     `cycle_day`    int(2)  DEFAULT NULL,
-     PRIMARY KEY(`processor_id`)
-     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-CREATE TABLE `civicrm_contribution_page_recur_cycle` (
-     `page_id`   int(10) NOT NULL DEFAULT '0',
-     `cycle_day` int(2)  DEFAULT NULL,
-     PRIMARY KEY (`page_id`)
-     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
 CREATE TABLE `civicrm_eway_contribution_transactions` (
      `id`                   int unsigned NOT NULL AUTO_INCREMENT COMMENT 'Unique EwayContributionTransactions ID',
      `contribution_id`      int unsigned                         COMMENT 'FK to Contact',

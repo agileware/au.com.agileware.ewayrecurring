@@ -104,27 +104,6 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
     if (NULL == $queue) {
       return CRM_Core_Error::fatal('au.com.agileware.ewayrecurring: No Queue supplied for upgrade');
     }
-    if ($schemaVersion < 3) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          3,
-          "CREATE TABLE `civicrm_contribution_page_recur_cycle` (`page_id` int(10) NOT NULL DEFAULT '0', `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY (`page_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
-        ],
-          'Install page_recur_cycle table'
-        )
-      );
-
-    }
-    if ($schemaVersion < 4) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          4,
-          "CREATE TABLE `civicrm_ewayrecurring` (`processor_id` int(10) NOT NULL, `cycle_day` int(2) DEFAULT NULL, PRIMARY KEY(`processor_id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
-        ],
-          'Install cycle_day table'
-        )
-      );
-    }
     if ($schemaVersion < 5) {
       $queue->createItem(
         new CRM_Queue_Task('_ewayrecurring_upgrade_schema_version', [
@@ -339,26 +318,7 @@ function _contribution_status_id($name) {
  * @param $form CRM_Core_Form
  */
 function ewayrecurring_civicrm_buildForm($formName, &$form) {
-  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
-    if (!($page_id = $form->getVar('_id'))) {
-      return;
-    }
-    $form->addElement('text', 'recur_cycleday', ts('Recurring Payment Date'));
-    $sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
-    $default_cd = CRM_Core_DAO::singleValueQuery($sql, [
-      1 => [
-        $page_id,
-        'Int',
-      ],
-    ]);
-    if ($default_cd) {
-      $form->setDefaults(['recur_cycleday' => $default_cd]);
-    }
-    // add day field to the form
-    $template = $form->toSmarty();
-    Civi::resources()->addScript("CRM.eway.modifyAmountForm(" . json_encode($template['recur_cycleday']) . ");");
-  }
-  elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
+  if ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
     $paymentProcessor = $form->getVar('_paymentProcessorObj');
     if (($paymentProcessor instanceof au_com_agileware_ewayrecurring)) {
       ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
@@ -371,8 +331,8 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
             'Int',
           ],
         ])) {
-          list($defaults['next_scheduled_date'],
-            $defaults['next_scheduled_date_time']) = CRM_Utils_Date::setDateDefaults($default_nsd);
+          [$defaults['next_scheduled_date'],
+            $defaults['next_scheduled_date_time']] = CRM_Utils_Date::setDateDefaults($default_nsd);
           $form->setDefaults($defaults);
         }
         // add next scheduled date field
@@ -395,62 +355,36 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
     // remove send request to eway field
     $form->removeElement('send_cancel_request');
   }
-  elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
-        $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring')) &&
-    ($processor_id = $form->getVar('_id'))) {
-    $form->addElement('text', 'recur_cycleday', ts('Recurring Payment Date'));
-    $sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
-    $default_cd = CRM_Core_DAO::singleValueQuery($sql, [
-      1 => [
-        $processor_id,
-        'Int',
-      ],
-    ]);
-    if ($default_cd) {
-      $form->setDefaults(['recur_cycleday' => $default_cd]);
-    }
-    // add recurring day field
-    $template = $form->toSmarty();
-    Civi::resources()->addScript("CRM.eway.modifyPaymentProcessorForm(" . json_encode($template['recur_cycleday']) . ");");
-  }
 }
 
 function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
-  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount' ||
-    $formName == 'CRM_Admin_Form_PaymentProcessor') {
-    $cycle_day = CRM_Utils_Array::value('recur_cycleday', $fields);
-    if ($cycle_day == '') {
-      return;
-    }
-    if (!CRM_Utils_Type::validate($cycle_day, 'Int', FALSE, ts('Cycle day')) || $cycle_day < 1 || $cycle_day > 31) {
-      $errors['recur_cycleday'] = ts('Recurring Payment Date must be a number between 1 and 31');
-    }
+  switch($formName) {
+    case'CRM_Admin_Form_PaymentProcessor':
+      if (empty(CRM_Utils_Array::value('user_name', $fields, ''))) {
+        $errors['user_name'] = ts('API Key is a required field.');
+      }
 
-    if (empty(CRM_Utils_Array::value('user_name', $fields, ''))) {
-      $errors['user_name'] = ts('API Key is a required field.');
-    }
+      if (empty(CRM_Utils_Array::value('password', $fields, ''))) {
+        $errors['password'] = ts('API Password is a required field.');
+      }
+      break;
+    case 'CRM_Contribute_Form_UpdateSubscription':
 
-    if (empty(CRM_Utils_Array::value('password', $fields, ''))) {
-      $errors['password'] = ts('API Password is a required field.');
-    }
+      $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
 
-  }
-  elseif ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
+      ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
 
-    $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
+      $sql = 'SELECT UNIX_TIMESTAMP(MAX(receive_date)) FROM civicrm_contribution WHERE contribution_recur_id = %1';
+      $current_nsd = CRM_Core_DAO::singleValueQuery($sql, [1 => [$crid, 'Int']]);
+      $form->setVar('_currentNSD', $current_nsd);
 
-    ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
-
-    $sql = 'SELECT UNIX_TIMESTAMP(MAX(receive_date)) FROM civicrm_contribution WHERE contribution_recur_id = %1';
-    $current_nsd = CRM_Core_DAO::singleValueQuery($sql, [1 => [$crid, 'Int']]);
-    $form->setVar('_currentNSD', $current_nsd);
-
-    if ($submitted_nsd < $current_nsd) {
-      $errors['next_scheduled_date'] = ts('Cannot schedule next contribution date before latest received date');
-    }
-    elseif ($submitted_nsd < time()) {
-      $errors['next_scheduled_date'] = ts('Cannot schedule next contribution in the past');
-    }
+      if ($submitted_nsd < $current_nsd) {
+        $errors['next_scheduled_date'] = ts('Cannot schedule next contribution date before latest received date');
+      }
+      elseif ($submitted_nsd < time()) {
+        $errors['next_scheduled_date'] = ts('Cannot schedule next contribution in the past');
+      }
+      break;
   }
 }
 
@@ -459,48 +393,15 @@ function ewayrecurring_civicrm_postProcess($formName, &$form) {
     if (!($page_id = $form->getVar('_id'))) {
       CRM_Core_Error::fatal("Attempt to process a contribution page form with no id");
     }
-    $cycle_day = $form->getSubmitValue('recur_cycleday');
     $is_recur = $form->getSubmitValue('is_recur');
     /* Do not continue if this is not a recurring payment */
     if (!$is_recur) {
       return;
     }
-    if (!$cycle_day) {
-      $sql = 'DELETE FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
-      CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
+    $sql = 'DELETE FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
+    CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
 
-      /* Update existing recurring contributions for this page */
-      $sql = 'UPDATE civicrm_contribution_recur ccr
-          INNER JOIN civicrm_contribution cc
-                  ON cc.invoice_id            = ccr.invoice_id
-           LEFT JOIN civicrm_ewayrecurring ceway
-                  ON ccr.payment_processor_id = ceway.processor_id
-                 SET ccr.cycle_day            = COALESCE(ceway.cycle_day, ccr.cycle_day)
-               WHERE ccr.invoice_id           = cc.invoice_id
-                 AND cc.contribution_page_id  = %1';
-
-      CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
-    }
-    else {
-      // Relies on a MySQL extension.
-      $sql = 'REPLACE INTO civicrm_contribution_page_recur_cycle (page_id, cycle_day) VALUES (%1, %2)';
-      CRM_Core_DAO::executeQuery($sql, [
-        1 => [$page_id, 'Int'],
-        2 => [$cycle_day, 'Int'],
-      ]);
-
-      /* Update existing recurring contributions for this page */
-      $sql = 'UPDATE civicrm_contribution_recur ccr,
-                     civicrm_contribution cc
-                 SET ccr.cycle_day  = %2
-               WHERE ccr.invoice_id = cc.invoice_id
-                 AND cc.contribution_page_id = %1';
-
-      CRM_Core_DAO::executeQuery($sql, [
-        1 => [$page_id, 'Int'],
-        2 => [$cycle_day, 'Int'],
-      ]);
-    }
+    CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
   }
   elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
         $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring'))) {
@@ -508,36 +409,12 @@ function ewayrecurring_civicrm_postProcess($formName, &$form) {
       CRM_Core_Error::fatal("Attempt to configure a payment processor admin form with no id");
     }
 
-    $cycle_day = $form->getSubmitValue('recur_cycleday');
-
-    if (!$cycle_day) {
-      $sql = 'DELETE FROM civicrm_ewayrecurring WHERE processor_id = %1';
-      CRM_Core_DAO::executeQuery($sql, [1 => [$processor_id, 'Int']]);
-      $cycle_day = 0;
-    }
-    else {
-      // Relies on a MySQL extension.
-      $sql = 'REPLACE INTO civicrm_ewayrecurring (processor_id, cycle_day) VALUES (%1, %2)';
-      CRM_Core_DAO::executeQuery($sql, [
-        1 => [$processor_id, 'Int'],
-        2 => [$cycle_day, 'Int'],
-      ]);
-    }
-
-    $sql = 'UPDATE civicrm_contribution_recur ccr
-        INNER JOIN civicrm_contribution cc
-                ON cc.invoice_id = ccr.invoice_id
-         LEFT JOIN civicrm_ewayrecurring ceway
-                ON ccr.payment_processor_id = ceway.processor_id
-         LEFT JOIN civicrm_contribution_page_recur_cycle ccprc
-                ON ccprc.page_id = cc.contribution_page_id
-               SET ccr.cycle_day = %2
-             WHERE ceway.processor_id = %1
-               AND ccprc.cycle_day is NULL';
+    $sql = 'DELETE FROM civicrm_ewayrecurring WHERE processor_id = %1';
+    CRM_Core_DAO::executeQuery($sql, [1 => [$processor_id, 'Int']]);
 
     CRM_Core_DAO::executeQuery($sql, [
       1 => [$processor_id, 'Int'],
-      2 => [$cycle_day, 'Int'],
+      2 => [0, 'Int'],
     ]);
   }
 }

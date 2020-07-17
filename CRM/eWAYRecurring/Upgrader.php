@@ -77,6 +77,11 @@ class CRM_eWAYRecurring_Upgrader extends CRM_eWAYRecurring_Upgrader_Base {
     return TRUE;
   }
 
+  public function upgrade_20300() {
+    $this->ctx->log->info('Apply 2.3.0 update; Drop tables supporting unmaintained cycle day.');
+    CRM_Core_DAO::executeQuery('DROP TABLE IF EXISTS `civicrm_ewayrecurring`');
+    CRM_Core_DAO::executeQuery('DROP TABLE IF EXISTS `civicrm_contribution_page_recur_cycle`');
+  }
   /**
    * Example: Run an external SQL script.
    *

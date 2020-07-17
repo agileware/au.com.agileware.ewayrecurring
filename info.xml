@@ -15,8 +15,8 @@
         <author>Agileware</author>
         <email>support@agileware.com.au</email>
     </maintainer>
-    <releaseDate>2020-06-24</releaseDate>
-    <version>2.2.13</version>
+    <releaseDate>2020-07-17</releaseDate>
+    <version>2.3.0</version>
     <compatibility>
         <ver>5.0</ver>
     </compatibility>

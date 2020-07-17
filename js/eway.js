@@ -218,22 +218,3 @@ CRM.eway.modifyUpdateSubscriptionForm = function (elements = null) {
         '                </td>\n' +
         '            </tr>');
 };
-
-CRM.eway.modifyAmountForm = function (elements = null) {
-    CRM.$('#recurFields > td > table > tbody').append('<tr class="crm-contribution-form-block-recur_cycleday">\n' +
-        '                                <th scope="row" class="label">' + elements.label + '</th>\n' +
-        '                                <td>' + elements.html + '<br/>\n' +
-        '                                    <span class="description"><strong>(for eWay only) </strong>For monthly or yearly payments, what day of the month should the recurring charge be processed on?  Leave blank to disable this behaviour and process on the same date as the original contribution.</span>\n' +
-        '                                </td>\n' +
-        '                            </tr>');
-};
-
-CRM.eway.modifyPaymentProcessorForm = function (elements = null) {
-    CRM.$('.crm-paymentProcessor-form-block > table.form-layout-compressed tbody').append('<tr class="crm-paymentProcessor-form-block-recur_cycleday">\n' +
-        '                <td class="label">' + elements.label + '</td>\n' +
-        '                <td>' + elements.html + '\n' +
-        '                    <p class="description">The default date (day of month) on which monthly recurring transactions are processed.\n' +
-        '                        <br/>\n' +
-        '                        Leave blank to allow processing on a &quot;date hence&quot; basis</p></td>\n' +
-        '            </tr>')
-};

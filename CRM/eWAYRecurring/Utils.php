@@ -372,59 +372,13 @@ class CRM_eWAYRecurring_Utils {
         'id' => $contributionRecurringId,
       ]);
 
-      //----------------------------------------------------------------------------------------------------
-      // For monthly payments, set the cycle day according to the submitting page or processor default
-      //----------------------------------------------------------------------------------------------------
-
-      $cycle_day = 0;
-
-      if (!empty($contributionPageId) &&
-        CRM_Utils_Type::validate($contributionPageId, 'Int', FALSE, ts('Contribution Page'))) {
-        $cd_sql = 'SELECT cycle_day FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
-        $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, [
-          1 => [
-            $contributionPageId,
-            'Int',
-          ],
-        ]);
-      }
-      else {
-        $cd_sql = 'SELECT cycle_day FROM civicrm_ewayrecurring WHERE processor_id = %1';
-        $cycle_day = CRM_Core_DAO::singleValueQuery($cd_sql, [
-          1 => [
-            $paymentProcessorId,
-            'Int',
-          ],
-        ]);
-      }
-
-      if (!$cycle_day) {
-        $cycle_day = 0;
-      }
-
-      if (($cd = $cycle_day) > 0 &&
-        $recurringContribution['frequency_unit'] == 'month') {
-        $d_now = new DateTime();
-        $d_next = new DateTime(date("Y-m-$cd 00:00:00"));
-        $d_next->modify("+{$recurringContribution['frequency_interval']} " .
-          "{$recurringContribution['frequency_unit']}s");
-        $next_m = ($d_now->format('m') + $recurringContribution['frequency_interval'] - 1) % 12 + 1;
-        if ($next_m != $d_next->format('m')) {
-          $daysover = $d_next->format('d');
-          $d_next->modify("-{$daysover} days");
-        }
-        $next_sched = $d_next->format('Y-m-d 00:00:00');
-      }
-      else {
-        $next_sched = date('Y-m-d 00:00:00',
-          strtotime("+{$recurringContribution['frequency_interval']} " .
-            "{$recurringContribution['frequency_unit']}s"));
-      }
+      $next_sched = date('Y-m-d 00:00:00',
+        strtotime("+{$recurringContribution['frequency_interval']} " .
+          "{$recurringContribution['frequency_unit']}s"));
 
       $paymentTokenID = self::updateCustomerDetails($accessCodeResponse, $recurringContribution);
 
       $recurringContribution['next_sched_contribution_date'] = CRM_Utils_Date::isoToMysql($next_sched);
-      $recurringContribution['cycle_day'] = $cycle_day;
       $recurringContribution['processor_id'] = $customerTokenId;
       $recurringContribution['payment_token_id'] = $paymentTokenID;
       $recurringContribution['create_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));

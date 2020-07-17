@@ -33,8 +33,6 @@
 
 SET FOREIGN_KEY_CHECKS=0;
 
-DROP TABLE IF EXISTS `civicrm_ewayrecurring`;
-DROP TABLE IF EXISTS `civicrm_contribution_page_recur_cycle`;
 DROP TABLE IF EXISTS `civicrm_eway_contribution_transactions`;
 
 SET FOREIGN_KEY_CHECKS=1;
