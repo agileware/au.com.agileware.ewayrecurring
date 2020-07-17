@@ -100,7 +100,7 @@ class CRM_eWAYRecurring_PaymentToken {
       ]);
     }
 
-    $client = CRM_eWAYRecurring_eWAYRecurringUtils::getEWayClient($paymentProcessor);
+    $client = CRM_eWAYRecurring_Utils::getEWayClient($paymentProcessor);
     $redirectUrl = CRM_Utils_System::url(
       "civicrm/ewayrecurring/savetoken",
       [
@@ -203,7 +203,7 @@ class CRM_eWAYRecurring_PaymentToken {
       die();
     }
 
-    $client = CRM_eWAYRecurring_eWAYRecurringUtils::getEWayClient($paymentProcessor);
+    $client = CRM_eWAYRecurring_Utils::getEWayClient($paymentProcessor);
     $response = $client->queryTransaction($accessCode)->Transactions[0];
     $token = $response->TokenCustomerID;
     if (empty($token)) {

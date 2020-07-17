@@ -1,6 +1,6 @@
 <?php
 
-class CRM_eWAYRecurring_eWAYRecurringUtils {
+class CRM_eWAYRecurring_Utils {
 
   public static $TRANSACTION_IN_QUEUE_STATUS = 0;
 

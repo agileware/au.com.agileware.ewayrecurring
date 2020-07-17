@@ -59,7 +59,7 @@ function civicrm_api3_eway_contribution_transactions_get($params) {
  * @throws API_Exception
  */
 function civicrm_api3_eway_contribution_transactions_validate($params) {
-  $eWayUtils = new CRM_eWAYRecurring_eWAYRecurringUtils();
+  $eWayUtils = new CRM_eWAYRecurring_Utils();
   $response = $eWayUtils->validatePendingTransactions($params);
   return civicrm_api3_create_success($response, $params, 'EwayContributionTransactions', 'validate');
 }

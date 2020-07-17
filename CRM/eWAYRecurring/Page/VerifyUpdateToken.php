@@ -28,7 +28,7 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
           $paymentProcessorInfo = $paymentProcessorInfo[0];
           //$paymentProcessorInfo['is_test'] = 1;
 
-          $response = CRM_eWAYRecurring_eWAYRecurringUtils::validateEwayAccessCode($eWayAccessCode, $paymentProcessorInfo, TRUE);
+          $response = CRM_eWAYRecurring_Utils::validateEwayAccessCode($eWayAccessCode, $paymentProcessorInfo, TRUE);
           $hasTransactionFailed = $response['hasTransactionFailed'];
           $transactionResponseError = $response['transactionResponseError'];
 
@@ -48,7 +48,7 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
             // Updating the billing details should fixed failed contributions
             //----------------------------------------------------------------------------------------------------
 
-            CRM_eWAYRecurring_eWAYRecurringUtils::updateCustomerDetails($response, $recurringContribution);
+            CRM_eWAYRecurring_Utils::updateCustomerDetails($response, $recurringContribution);
 
             if (_contribution_status_id('Failed') == $recurringContribution['contribution_status_id']) {
               CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',

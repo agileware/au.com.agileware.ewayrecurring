@@ -50,8 +50,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
   function validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor) {
     $this->_is_test = $contribution['is_test'];
 
-    $response = CRM_eWAYRecurring_eWAYRecurringUtils::validateContribution($eWayAccessCode, $contribution, $paymentProcessor);
-    CRM_eWAYRecurring_eWAYRecurringUtils::completeEWayTransaction($eWayAccessCode);
+    $response = CRM_eWAYRecurring_Utils::validateContribution($eWayAccessCode, $contribution, $paymentProcessor);
+    CRM_eWAYRecurring_Utils::completeEWayTransaction($eWayAccessCode);
 
     $hasTransactionFailed = $response['hasTransactionFailed'];
     $transactionResponseError = $response['transactionResponseError'];
@@ -809,7 +809,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
         'CustomerReadOnly' => TRUE,
       ];
 
-      $client = CRM_eWAYRecurring_eWAYRecurringUtils::getEWayClient(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById($contribution['payment_processor_id']));
+      $client = CRM_eWAYRecurring_Utils::getEWayClient(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById($contribution['payment_processor_id']));
       $response = $client->updateCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $ewayParams);
       //Civi::log()->info(print_r($response, TRUE));
       // store access code to session
