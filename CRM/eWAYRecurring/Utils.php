@@ -2,13 +2,13 @@
 
 class CRM_eWAYRecurring_Utils {
 
-  public static $TRANSACTION_IN_QUEUE_STATUS = 0;
+  public const STATUS_IN_QUEUE = 0;
 
-  public static $TRANSACTION_SUCCESS_STATUS = 1;
+  public const STATUS_SUCCESS = 1;
 
-  public static $TRANSACTION_FAILED_STATUS = 2;
+  public const STATUS_FAILED = 2;
 
-  public static $TRANSACTION_MAX_TRIES = 3;
+  public const MAX_TRIES = 3;
 
   /**
    * Validate pending transactions.
@@ -21,9 +21,9 @@ class CRM_eWAYRecurring_Utils {
   public function validatePendingTransactions($params = []) {
     // Fetch all transactions to validate
     $transactionsToValidate = civicrm_api3('EwayContributionTransactions', 'get', [
-      'status' => self::$TRANSACTION_IN_QUEUE_STATUS,
-      'tries' => ['<' => self::$TRANSACTION_MAX_TRIES],
-      'sequantial' => TRUE,
+      'status' => self::STATUS_IN_QUEUE,
+      'tries' => ['<' => self::MAX_TRIES],
+      'sequential' => TRUE,
     ]);
 
     $transactionsToValidate = $transactionsToValidate['values'];
@@ -69,13 +69,13 @@ class CRM_eWAYRecurring_Utils {
             $bao->find();
             _eWAYRecurring_mark_recurring_contribution_Failed($bao);
           }
-          $transactionToValidate['status'] = self::$TRANSACTION_FAILED_STATUS;
+          $transactionToValidate['status'] = self::STATUS_FAILED;
           $transactionToValidate['failed_message'] = $response['transactionResponseError'];
           $apiResponse['failed']++;
         }
         else {
           if (!$response['transactionNotProcessedYet']) {
-            $transactionToValidate['status'] = self::$TRANSACTION_SUCCESS_STATUS;
+            $transactionToValidate['status'] = self::STATUS_SUCCESS;
             $apiResponse['success']++;
           }
           else {
@@ -123,7 +123,7 @@ class CRM_eWAYRecurring_Utils {
       $eWayTransaction = civicrm_api3('EwayContributionTransactions', 'getsingle', [
         'access_code' => $accessCode,
       ]);
-      $eWayTransaction['status'] = self::$TRANSACTION_SUCCESS_STATUS;
+      $eWayTransaction['status'] = self::STATUS_SUCCESS;
       civicrm_api3('EwayContributionTransactions', 'create', $eWayTransaction);
     } catch (CiviCRM_API3_Exception $e) {
       // Transaction not found.
