@@ -49,11 +49,6 @@ function ewayrecurring_civicrm_postInstall() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
  */
 function ewayrecurring_civicrm_uninstall() {
-  $drops = [
-    'DROP TABLE `civicrm_ewayrecurring`',
-    'DROP TABLE `civicrm_contribution_page_recur_cycle`',
-  ];
-
   foreach ($drops as $st) {
     CRM_Core_DAO::executeQuery($st, []);
   }
@@ -398,7 +393,6 @@ function ewayrecurring_civicrm_postProcess($formName, &$form) {
     if (!$is_recur) {
       return;
     }
-    $sql = 'DELETE FROM civicrm_contribution_page_recur_cycle WHERE page_id = %1';
     CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
 
     CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
