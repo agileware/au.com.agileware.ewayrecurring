@@ -49,9 +49,6 @@ function ewayrecurring_civicrm_postInstall() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
  */
 function ewayrecurring_civicrm_uninstall() {
-  foreach ($drops as $st) {
-    CRM_Core_DAO::executeQuery($st, []);
-  }
   _ewayrecurring_civix_civicrm_uninstall();
 }
 
