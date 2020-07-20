@@ -383,36 +383,6 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
   }
 }
 
-function ewayrecurring_civicrm_postProcess($formName, &$form) {
-  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
-    if (!($page_id = $form->getVar('_id'))) {
-      CRM_Core_Error::fatal("Attempt to process a contribution page form with no id");
-    }
-    $is_recur = $form->getSubmitValue('is_recur');
-    /* Do not continue if this is not a recurring payment */
-    if (!$is_recur) {
-      return;
-    }
-    CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
-
-    CRM_Core_DAO::executeQuery($sql, [1 => [$page_id, 'Int']]);
-  }
-  elseif ($formName == 'CRM_Admin_Form_PaymentProcessor' && (($form->getVar('_paymentProcessorDAO') &&
-        $form->getVar('_paymentProcessorDAO')->name == 'eWay_Recurring') || ($form->getVar('_ppDAO') && $form->getVar('_ppDAO')->name == 'eWay_Recurring'))) {
-    if (!($processor_id = $form->getVar('_id'))) {
-      CRM_Core_Error::fatal("Attempt to configure a payment processor admin form with no id");
-    }
-
-    $sql = 'DELETE FROM civicrm_ewayrecurring WHERE processor_id = %1';
-    CRM_Core_DAO::executeQuery($sql, [1 => [$processor_id, 'Int']]);
-
-    CRM_Core_DAO::executeQuery($sql, [
-      1 => [$processor_id, 'Int'],
-      2 => [0, 'Int'],
-    ]);
-  }
-}
-
 /**
  * Implements hook_civicrm_preProcess().
  *
