@@ -353,21 +353,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       ];
     }
 
-    // Was the recurring payment check box checked?
-    if (CRM_Utils_Array::value('is_recur', $params, FALSE)) {
-
-      //----------------------------------------------------------------------------------------------------
-      // Force the contribution to Pending.
-      //----------------------------------------------------------------------------------------------------
-
-      CRM_Core_DAO::setFieldValue(
-        'CRM_Contribute_DAO_Contribution',
-        $params['contributionID'],
-        'contribution_status_id',
-        _contribution_status_id('Pending')
-      );
-    }
-
     //----------------------------------------------------------------------------------------------------
     // Allow further manipulation of the arguments via custom hooks ..
     //----------------------------------------------------------------------------------------------------
