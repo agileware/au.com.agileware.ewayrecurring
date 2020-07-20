@@ -29,15 +29,12 @@ define('RECEIPT_SUBJECT_TITLE', 'Recurring Donation');
 use CRM_eWAYRecurring_ExtensionUtil as E;
 
 function process_recurring_payments($payment_processor, $paymentObject) {
-  // Create log handler
-  $log = CRM_Core_Error::createDebugLogger();
-
   // If an ewayrecurring job is already running, we want to exit as soon as possible.
   $lock = \Civi\Core\Container::singleton()
     ->get('lockManager')
     ->create('worker.ewayrecurring');
   if (!$lock->isFree() || !$lock->acquire()) {
-    $log->log("Detected processing race for scheduled payments, aborting", PEAR_LOG_WARNING);
+    Civi::log()->warning("Detected processing race for scheduled payments, aborting");
     return FALSE;
   }
 
@@ -50,7 +47,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
   $scheduled_contributions = array_merge($scheduled_failed_contributions, $scheduled_contributions);
 
-  $log->log("Processing " . count($scheduled_contributions) . " scheduled contributions for processor " . $payment_processor['id'], PEAR_LOG_INFO);
   foreach ($scheduled_contributions as $contribution) {
     if ($contribution->payment_processor_id != $payment_processor['id']) {
       continue;
@@ -92,7 +88,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     }
 
     // Process payment
-    // $log->log("Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n", PEAR_LOG_DEBUG);
+    // Civi::log()->debug("Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n");
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
       $contribution->amount);
 
@@ -128,7 +124,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
       $new_contribution_record = $repeated;
 
-      // $log->log("Creating contribution record\n", PEAR_LOG_DEBUG);
+      // Civi::log()->debug("Creating contribution record\n");
       $new_contribution_record['contact_id'] = $contribution->contact_id;
       $new_contribution_record['receive_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
       $new_contribution_record['total_amount'] = ($contribution->amount - $mainContributions['tax_amount']);
@@ -281,11 +277,10 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $note->save();
       }
 
-
-      // $log->log("Save contribution with trxn_id {$new_contribution_record->trxn_id}", PEAR_LOG_DEBUG);
+      // Civi::log()->debug("Save contribution with trxn_id {$new_contribution_record->trxn_id}");
 
     } catch (Exception $e) {
-      $log->log("Processing payment {$contribution->id} for {$contribution->contact_id}: " . $e->getMessage(), PEAR_LOG_WARNING);
+      Civi::log()->warning("Processing payment {$contribution->id} for {$contribution->contact_id}: " . $e->getMessage());
 
       // already talk to eway? then we need to check the payment status
       if ($eWayResponse) {
