@@ -203,7 +203,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
   function getEWayClientDetailsArray($params) {
     $this->setCustomerCountry($params);
     if (empty($params['country'])) {
-      return self::errorExit(9007, 'Not able to retrieve customer\'s country.');
+      throw new PaymentProcessorException('Not able to retrieve customer\'s country.', 9007);
     }
 
     $eWayCustomer = [
@@ -573,26 +573,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
   }
 
   /**
-   * Produces error message and returns from class
-   *
-   * @param null $errorCode
-   * @param null $errorMessage
-   *
-   * @return object
-   */
-  function &errorExit($errorCode = NULL, $errorMessage = NULL) {
-    $e =& CRM_Core_Error::singleton();
-
-    if ($errorCode) {
-      $e->push($errorCode, 0, NULL, $errorMessage);
-    }
-    else {
-      $e->push(9000, 0, NULL, 'Unknown System Error.');
-    }
-    return $e;
-  }
-
-  /**
    * This public function checks to see if we have the right processor config
    * values set
    *
@@ -698,7 +678,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     $tokenid = CRM_Utils_Request::retrieve('contact_payment_token',
       CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
     if (empty($crid) || empty($tokenid)) {
-      return $this->errorExit(9001, 'Missing contribution id and token id.');
+      throw new PaymentProcessorException('Missing contribution id and token id.', 9000);
     }
     try {
       //----------------------------------------------------------------------------------------------------
@@ -805,13 +785,13 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
           $response->getErrors())
       );
       if (!empty($errorMessage)) {
-        $this->errorExit(9000, $errorMessage);
+        throw new PaymentProcessorException($errorMessage, 9000);
       }
       CRM_Core_Session::singleton()->replaceUserContext($response->SharedPaymentUrl);
 
       return TRUE;
     } catch (Exception $e) {
-      return self::errorExit(9010, $e->getMessage());
+      throw new PaymentProcessorException($e->getMessage(), 9010);
     }
   }
 
