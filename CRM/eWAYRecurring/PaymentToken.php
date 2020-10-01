@@ -121,7 +121,7 @@ class CRM_eWAYRecurring_PaymentToken {
       'LastName' => $billingDetails['last_name'],
       'Country' => $billingDetails['billing_country'],
       'Reference' => 'civi-' . $contact_id,
-      'Street1' => $billingDetails['billing_street_address'],
+      'Street1' => substr($billingDetails['billing_street_address'], 0, 50),
       'City' => $billingDetails['billing_city'],
       'State' => $billingDetails['billing_state_province'],
       'PostalCode' => $billingDetails['billing_postal_code'],
