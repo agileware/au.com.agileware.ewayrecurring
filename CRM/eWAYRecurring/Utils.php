@@ -255,7 +255,7 @@ class CRM_eWAYRecurring_Utils {
    *
    * @return string
    */
-  private function getCustomerTokenFromResponse($transactionResponse) {
+  private static function getCustomerTokenFromResponse($transactionResponse) {
     if (isset($transactionResponse->TokenCustomerID) && $transactionResponse->TokenCustomerID != "") {
       return $transactionResponse->TokenCustomerID;
     }
