@@ -469,16 +469,15 @@ function process_eway_payment($eWayClient, $managed_customer_id, $amount_in_cent
 
   $paymentTransaction = [
     'Customer' => [
-      'TokenCustomerID' => $managed_customer_id,
+      'TokenCustomerID' => substr($managed_customer_id,0,16)
     ],
     'Payment' => [
-      'TotalAmount' => $amount_in_cents,
+      'TotalAmount' => substr($amount_in_cents,0,10),
       'InvoiceDescription' => substr(trim($invoice_description), 0, 64),
-      'InvoiceReference' => $invoice_reference,
+      'InvoiceReference' => substr($invoice_reference,0,64),
     ],
     'TransactionType' => \Eway\Rapid\Enum\TransactionType::MOTO
   ];
-
   $eWayResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::DIRECT, $paymentTransaction);
 
   if (isset($prev_response) && $prev_response->getAttribute('TransactionID') == $eWayResponse->getAttribute('TransactionID')) {

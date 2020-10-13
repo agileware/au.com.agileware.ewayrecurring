@@ -235,7 +235,7 @@ class CRM_eWAYRecurring_Utils {
         'created_id' => CRM_Core_Session::getLoggedInContactID(),
         'expiry_date' => $expiryDate,
         'billing_first_name' => $ccName,
-        'masked_account_number' => $ccNumber,
+        'masked_account_number' => $ccNumber
       ];
 
       if (isset($recurringContribution['payment_token_id']) && !empty($recurringContribution['payment_token_id'])) {

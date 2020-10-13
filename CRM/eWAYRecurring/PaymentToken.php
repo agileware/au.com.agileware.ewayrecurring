@@ -112,26 +112,24 @@ class CRM_eWAYRecurring_PaymentToken {
       FALSE,
       TRUE
     );
-    //Civi::log()->info(print_r($redirectUrl, TRUE));
+
     $ewayParams = [
       'RedirectUrl' => $redirectUrl,
       'CancelUrl' => CRM_Utils_System::url('', NULL, TRUE, NULL, FALSE),
       'Title' => $contact['formal_title'],
-      'FirstName' => $billingDetails['first_name'],
-      'LastName' => $billingDetails['last_name'],
+      'FirstName' => substr($billingDetails['first_name'],0,50),
+      'LastName' => substr($billingDetails['last_name'],0,50),
       'Country' => $billingDetails['billing_country'],
-      'Reference' => 'civi-' . $contact_id,
-      'Street1' => $billingDetails['billing_street_address'],
-      'City' => $billingDetails['billing_city'],
-      'State' => $billingDetails['billing_state_province'],
-      'PostalCode' => $billingDetails['billing_postal_code'],
-      'Email' => $contact['email'],
-      'Phone' => $contact['phone'],
+      'Reference' => substr('civi-' . $contact_id,0,64),
+      'Street1' => substr($billingDetails['billing_street_address'],0,50),
+      'City' => substr($billingDetails['billing_city'],0,50),
+      'State' => substr($billingDetails['billing_state_province'],0,50),
+      'PostalCode' => substr($billingDetails['billing_postal_code'],0,30),
+      'Email' => substr($contact['email'],0,50),
+      'Phone' => substr($contact['phone'],0,32),
       'CustomerReadOnly' => TRUE,
     ];
-
     $response = $client->createCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $ewayParams);
-    //Civi::log()->info(print_r($response, TRUE));
     // store access code to session
     CRM_Core_Session::singleton()
       ->set('eway_accesscode', $response->AccessCode);

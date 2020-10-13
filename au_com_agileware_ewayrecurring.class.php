@@ -207,17 +207,17 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     }
 
     $eWayCustomer = [
-      'Reference' => (isset($params['contactID'])) ? 'Civi-' . $params['contactID'] : '',
-      // Referencing eWay customer with CiviCRM id if we have.
-      'FirstName' => $params['first_name'],
-      'LastName' => $params['last_name'],
-      'Street1' => self::getBillingParam('street_address', $params),
-      'City' => self::getBillingParam('city', $params),
-      'State' => self::getBillingParam('state_province', $params),
-      'PostalCode' => self::getBillingParam('postal_code', $params),
-      'Country' => $params['country'],
-      // Email is not accessible for updateSubscriptionBillingInfo method.
-      'Email' => self::getBillingParam('email', $params),
+        'Reference' => substr((isset($params['contactID'])) ? 'Civi-' . $params['contactID'] : '',0,16),
+        // Referencing eWay customer with CiviCRM id if we have.
+        'FirstName' => substr($params['first_name'],0,50),
+        'LastName' => substr($params['last_name'],0,50),
+        'Street1' => substr(self::getBillingParam('street_address', $params),0,50),
+        'City' => substr(self::getBillingParam('city', $params),0,50),
+        'State' => substr(self::getBillingParam('state_province', $params),0,50),
+        'PostalCode' => substr(self::getBillingParam('postal_code', $params),0,30),
+        'Country' => $params['country'],
+        // Email is not accessible for updateSubscriptionBillingInfo method.
+        'Email' => substr(self::getBillingParam('email', $params),0,50)
     ];
 
     if (isset($params['subscriptionId']) && !empty($params['subscriptionId'])) {
@@ -318,13 +318,13 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $token = $result['token'];
       $eWayTransaction = [
         'Customer' => [
-          'TokenCustomerID' =>$token
+          'TokenCustomerID' =>substr($token,0,16)
         ],
         'Payment' => [
-          'TotalAmount' => $amountInCents,
-          'InvoiceNumber' => $uniqueTrnxNum,
+          'TotalAmount' => substr($amountInCents,0,10),
+          'InvoiceNumber' => substr($uniqueTrnxNum,0,64),
           'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
-          'InvoiceReference' => $params['invoiceID'],
+          'InvoiceReference' => substr($params['invoiceID'],0,50)
         ],
         'TransactionType' => \Eway\Rapid\Enum\TransactionType::MOTO
       ];
@@ -338,10 +338,10 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
           ? \Eway\Rapid\Enum\TransactionType::MOTO
           : \Eway\Rapid\Enum\TransactionType::PURCHASE),
         'Payment' => [
-          'TotalAmount' => $amountInCents,
-          'InvoiceNumber' => $uniqueTrnxNum,
+          'TotalAmount' => substr($amountInCents,0,10),
+          'InvoiceNumber' => substr($uniqueTrnxNum,0,64),
           'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
-          'InvoiceReference' => $params['invoiceID'],
+          'InvoiceReference' => substr($params['invoiceID'],0,50)
         ],
         'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
         'Capture' => TRUE,
@@ -352,7 +352,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
         'CustomerReadOnly' => TRUE,
       ];
     }
-
     //----------------------------------------------------------------------------------------------------
     // Allow further manipulation of the arguments via custom hooks ..
     //----------------------------------------------------------------------------------------------------
@@ -783,20 +782,18 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $ewayParams = [
         'RedirectUrl' => $redirectUrl,
         'CancelUrl' => CRM_Utils_System::url('', NULL, TRUE, NULL, FALSE),
-        'FirstName' => $billingDetails['first_name'],
-        'LastName' => $billingDetails['last_name'],
+        'FirstName' => substr($billingDetails['first_name'],0,50),
+        'LastName' => substr($billingDetails['last_name'],0,50),
         'Country' => $billingDetails['billing_country'],
-        'Street1' => $billingDetails['billing_street_address'],
-        'City' => $billingDetails['billing_city'],
-        'State' => $billingDetails['billing_state_province'],
-        'PostalCode' => $billingDetails['billing_postal_code'],
-        'Reference' => 'civi-' . $contribution['contact_id'],
+        'Street1' => substr($billingDetails['billing_street_address'],0,50),
+        'City' => substr($billingDetails['billing_city'],0,50),
+        'State' => substr($billingDetails['billing_state_province'],0,50),
+        'PostalCode' => substr($billingDetails['billing_postal_code'],0,30),
+        'Reference' => 'civi-' . substr($contribution['contact_id'],0,64),
         'CustomerReadOnly' => TRUE,
       ];
-
       $client = CRM_eWAYRecurring_Utils::getEWayClient(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById($contribution['payment_processor_id']));
       $response = $client->updateCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $ewayParams);
-      //Civi::log()->info(print_r($response, TRUE));
       // store access code to session
       CRM_Core_Session::singleton()
         ->set('eway_accesscode', $response->AccessCode);
