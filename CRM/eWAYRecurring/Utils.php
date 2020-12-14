@@ -8,7 +8,8 @@ class CRM_eWAYRecurring_Utils {
 
   public const STATUS_FAILED = 2;
 
-  public const MAX_TRIES = 3;
+  public const MAX_TRIES = 7; // Giving up after 7 tries is ~ 2h in a
+                              // run-every-15-minutes scenario.
 
   /**
    * Validate pending transactions.
