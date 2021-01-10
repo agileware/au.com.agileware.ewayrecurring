@@ -10,6 +10,7 @@ class CRM_eWAYRecurring_Utils {
 
   public const MAX_TRIES = 7; // Giving up after 7 tries is ~ 2h in a
                               // run-every-15-minutes scenario.
+                              // Counter starts from zero.
 
   /**
    * Validate pending transactions.
@@ -95,6 +96,31 @@ class CRM_eWAYRecurring_Utils {
         $apiResponse['deleted']++;
       }
     }
+    
+    // Mark all pending transactions that have exceeded the retry limit as failed
+    
+    $transactionsPendingMaxTries = civicrm_api3('EwayContributionTransactions', 'get', [
+      'status' => self::STATUS_IN_QUEUE,
+      'tries' => ['>=' => self::MAX_TRIES],
+      'sequential' => TRUE,
+    ]);
+
+    $transactionsPendingMaxTries = $transactionsPendingMaxTries['values'];
+
+    foreach ($transactionsPendingMaxTries as $transactionPendingMaxTries) {
+      $contributionId = $transactionPendingMaxTries['contribution_id'];
+      try {
+        // Mark contribution as failed
+        civicrm_api3('Contribution', 'create', [
+          'id' => $contributionID,
+          'contribution_status_id' => 'Failed',
+        ]);
+        
+      } catch (CiviCRM_API3_Exception $e) {
+      // Contribution not found.
+      }        
+    }
+    
     return $apiResponse;
 
   }
