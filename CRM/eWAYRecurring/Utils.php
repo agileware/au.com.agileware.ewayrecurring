@@ -23,7 +23,7 @@ class CRM_eWAYRecurring_Utils {
     // Fetch all transactions to validate
     $transactionsToValidate = civicrm_api3('EwayContributionTransactions', 'get', [
       'status' => self::STATUS_IN_QUEUE,
-      'tries' => ['<' => self::MAX_TRIES],
+      'tries' => ['<=' => self::MAX_TRIES],
       'sequential' => TRUE,
     ]);
 
@@ -95,6 +95,31 @@ class CRM_eWAYRecurring_Utils {
         $apiResponse['deleted']++;
       }
     }
+    
+    // Mark all pending transactions that have exceeded the retry limit as failed
+    
+    $transactionsPendingMaxTries = civicrm_api3('EwayContributionTransactions', 'get', [
+      'status' => self::STATUS_IN_QUEUE,
+      'tries' => ['>' => self::MAX_TRIES],
+      'sequential' => TRUE,
+    ]);
+
+    $transactionsPendingMaxTries = $transactionsPendingMaxTries['values'];
+
+    foreach ($transactionsPendingMaxTries as $transactionPendingMaxTries) {
+      $contributionId = $transactionPendingMaxTries['contribution_id'];
+      try {
+        // Mark contribution as failed
+        civicrm_api3('Contribution', 'create', [
+          'id' => $contributionID,
+          'contribution_status_id' => 'Failed',
+        ]);
+        
+      } catch (CiviCRM_API3_Exception $e) {
+      // Contribution not found.
+      }        
+    }
+    
     return $apiResponse;
 
   }
