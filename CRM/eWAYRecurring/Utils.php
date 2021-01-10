@@ -10,6 +10,7 @@ class CRM_eWAYRecurring_Utils {
 
   public const MAX_TRIES = 7; // Giving up after 7 tries is ~ 2h in a
                               // run-every-15-minutes scenario.
+                              // Counter starts from zero.
 
   /**
    * Validate pending transactions.
@@ -23,7 +24,7 @@ class CRM_eWAYRecurring_Utils {
     // Fetch all transactions to validate
     $transactionsToValidate = civicrm_api3('EwayContributionTransactions', 'get', [
       'status' => self::STATUS_IN_QUEUE,
-      'tries' => ['<=' => self::MAX_TRIES],
+      'tries' => ['<' => self::MAX_TRIES],
       'sequential' => TRUE,
     ]);
 
@@ -100,7 +101,7 @@ class CRM_eWAYRecurring_Utils {
     
     $transactionsPendingMaxTries = civicrm_api3('EwayContributionTransactions', 'get', [
       'status' => self::STATUS_IN_QUEUE,
-      'tries' => ['>' => self::MAX_TRIES],
+      'tries' => ['>=' => self::MAX_TRIES],
       'sequential' => TRUE,
     ]);
 
