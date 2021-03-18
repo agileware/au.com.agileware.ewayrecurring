@@ -116,7 +116,7 @@ class CRM_eWAYRecurring_PaymentToken {
     $ewayParams = [
       'RedirectUrl' => $redirectUrl,
       'CancelUrl' => CRM_Utils_System::url('', NULL, TRUE, NULL, FALSE),
-      'Title' => $contact['formal_title'],
+      'Title' => '',
       'FirstName' => substr($billingDetails['first_name'],0,50),
       'LastName' => substr($billingDetails['last_name'],0,50),
       'Country' => $billingDetails['billing_country'],
@@ -138,7 +138,6 @@ class CRM_eWAYRecurring_PaymentToken {
         $response->getErrors())
     );
     if (!empty($errorMessage)) {
-      //CRM_Core_Session::setStatus($errorMessage, ts('eWay error'), 'error', ['expires' => 0]);
       CRM_Utils_JSON::output([
         'is_error' => 1,
         'message' => $errorMessage,
@@ -159,7 +158,6 @@ class CRM_eWAYRecurring_PaymentToken {
       'is_error' => 0,
       'url' => $response->SharedPaymentUrl,
     ]);
-    //CRM_Utils_System::redirect($response->SharedPaymentUrl);
   }
 
   /**
