@@ -117,6 +117,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       $repeat_params = [
         'contribution_recur_id'  => $contribution->id,
         'contribution_status_id' => _contribution_status_id('Pending'),
+        'total_amount'           => $contribution->amount,
         'is_email_receipt'       => 0,
       ];
 
