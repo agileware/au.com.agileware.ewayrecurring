@@ -72,7 +72,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
     /* Schedule next contribution */
     if (($contribution->installments <= 0) || ($contribution->installments > $ccount + 1)) {
-      $next_sched = date('Y-m-d 00:00:00', strtotime("+{$contribution->frequency_interval} {$contribution->frequency_unit}s"));
+      $next_sched = date('Y-m-d 00:00:00', strtotime($next_sched . " +{$contribution->frequency_interval} {$contribution->frequency_unit}s"));
     }
     else {
       $next_sched = NULL;
