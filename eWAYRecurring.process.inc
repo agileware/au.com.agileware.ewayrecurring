@@ -242,12 +242,18 @@ function process_recurring_payments($payment_processor, $paymentObject) {
             $contribution->id,
             'contribution_status_id',
             _contribution_status_id('In Progress'));
-          civicrm_api3('Activity', 'create', [
-            'source_contact_id' => $contribution->contact_id,
-            'activity_type_id' => 'eWay Transaction Succeeded',
-            'source_record' => $contribution->id,
-            'details' => 'Transaction Succeeded after ' . $contribution->failure_count . ' retries',
-          ]);
+
+          try {
+            civicrm_api3('Activity', 'create', [
+              'source_contact_id' => $contribution->contact_id,
+              'activity_type_id' => 'eWay Transaction Succeeded',
+              'source_record' => $contribution->id,
+              'details' => 'Transaction Succeeded after ' . $contribution->failure_count . ' retries',
+            ]);
+          }
+          catch (CiviCRM_API3_Exception $e) {
+            \Civi::log()->debug('eWAY Recurring: Couldn\'t record success activity: ' . $e->getMessage());
+          }
         }
 
         CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
@@ -353,11 +359,18 @@ function _eWAYRecurring_mark_recurring_contribution_Failed($contribution) {
   $today->modify("+" . $retryDelayInDays . " days");
   $today->setTime(0, 0, 0);
 
-  civicrm_api3('Activity', 'create', [
-    'source_contact_id' => $contribution->contact_id,
-    'activity_type_id' => "eWay Transaction Failed",
-    'source_record' => $contribution->id,
-  ]);
+  try {
+    civicrm_api3('Activity', 'create', [
+      'source_contact_id' => $contribution->contact_id,
+      'activity_type_id' => 'eWay Transaction Failed',
+      'source_record' => $contribution->id,
+    ]);
+  }
+  catch (CiviCRM_API3_Exception $e) {
+    /* Failing to create the failure activity should not prevent the
+       ContributionRecur entity from being updated. Log it and move on. */
+    \Civi::log()->debug('eWAY Recurring: Couldn\'t record failure activity: ' . $e->getMessage());
+  }
 
   civicrm_api3('ContributionRecur', 'create', [
     'id' => $contribution->id,
