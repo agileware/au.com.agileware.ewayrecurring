@@ -217,6 +217,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'option_group_id' => 'activity_type',
       'label' => 'eWay Transaction Failed',
       'is_reserved' => 1,
+      'filter' => 1,
     ],
   ];
   $entities[] = [
@@ -229,6 +230,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'option_group_id' => 'activity_type',
       'label' => 'eWay Transaction Succeeded',
       'is_reserved' => 1,
+      'filter' => 1,
     ],
   ];
   $entities[] = [
