@@ -63,9 +63,11 @@ CRM.eway.updateOptions = function (result) {
 CRM.eway.toggleCreditCardFields = function () {
     CRM.$('select.eway_credit_card_field').prop('disabled', function (i, v) {
         if (CRM.eway.contact_id === 0) {
+            CRM.$('#add_credit_card_notification').addClass('crm-error');
             CRM.$('#add_credit_card_notification').text('No contact selected');
             return true;
         }
+        CRM.$('#add_credit_card_notification').removeClass('crm-error');
         CRM.$('#add_credit_card_notification').text('');
         return false;
     });
@@ -84,13 +86,14 @@ CRM.eway.toggleCreditCardFields = function () {
             for (const required of requiredFields) {
                 if (field.name.includes(required)) {
                     if (field.value.length === 0) {
+                        CRM.$('#add_credit_card_notification').addClass('crm-error');
                         CRM.$('#add_credit_card_notification').text('The Billing Details section must be completed before a Credit Card can be added');
                         return true;
                     }
                 }
             }
         }
-
+        CRM.$('#add_credit_card_notification').removeClass('crm-error');
         CRM.$('#add_credit_card_notification').text('');
         return false;
     });
