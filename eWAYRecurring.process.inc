@@ -104,7 +104,8 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     $eWayResponse = NULL;
 
     try {
-      if ($contribution->contribution_status_id != _contribution_status_id('Failed')) {
+      if (!$contribution->failure_retry_date) {
+        // Only update the next schedule if we're not in a retry state.
         _eWayRecurring_update_contribution_status($next_sched, $contribution);
       }
 
@@ -387,6 +388,9 @@ function get_scheduled_contributions($payment_processor) {
   $status_ids = implode(', ', [ _contribution_status_id('In Progress'), _contribution_status_id('Pending') ]);
   $scheduled_today->whereAdd("`contribution_status_id` IN ({$status_ids})");
 
+  // Ignore transactions that have a failure_retry_date, these are subject to different conditions
+  $scheduled_today->whereAdd("`failure_retry_date` IS NULL");
+
   // CIVIEWAY-124: Exclude contributions that never completed
   $t = $scheduled_today->tableName();
   $ct = CRM_Contribute_BAO_Contribution::getTableName();
@@ -427,7 +431,6 @@ function get_scheduled_failed_contributions($payment_processor) {
   $scheduled_today->contribution_status_id = _contribution_status_id('In Progress');
   $scheduled_today->whereAdd("`failure_count` < " . $maxFailRetry);
   $scheduled_today->whereAdd("`failure_count` > 0");
-  $scheduled_today->whereAdd("`failure_count` IS NOT NULL");
 
   // CIVIEWAY-124: Exclude contributions that never completed
   $t = $scheduled_today->tableName();
