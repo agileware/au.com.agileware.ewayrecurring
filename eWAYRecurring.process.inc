@@ -244,9 +244,9 @@ function process_recurring_payments($payment_processor, $paymentObject) {
             _contribution_status_id('In Progress'));
           civicrm_api3('Activity', 'create', [
             'source_contact_id' => $contribution->contact_id,
-            'activity_type_id' => "eWay Transaction Succeed",
+            'activity_type_id' => 'eWay Transaction Succeeded',
             'source_record' => $contribution->id,
-            'details' => 'Transaction Succeed after ' . $contribution->failure_count . ' retries',
+            'details' => 'Transaction Succeeded after ' . $contribution->failure_count . ' retries',
           ]);
         }
 
