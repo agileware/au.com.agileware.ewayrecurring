@@ -11,7 +11,7 @@ use CRM_eWAYRecurring_ExtensionUtil as E;
 
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
-  private $jsEmbeded = FALSE;
+  private $jsEmbedded = FALSE;
 
   /**
    * Constructor
@@ -95,7 +95,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     $tokens = [
       '' => 'No cards found.',
     ];
-    if (!$this->jsEmbeded && $this->backOffice) {
+    if (!$this->jsEmbedded && $this->backOffice) {
       $cid = CRM_Utils_Request::retrieve('cid', 'String');
       if (!empty($cid)) {
         CRM_Core_Resources::singleton()
@@ -103,7 +103,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       }
       CRM_Core_Resources::singleton()->addScript("CRM.eway.ppid = {$this->_paymentProcessor['id']};");
       CRM_Core_Resources::singleton()->addScript('CRM.eway.paymentTokenInitialize();');
-      $this->jsEmbeded = TRUE;
+      $this->jsEmbedded = TRUE;
     }
     return [
       'contact_payment_token' => [
