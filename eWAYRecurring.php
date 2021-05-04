@@ -354,18 +354,23 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
 }
 
 function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
+  $paymentProcessorID = CRM_Core_ManagedEntities::singleton()->get('au.com.agileware.ewayrecurring', 'eWay_Recurring')['id'];
+
   switch($formName) {
     case'CRM_Admin_Form_PaymentProcessor':
+      if(CRM_Utils_Array::value('payment_processor_type_id', $fields) != $paymentProcessorID) {
+        break;
+      }
+
       if (empty(CRM_Utils_Array::value('user_name', $fields, ''))) {
-        $errors['user_name'] = ts('API Key is a required field.');
+        $errors['user_name'] = E::ts('API Key is a required field.');
       }
 
       if (empty(CRM_Utils_Array::value('password', $fields, ''))) {
-        $errors['password'] = ts('API Password is a required field.');
+        $errors['password'] = E::ts('API Password is a required field.');
       }
       break;
     case 'CRM_Contribute_Form_UpdateSubscription':
-
       $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
 
       ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
