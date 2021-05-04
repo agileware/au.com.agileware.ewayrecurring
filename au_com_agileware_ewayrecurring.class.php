@@ -11,7 +11,7 @@ use CRM_eWAYRecurring_ExtensionUtil as E;
 
 class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
-  private $jsEmbeded = FALSE;
+  private $jsEmbedded = FALSE;
 
   /**
    * Constructor
@@ -95,15 +95,26 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     $tokens = [
       '' => 'No cards found.',
     ];
-    if (!$this->jsEmbeded && $this->backOffice) {
-      $cid = CRM_Utils_Request::retrieve('cid', 'String');
-      if (!empty($cid)) {
-        CRM_Core_Resources::singleton()
-          ->addScript("CRM.eway.contact_id = {$cid};");
+    if (!$this->jsEmbedded && $this->backOffice) {
+      $jsSetting = '';
+      if ($cid = CRM_Utils_Request::retrieve('cid', 'Int')) {
+        $jsSetting .= "CRM.eway.contact_id = {$cid};\n";
       }
-      CRM_Core_Resources::singleton()->addScript("CRM.eway.ppid = {$this->_paymentProcessor['id']};");
-      CRM_Core_Resources::singleton()->addScript('CRM.eway.paymentTokenInitialize();');
-      $this->jsEmbeded = TRUE;
+      if ($crid = CRM_Utils_Request::retrieve('crid', 'Int')) {
+        $jsSetting .= "CRM.eway.contribution_recur_id = {$crid};\n";
+        try {
+          $tokenId = civicrm_api3('ContributionRecur', 'getvalue', [ 'id' => $crid, 'return' => 'payment_token_id' ]);
+          $jsSetting .= "CRM.eway.selectedToken = {$tokenId};\n";
+        }
+        catch (CiviCRM_API3_Exception $e) {
+        }
+      }
+
+      $jsSetting .= "CRM.eway.ppid = {$this->_paymentProcessor['id']};";
+      $jsSetting .= 'CRM.eway.paymentTokenInitialize();';
+
+      CRM_Core_Resources::singleton()->addScript($jsSetting);
+      $this->jsEmbedded = TRUE;
     }
     return [
       'contact_payment_token' => [
@@ -716,75 +727,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       $contribution['payment_token_id'] = $tokenid;
       $contribution['processor_id'] = $tokenResult['token'];
       civicrm_api3('ContributionRecur', 'create', $contribution);
-
-      // copy from CRM_eWAYRecurring_PaymentToken
-      $billingDetails = [];
-      $billingDetails['first_name'] = CRM_Utils_Request::retrieve('billing_first_name', 'String');
-      $billingDetails['middle_name'] = CRM_Utils_Request::retrieve('billing_middle_name', 'String');
-      $billingDetails['last_name'] = CRM_Utils_Request::retrieve('billing_last_name', 'String');
-      foreach ($_POST as $key => $data) {
-        if (strpos($key, 'billing_street_address') !== FALSE) {
-          $billingDetails['billing_street_address'] = $data;
-        }
-        elseif (strpos($key, 'billing_city') !== FALSE) {
-          $billingDetails['billing_city'] = $data;
-        }
-        elseif (strpos($key, 'billing_postal_code') !== FALSE) {
-          $billingDetails['billing_postal_code'] = $data;
-        }
-        elseif (strpos($key, 'billing_country_id') !== FALSE) {
-          $country = civicrm_api3('Country', 'get', [
-            'id' => $data,
-            'return' => ["iso_code"],
-          ]);
-          $country = array_shift($country['values']);
-          $billingDetails['billing_country'] = $country['iso_code'];
-        }
-        elseif (strpos($key, 'billing_state_province_id') !== FALSE) {
-          $country = civicrm_api3('StateProvince', 'get', [
-            'id' => $data,
-          ]);
-          $country = array_shift($country['values']);
-          $billingDetails['billing_state_province'] = $country['name'];
-        }
-      }
-      $redirectUrl = CRM_Utils_System::url(
-        "civicrm/ewayrecurring/savetoken",
-        [
-          'cid' => $contribution['contact_id'],
-          'pp_id' => $contribution['payment_processor_id'],
-        ],
-        TRUE,
-        NULL,
-        FALSE,
-        TRUE
-      );
-      $ewayParams = [
-        'RedirectUrl' => $redirectUrl,
-        'CancelUrl' => CRM_Utils_System::url('', NULL, TRUE, NULL, FALSE),
-        'FirstName' => substr($billingDetails['first_name'],0,50),
-        'LastName' => substr($billingDetails['last_name'],0,50),
-        'Country' => $billingDetails['billing_country'],
-        'Street1' => substr($billingDetails['billing_street_address'],0,50),
-        'City' => substr($billingDetails['billing_city'],0,50),
-        'State' => substr($billingDetails['billing_state_province'],0,50),
-        'PostalCode' => substr($billingDetails['billing_postal_code'],0,30),
-        'Reference' => 'civi-' . substr($contribution['contact_id'],0,64),
-        'CustomerReadOnly' => TRUE,
-      ];
-      $client = CRM_eWAYRecurring_Utils::getEWayClient(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById($contribution['payment_processor_id']));
-      $response = $client->updateCustomer(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $ewayParams);
-      // store access code to session
-      CRM_Core_Session::singleton()
-        ->set('eway_accesscode', $response->AccessCode);
-      $errorMessage = implode(', ', array_map(
-          '\Eway\Rapid::getMessage',
-          $response->getErrors())
-      );
-      if (!empty($errorMessage)) {
-        throw new PaymentProcessorException($errorMessage, 9000);
-      }
-      CRM_Core_Session::singleton()->replaceUserContext($response->SharedPaymentUrl);
 
       return TRUE;
     } catch (Exception $e) {
