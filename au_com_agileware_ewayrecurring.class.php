@@ -96,13 +96,24 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       '' => 'No cards found.',
     ];
     if (!$this->jsEmbedded && $this->backOffice) {
-      $cid = CRM_Utils_Request::retrieve('cid', 'String');
-      if (!empty($cid)) {
-        CRM_Core_Resources::singleton()
-          ->addScript("CRM.eway.contact_id = {$cid};");
+      $jsSetting = '';
+      if ($cid = CRM_Utils_Request::retrieve('cid', 'Int')) {
+        $jsSetting .= "CRM.eway.contact_id = {$cid};\n";
       }
-      CRM_Core_Resources::singleton()->addScript("CRM.eway.ppid = {$this->_paymentProcessor['id']};");
-      CRM_Core_Resources::singleton()->addScript('CRM.eway.paymentTokenInitialize();');
+      if ($crid = CRM_Utils_Request::retrieve('crid', 'Int')) {
+        $jsSetting .= "CRM.eway.contribution_recur_id = {$crid};\n";
+        try {
+          $tokenId = civicrm_api3('ContributionRecur', 'getvalue', [ 'id' => $crid, 'return' => 'payment_token_id' ]);
+          $jsSetting .= "CRM.eway.selectedToken = {$tokenId};\n";
+        }
+        catch (CiviCRM_API3_Exception $e) {
+        }
+      }
+
+      $jsSetting .= "CRM.eway.ppid = {$this->_paymentProcessor['id']};";
+      $jsSetting .= 'CRM.eway.paymentTokenInitialize();';
+
+      CRM_Core_Resources::singleton()->addScript($jsSetting);
       $this->jsEmbedded = TRUE;
     }
     return [

@@ -38,13 +38,17 @@ CRM.eway.updateOptions = function (result) {
         options.html += html;
     });
     //console.info(options);
-    let $elect = CRM.$('#contact_payment_token');
-    if ($elect)
-        $elect.find('option').remove();
-    if (options.result.length === 0) {
-        $elect.append("<option value>No cards found.</option>");
-    } else {
-        $elect.append(options.html);
+    let $select = CRM.$('#contact_payment_token');
+    if ($select) {
+        $select.find('option').remove();
+        if (options.result.length === 0) {
+            $select.append("<option value>No cards found.</option>");
+        } else {
+            $select.append(options.html);
+        }
+        if(CRM.eway.selectedToken) {
+            $select.val(CRM.eway.selectedToken);
+        }
     }
     if (CRM.eway.paymentTokens.length !== 0) {
         CRM.alert(
@@ -57,7 +61,7 @@ CRM.eway.updateOptions = function (result) {
         );
     }
     CRM.eway.paymentTokens = options.result;
-    CRM.eway.selectedToken = $elect.val();
+    CRM.eway.selectedToken = $select.val();
 };
 
 CRM.eway.toggleCreditCardFields = function () {
