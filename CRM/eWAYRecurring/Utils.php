@@ -96,9 +96,8 @@ class CRM_eWAYRecurring_Utils {
         $apiResponse['deleted']++;
       }
     }
-    
+
     // Mark all pending transactions that have exceeded the retry limit as failed
-    
     $transactionsPendingMaxTries = civicrm_api3('EwayContributionTransactions', 'get', [
       'status' => self::STATUS_IN_QUEUE,
       'tries' => ['>=' => self::MAX_TRIES],
@@ -115,12 +114,12 @@ class CRM_eWAYRecurring_Utils {
           'id' => $contributionID,
           'contribution_status_id' => 'Failed',
         ]);
-        
+
       } catch (CiviCRM_API3_Exception $e) {
       // Contribution not found.
-      }        
+      }
     }
-    
+
     return $apiResponse;
 
   }
@@ -252,7 +251,7 @@ class CRM_eWAYRecurring_Utils {
 
       $expiryDate = new DateTime();
       $expiryDate->setDate($ccExpYear, $ccExpMonth, 1);
-      $expiryDate = $expiryDate->format("Y-m-d");
+      $expiryDate = $expiryDate->format("Y-m-t");
 
       $params = [
         'contact_id' => $recurringContribution['contact_id'],
