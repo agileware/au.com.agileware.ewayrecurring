@@ -374,8 +374,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     //----------------------------------------------------------------------------------------------------
 
     if (method_exists($this, 'checkDupe') ?
-      $this->checkDupe($params['invoiceID'], CRM_Utils_Array::value('contributionID', $params)) :
-      $this->_checkDupe($params['invoiceID'])
+      $this->checkDupe($params['invoiceID'] ?? $params['invoice_id'], $params['contributionID'] ?? NULL) :
+      $this->_checkDupe($params['invoiceID'] ?? $params['invoice_id'])
     ) {
       $this->paymentFailed($params, 'It appears that this transaction is a duplicate.  Have you already submitted the form once?  If so there may have been a connection problem.  Check your email for a receipt from eWay.  If you do not receive a receipt within 2 hours you can try your transaction again.  If you continue to have problems please contact the site administrator.');
     }
