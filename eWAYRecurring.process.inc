@@ -273,6 +273,20 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
       $new_contribution_record = reset($updated['values']);
 
+      // The invoice_id does not seem to be recorded by
+      // Contribution.completetransaction, so let's update it directly.
+      if ($api_action === 'completetransaction') {
+        $updated = civicrm_api3('Contribution', 'create', [
+            'id' => $new_contribution_record['id'],
+            'financial_type_id' => $new_contribution_record['financial_type_id'],
+            'receive_date' => $new_contribution_record['receive_date'],
+            'total_amount' => $new_contribution_record['total_amount'],
+            'contact_id' => $new_contribution_record['contact_id'],
+            'invoice_id' => $invoice_id,
+        ]);
+        $new_contribution_record = reset($updated['values']);
+      }
+
       if (count($responseErrors)) {
         $note = new CRM_Core_BAO_Note();
 
