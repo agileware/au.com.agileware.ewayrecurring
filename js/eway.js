@@ -142,8 +142,12 @@ CRM.eway.addCreditCard = function () {
     if (typeof ppid === 'undefined') {
         ppid = CRM.eway.ppid;
     }
+    let cid = CRM.eway.contact_id;
+    if (!cid && CRM.vars.coreForm.contact_id) {
+      cid = CRM.vars.coreForm.contact_id;
+    }
     let url = CRM.url('civicrm/ewayrecurring/createtoken', {
-        'contact_id': CRM.eway.contact_id,
+        'contact_id': cid,
         'pp_id': ppid
     }, 'front');
     let data = CRM.$('form').serialize();
