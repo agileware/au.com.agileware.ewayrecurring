@@ -28,7 +28,7 @@ CRM.eway.updateOptions = function (result) {
     }
     options.html = "";
     options.result.forEach(function (value) {
-        let expireDate = new Date(value.expiry_date);
+        let expireDate = new Date(value.expiry_date.replace(/\s/, 'T'));
         let month = expireDate.getMonth() + 1;
         if (month < 10) {
             month = '0' + month;
