@@ -426,6 +426,7 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
       'return' => [
         'contribution_page_id',
         'contribution_recur_id',
+        'total_amount',
         'is_test',
       ],
       'is_test' => ($paymentProcessor->_mode == 'test') ? 1 : 0,
@@ -436,11 +437,12 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
       require_once extensionPath('vendor/autoload.php');
 
       $contribution = $contribution['values'][0];
-      $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
-      $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
+      if ($contribution['total_amount'] != '0.00') {
+        $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
+        $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
 
-      $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
-
+        $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
+      }
       return [
         'contribution' => $contribution,
       ];

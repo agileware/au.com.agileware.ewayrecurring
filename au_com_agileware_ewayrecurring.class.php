@@ -274,14 +274,18 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     if (!defined('CURLOPT_SSLCERT')) {
       CRM_Core_Error::fatal(ts('eWay - Gateway requires curl with SSL support'));
     }
-
-    $eWayClient = $this->getEWayClient();
-
     //-------------------------------------------------------------
     // Prepare some composite data from _paymentProcessor fields, data that is shared across one off and recurring payments.
     //-------------------------------------------------------------
-
+    $statuses = CRM_Contribute_BAO_Contribution::buildOptions('contribution_status_id', 'validate');
     $amountInCents = round(((float) preg_replace('/[\s,]/', '', $params['amount'])) * 100);
+    if ($amountInCents == 0) {
+      $params['payment_status_id'] = array_search('Completed', $statuses);
+      return $params;
+    }
+
+    $eWayClient = $this->getEWayClient();
+
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
 
     //----------------------------------------------------------------------------------------------------
@@ -439,7 +443,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
             'expires' => 0
           ]);
       }
-      $statuses = CRM_Contribute_BAO_Contribution::buildOptions('contribution_status_id', 'validate');
       if ($eWAYResponse->TransactionStatus) {
         $params['payment_status_id'] = array_search('Completed', $statuses);
         $params['trxn_id'] = $eWAYResponse->TransactionID;
