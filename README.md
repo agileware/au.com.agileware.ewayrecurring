@@ -35,6 +35,16 @@ obtained from the [eWay Account](https://go.eway.io).
 eWay provides [step by step instructions](https://go.eway.io/s/article/How-do-I-setup-my-Live-eWAY-API-Key-and-Password)
 for generating these details.
 
+## eWay Account Configuration
+
+It is recommended to set the following options in the eWay account.
+
+Enable the **Allow Beagle Alerts Customer IP Override** permission for the role assigned to the API account.
+This is required for any CiviCRM site which is operating behind a proxy server such as Nginx, CloudFlare etc.
+
+![Allow Beagle Alerts Customer IP Override](img/eway-customer-ip-override.png)
+
+
 ## eWay Transactions Verification
 
 The **eWay Transaction Verifications** job verifies the pending transactions in
