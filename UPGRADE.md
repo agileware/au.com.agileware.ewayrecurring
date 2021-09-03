@@ -1,4 +1,14 @@
-# eWay Recurring payment processor Upgrade notes.
+# Upgrade instructions
+
+## Changing from a different eWay Payment Processor to using eWay Recurring Payment Processor
+
+When changing a CiviCRM from a different EWAY Payment Processor to this one, it is recommended to
+edit the existing Payment Processor and simply change the **Payment Processor Type** to **eWay Recurring**
+and not add a new Payment Processor.
+
+This will avoid issues where existing Recurring Contributions cannot be viewed or the Contact
+Contributions tab will not load because when the previous
+Payment Processor is disabled.
 
 ## 2.0.0
 
