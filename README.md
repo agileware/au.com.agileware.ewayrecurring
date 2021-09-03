@@ -39,8 +39,13 @@ for generating these details.
 
 It is recommended to set the following options in the eWay account.
 
+Log into **MYeWAY** and go to **My Account tab** > **User Security** > **Manage Roles**.
+Click on the **Role** to get to the **Role Permissions**.
+
 Enable the **Allow Beagle Alerts Customer IP Override** permission for the role assigned to the API account.
 This is required for any CiviCRM site which is operating behind a proxy server such as Nginx, CloudFlare etc.
+
+This can be indicated by eWay error response with text: _Function Not Permitted to Terminal_
 
 ![Allow Beagle Alerts Customer IP Override](img/eway-customer-ip-override.png)
 
