@@ -278,10 +278,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       if ($api_action === 'completetransaction') {
         $updated = civicrm_api3('Contribution', 'create', [
             'id' => $new_contribution_record['id'],
-            'financial_type_id' => $new_contribution_record['financial_type_id'],
-            'receive_date' => $new_contribution_record['receive_date'],
-            'total_amount' => $new_contribution_record['total_amount'],
-            'contact_id' => $new_contribution_record['contact_id'],
             'invoice_id' => $invoice_id,
         ]);
         $new_contribution_record = reset($updated['values']);
