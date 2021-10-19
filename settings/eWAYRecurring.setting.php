@@ -27,7 +27,7 @@ return [
     'is_contact' => 0,
     'default' => '4',
     'description' => 'Number of days after CiviCRM should retry recurring payment.',
-    'title' => 'Retry delay(in days)',
+    'title' => 'Retry delay (in days)',
     'help_text' => 'Number of days after CiviCRM should retry recurring payment.',
     'html_type' => 'Text',
     'html_attributes' => [
