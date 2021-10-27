@@ -129,7 +129,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
       // Civi::log()->debug("Creating contribution record\n");
       $new_contribution_record['contact_id'] = $contribution->contact_id;
       $new_contribution_record['receive_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
-      $new_contribution_record['total_amount'] = ($contribution->amount - $mainContributions['tax_amount']);
+      $new_contribution_record['total_amount'] = $contribution->amount;
       $new_contribution_record['contribution_recur_id'] = $contribution->id;
       $new_contribution_record['payment_instrument_id'] = $contribution->payment_instrument_id;
       $new_contribution_record['address_id'] = $billing_address['id'];
