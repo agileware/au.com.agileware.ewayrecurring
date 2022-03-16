@@ -395,8 +395,23 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     if ($this->backOffice) {
       $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::DIRECT, $eWayTransaction);
     } else {
-      $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
+      $priorTransaction = civicrm_api3('EwayContributionTransactions', 'get', [
+        'contribution_id' => $params['contributionID'],
+        'sequential' => TRUE,
+        'sort' => 'id DESC',
+      ]);
+
+      if($priorAccessCode = $priorTransaction['values'][0]['access_code'] ?? NULL) {
+        Civi::log()->debug('Attempting to query transaction with access code ' . $priorAccessCode);
+        $eWAYResponse = $eWayClient->queryTransaction($priorAccessCode);
+        $eWAYResponse = $eWayResponse->Transactions[0] ?? NULL;
+      }
+      else {
+        $eWAYResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::RESPONSIVE_SHARED, $eWayTransaction);
+      }
     }
+
+    Civi::log()->debug('eWAYResponse: ' . print_r($eWAYResponse, TRUE));
 
     //----------------------------------------------------------------------------------------------------
     // If null data returned - tell 'em and bail out
@@ -426,6 +441,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       'payment_processor_id' => $paymentProcessor['id'],
       'is_email_receipt' => $params['is_email_receipt'],
     ];
+
+    Civi::log()->debug('ewayParams', $ewayParams);
 
     // FIXME financial type, amount
     if ($component == 'event') {
@@ -463,7 +480,9 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
         $this->paymentFailed($params, $errorMessage);
       }
     } else {
-      civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
+      if($ewayParams['access_code'] !== $priorAccessCode) {
+        civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
+      }
       CRM_Utils_System::redirect($eWAYResponse->SharedPaymentUrl);
     }
 
