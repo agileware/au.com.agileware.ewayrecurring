@@ -47,6 +47,7 @@ class CRM_eWAYRecurring_Utils {
         // Fetch contribution
         $contribution = civicrm_api3('Contribution', 'getsingle', [
           'id' => $contributionId,
+          'contribution_status_id' => 'Pending',
           'return' => [
             'contribution_page_id',
             'contribution_recur_id',

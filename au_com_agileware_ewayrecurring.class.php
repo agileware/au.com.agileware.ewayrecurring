@@ -404,8 +404,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
       if($priorAccessCode = $priorTransaction['values'][0]['access_code'] ?? NULL) {
         $eWAYResponse = unserialize(CRM_Core_Session::singleton()->get('eWAYResponse', $params['qfKey'])) ?? NULL;
+
+        // Avoid reprocessing completed transactions.
         if (!isset($eWAYResponse->AccessCode) || ($eWAYResponse->AccessCode != $priorAccessCode)) {
           $this->paymentFailed($params, 'An existing transaction was found that does not match this session - you may have already completed payment.<br>Please check your email inbox for a receipt.');
+        }
+        elseif ($priorAccessCode['status'] == CRM_eWAYRecurring_Utils::STATUS_SUCCESS) {
+          return $params;
+        }
+        elseif ($priorAccessCode['status'] == CRM_eWAYRecurring_Utils::STATUS_FAILED) {
+          $this->paymentFailed($params, 'A previous attempt to complete this transaction already failed - ' . $priorAccessCode['failed_message']);
         }
       }
       else {
