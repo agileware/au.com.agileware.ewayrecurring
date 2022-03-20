@@ -321,25 +321,30 @@ class CRM_eWAYRecurring_Utils {
           self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $accessCodeResponse, $transactionID);
         }
 
-        // check receipt sent or not
         $result = civicrm_api3('Contribution', 'get', [
           'sequential' => 1,
-          'return' => ["receipt_date"],
+          'contribution_status_id' => 'Pending',
+          'return' => ['receipt_date', 'contribution_status_id'],
           'id' => $contributionID,
         ]);
-        $result = civicrm_api3('EwayContributionTransactions', 'get', [
-          'sequential' => 1,
-          'return' => ["is_email_receipt"],
-          'contribution_id' => $contributionID,
-        ]);
-        $send_email = $result['values'][0]['is_email_receipt'];
 
-        civicrm_api3('Contribution', 'completetransaction', [
-          'id' => $contributionID,
-          'trxn_id' => $transactionID,
-          'payment_processor_id' => $paymentProcessor['id'],
-          'is_email_receipt' => $send_email,
-        ]);
+        // Only complete pending transactions
+        if($result['count'] > 0) {
+          // check if receipt should be sent
+          $result = civicrm_api3('EwayContributionTransactions', 'get', [
+            'sequential' => 1,
+            'return' => ['is_email_receipt'],
+            'contribution_id' => $contributionID,
+          ]);
+          $send_email = $result['values'][0]['is_email_receipt'];
+
+          civicrm_api3('Contribution', 'completetransaction', [
+            'id' => $contributionID,
+            'trxn_id' => $transactionID,
+            'payment_processor_id' => $paymentProcessor['id'],
+            'is_email_receipt' => $send_email,
+          ]);
+        }
       }
       else {
         civicrm_api3('Contribution', 'create', [
