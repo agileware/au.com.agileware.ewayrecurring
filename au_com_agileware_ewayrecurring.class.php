@@ -13,6 +13,8 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
   private $jsEmbedded = FALSE;
 
+  private $eWayClient;
+
   /**
    * Constructor
    *
@@ -32,13 +34,16 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @return \Eway\Rapid\Contract\Client
    */
   function getEWayClient() {
-    $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
-    $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
-    $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
+    if(!$this->eWayClient) {
+      $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
+      $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
+      $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
 
-    $eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
 
-    return $eWayClient;
+      $this->eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
+    }
+
+    return $this->eWayClient;
   }
 
   /**

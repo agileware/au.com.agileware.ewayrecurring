@@ -1,8 +1,10 @@
 <?php
 
 require_once 'eWAYRecurring.civix.php';
+require_once 'vendor/autoload.php';
 include_once 'au_com_agileware_ewayrecurring.class.php';
 
+use Civi\Payment\Exception\PaymentProcessorException;
 use CRM_eWAYRecurring_ExtensionUtil as E;
 
 /**
@@ -394,17 +396,48 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
  *
  * @param $formName
  * @param $form
+ *
+ * @throws \Civi\Payment\Exception\PaymentProcessorException
  */
 function ewayrecurring_civicrm_preProcess($formName, &$form) {
   Civi::$statics['openedeWayForm'] = $formName;
-  if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
-    $paymentProcessor = $form->getVar('_paymentProcessor');
-    $paymentProcessor = $paymentProcessor['object'];
-    validateEwayContribution($paymentProcessor, $form->_params['invoiceID']);
-    // fixme CIVIEWAY-144 temporary fix, remove this if the issue is solved in core
-    if (!$form->_priceSetId || CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $form->_priceSetId, 'is_quick_config')) {
-      $form->assign('lineItem', FALSE);
-    }
+	switch($formName) {
+    case 'CRM_Contribute_Form_Contribution_ThankYou':
+      $paymentProcessor = $form->getVar('_paymentProcessor');
+      $paymentProcessor = $paymentProcessor['object'];
+      $invoiceID = $form->_params['invoiceID'];
+      $validated = &Civi::$statics[__FUNCTION__ . '::validated'];
+      if(!isset($validated[$invoiceID])) {
+        validateEwayContribution($paymentProcessor, $invoiceID);
+      }
+      // fixme CIVIEWAY-144 temporary fix, remove this if the issue is solved in core
+      if (!$form->_priceSetId || CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $form->_priceSetId, 'is_quick_config')) {
+        $form->assign('lineItem', FALSE);
+      }
+      break;
+
+    case 'CRM_Contribute_Form_Contribution_Confirm':
+    case 'CRM_Event_Form_Registration_Confirm':
+      $qfKey = $form->get('qfKey');
+      $eWAYResponse = $qfKey ? unserialize(CRM_Core_Session::singleton()->get('eWAYResponse', $qfKey)) : false;
+      $paymentProcessor = $form->getVar('_paymentProcessor') ?? NULL;
+      if (!empty($eWAYResponse->AccessCode) && ($paymentProcessor['object'] instanceof au_com_agileware_ewayrecurring)) {
+        $transaction = CRM_eWAYRecurring_Utils::validateEwayAccessCode($eWAYResponse->AccessCode, $paymentProcessor);
+        if($transaction['hasTransactionFailed']) {
+          CRM_Core_session::setStatus(E::ts(
+            'A transaction has already been submitted, but failed. Continuing will result in a new transaction.'
+          ));
+          CRM_Core_Session::singleton()->set('eWAYResponse', null, $qfKey);
+        }
+        elseif(!$transaction['transactionNotProcessedYet']) {
+          throw new PaymentProcessorException(
+            $form instanceof CRM_Event_Form_Registration_Confirm
+              ? E::ts('Payment already completed for this Registration')
+              : E::ts('Payment already completed for this Contribution')
+          );
+        }
+      }
+      break;
   }
 }
 
