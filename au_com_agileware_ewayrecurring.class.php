@@ -428,8 +428,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
 
     CRM_Core_Session::singleton()->set('eWAYResponse', serialize($eWAYResponse), $params['qfKey']);
 
-    Civi::log()->debug('eWAYResponse: ' . print_r($eWAYResponse, TRUE));
-
     //----------------------------------------------------------------------------------------------------
     // If null data returned - tell 'em and bail out
     //----------------------------------------------------------------------------------------------------
@@ -458,8 +456,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
       'payment_processor_id' => $paymentProcessor['id'],
       'is_email_receipt' => $params['is_email_receipt'],
     ];
-
-    Civi::log()->debug('ewayParams', $ewayParams);
 
     // FIXME financial type, amount
     if ($component == 'event') {

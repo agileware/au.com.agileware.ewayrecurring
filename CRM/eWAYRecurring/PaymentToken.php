@@ -12,7 +12,6 @@ class CRM_eWAYRecurring_PaymentToken {
   public static function createToken() {
     $contact_id = CRM_Utils_Request::retrieve('contact_id', 'String', $store, TRUE);
     $pp_id = CRM_Utils_Request::retrieve('pp_id', 'String', $store, TRUE);
-    //Civi::log()->info(print_r($_POST, TRUE));
 
     // get information from post data
     $billingDetails = [];

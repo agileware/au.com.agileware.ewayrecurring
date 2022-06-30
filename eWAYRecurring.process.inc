@@ -88,7 +88,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
     }
 
     // Process payment
-    // Civi::log()->debug("Processing payment for scheduled recurring contribution ID: " . $contribution->id . "\n");
     $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
       $contribution->amount);
 
@@ -126,7 +125,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
 
       $new_contribution_record = $repeated;
 
-      // Civi::log()->debug("Creating contribution record\n");
       $new_contribution_record['contact_id'] = $contribution->contact_id;
       $new_contribution_record['receive_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
       $new_contribution_record['total_amount'] = ($contribution->amount - $mainContributions['tax_amount']);
@@ -252,7 +250,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
             ]);
           }
           catch (CiviCRM_API3_Exception $e) {
-            \Civi::log()->debug('eWAY Recurring: Couldn\'t record success activity: ' . $e->getMessage());
+            \Civi::log()->info('eWAY Recurring: Couldn\'t record success activity: ' . $e->getMessage());
           }
         }
 
@@ -295,8 +293,6 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $note->save();
       }
 
-      // Civi::log()->debug("Save contribution with trxn_id {$new_contribution_record->trxn_id}");
-
     } catch (Exception $e) {
       Civi::log()->warning("Processing payment {$contribution->id} for {$contribution->contact_id}: " . $e->getMessage());
 
@@ -307,8 +303,14 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
       }
 
-      $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
-      $new_contribution_record = reset($updated['values']);
+      try {
+        $updated = civicrm_api3('Contribution', 'create', $new_contribution_record);
+
+        $new_contribution_record = reset($updated['values']);
+      } catch (CiviCRM_API3_Exception $e) {
+        Civi::log()->warning("Recurring contribution - Unable to set status of new contribution: " . $e->getMessage(), $new_contribution_record);
+      }
+
       // CIVIEWAY-147 there is an unknown system error that happen after civi talks to eway
       // It might be a cache cleaning task happening at the same time that break this task
       // Defer the query later to update the contribution status
@@ -319,7 +321,8 @@ function process_recurring_payments($payment_processor, $paymentObject) {
           'payment_processor_id' => $contribution->payment_processor_id,
         ];
         civicrm_api3('EwayContributionTransactions', 'create', $ewayParams);
-      } else {
+      }
+      else {
         // Just mark it failed when eWay have no info about this at all
         _eWAYRecurring_mark_recurring_contribution_Failed($contribution);
       }
@@ -379,7 +382,7 @@ function _eWAYRecurring_mark_recurring_contribution_Failed($contribution) {
   catch (CiviCRM_API3_Exception $e) {
     /* Failing to create the failure activity should not prevent the
        ContributionRecur entity from being updated. Log it and move on. */
-    \Civi::log()->debug('eWAY Recurring: Couldn\'t record failure activity: ' . $e->getMessage());
+    \Civi::log()->info('eWAY Recurring: Couldn\'t record failure activity: ' . $e->getMessage());
   }
 
   civicrm_api3('ContributionRecur', 'create', [
