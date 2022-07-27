@@ -1,0 +1,26 @@
+site_name: eWay Recurring Payment Processor for CiviCRM
+repo_url: https://github.com/agileware/au.com.agileware.ewayrecurring
+site_description: 'A guide for eWay Recurring Payment Processor for CiviCRM.'
+site_author: 'agileware'
+theme: 
+  name: material
+
+nav:
+  - 'Introduction': index.md
+
+markdown_extensions:
+  - attr_list
+  - admonition
+  - def_list
+  - codehilite
+  - toc:
+      permalink: True
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tilde
+  - pymdownx.betterem
+  - pymdownx.mark
+
+plugins:
+  - search:
+      lang: en
