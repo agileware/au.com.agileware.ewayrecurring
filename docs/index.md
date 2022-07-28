@@ -97,4 +97,4 @@ Support your Australian [CiviCRM](https://civicrm.org) developers, [contact
 Agileware](https://agileware.com.au/contact) today!
 
 
-![Agileware](logo/agileware-logo.png)
+![Agileware](../logo/agileware-logo.png)
