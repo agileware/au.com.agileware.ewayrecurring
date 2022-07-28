@@ -24,9 +24,9 @@ processor on your CiviCRM website.
 
 ## Upgrade instructions
 
-If you are changing from a different eWay Payment Processor, please read the [Upgrade Instructions](../UPGRADE.md)
+If you are changing from a different eWay Payment Processor, please read the [Upgrade Instructions](UPGRADE.md)
 
-If you are upgrading from eWay Recurring 1.x, please read the [Upgrade Instructions](../UPGRADE.md)
+If you are upgrading from eWay Recurring 1.x, please read the [Upgrade Instructions](UPGRADE.md)
 
 ## eWay API Key and Password
 
@@ -47,7 +47,7 @@ This is required for any CiviCRM site which is operating behind a proxy server s
 
 This can be indicated by eWay error response with text: _Function Not Permitted to Terminal_
 
-![Allow Beagle Alerts Customer IP Override](../img/eway-customer-ip-override.png)
+![Allow Beagle Alerts Customer IP Override](img/eway-customer-ip-override.png)
 
 
 ## eWay Transactions Verification
@@ -97,4 +97,4 @@ Support your Australian [CiviCRM](https://civicrm.org) developers, [contact
 Agileware](https://agileware.com.au/contact) today!
 
 
-![Agileware](../logo/agileware-logo.png)
+![Agileware](logo/agileware-logo.png)
