@@ -73,6 +73,8 @@ For more details see, [https://go.eway.io/s/article/Can-I-customize-the-eWAY-hos
 
 ![Redirect After Payment Processing](img/eway-shared-page-settings.png)
 
+Recommended setting for **Redirect After Payment Processing** is **0 seconds**.
+
 ![Redirect After Payment Processing](img/eway-shared-page-redirect-after-payment-delay.png)
 
 
