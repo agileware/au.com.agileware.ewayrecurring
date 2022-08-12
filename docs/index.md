@@ -49,6 +49,31 @@ This can be indicated by eWay error response with text: _Function Not Permitted 
 
 ![Allow Beagle Alerts Customer IP Override](img/eway-customer-ip-override.png)
 
+## Recommended eWay Shared Page Settings
+
+By default, when a credit card payment is processed by eWay, the transaction is not confirmed in CiviCRM until either:
+1. the customer waits for the **default 5 seconds** before being returned to the website or 
+2. the customer clicks the **Finalise Transaction** button.
+
+It is often the case that neither of these events occur which results in the CiviCRM **Contribution** record being created with a **Status** of _Pending (Incomplete Transaction)_.
+
+The responsibility of marking these Contributions as _Completed_ then becomes a **manual process** of reconciling the eWay payment with the Contribution record, which is not ideal.
+
+To avoid this situation, it is recommended to change the **Redirect After Payment Processing** delay default from 5 seconds to **0 seconds**. Thereby reducing the likelihood of the transaction not being confirmed in CiviCRM and thus ensuring that the Contribution **Status** is set to _Completed_.
+
+To change the **Redirect After Payment Processing** option:
+1. Login to MYeWAY.
+2. Hover the mouse over the Settings tab then click on Shared Page.
+3. Locate the **Redirect After Payment Processing** option.
+4. Change the option to **0 seconds**.
+
+For more details see, https://go.eway.io/s/article/Can-I-customize-the-eWAY-hosted-Payment-page?language=en_US
+
+![Redirect After Payment Processing](img/eway-shared-page-settings.png)
+
+![Redirect After Payment Processing](img/eway-shared-page-redirect-after-payment-delay.png)
+
+
 
 ## eWay Transactions Verification
 
