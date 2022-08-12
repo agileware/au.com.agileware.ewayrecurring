@@ -6,7 +6,8 @@ theme:
   name: material
 
 nav:
-  - 'Introduction': index.md
+  - 'Introduction': README.md
+  - 'Upgrade': UPGRADE.md
 
 markdown_extensions:
   - attr_list
