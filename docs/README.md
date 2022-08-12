@@ -52,6 +52,7 @@ This can be indicated by eWay error response with text: _Function Not Permitted 
 ## Recommended eWay Shared Page Settings
 
 By default, when a credit card payment is processed by eWay, the transaction is not confirmed in CiviCRM until either:
+
 1. the customer waits for the **default 5 seconds** before being returned to the website or 
 2. the customer clicks the **Finalise Transaction** button.
 
@@ -62,6 +63,7 @@ The responsibility of marking these Contributions as _Completed_ then becomes a 
 To avoid this situation, it is recommended to change the **Redirect After Payment Processing** delay default from 5 seconds to **0 seconds**. Thereby reducing the likelihood of the transaction not being confirmed in CiviCRM and thus ensuring that the Contribution **Status** is set to _Completed_.
 
 To change the **Redirect After Payment Processing** option:
+
 1. Login to MYeWAY.
 2. Hover the mouse over the Settings tab then click on Shared Page.
 3. Locate the **Redirect After Payment Processing** option.
