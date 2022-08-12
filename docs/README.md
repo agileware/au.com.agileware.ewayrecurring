@@ -69,7 +69,7 @@ To change the **Redirect After Payment Processing** option:
 3. Locate the **Redirect After Payment Processing** option.
 4. Change the option to **0 seconds**.
 
-For more details see, https://go.eway.io/s/article/Can-I-customize-the-eWAY-hosted-Payment-page?language=en_US
+For more details see, [https://go.eway.io/s/article/Can-I-customize-the-eWAY-hosted-Payment-page?language=en_US](https://go.eway.io/s/article/Can-I-customize-the-eWAY-hosted-Payment-page?language=en_US)
 
 ![Redirect After Payment Processing](img/eway-shared-page-settings.png)
 
