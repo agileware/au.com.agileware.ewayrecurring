@@ -108,7 +108,7 @@ class CRM_eWAYRecurring_Utils {
     $transactionsPendingMaxTries = $transactionsPendingMaxTries['values'];
 
     foreach ($transactionsPendingMaxTries as $transactionPendingMaxTries) {
-      $contributionId = $transactionPendingMaxTries['contribution_id'];
+      $contributionID = $transactionPendingMaxTries['contribution_id'];
       try {
         // Mark contribution as failed
         civicrm_api3('Contribution', 'create', [
