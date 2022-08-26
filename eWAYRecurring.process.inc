@@ -231,7 +231,7 @@ function process_recurring_payments($payment_processor, $paymentObject) {
         // send_receipt_email($new_contribution_record->id);
         $new_contribution_record['contribution_status_id'] = _contribution_status_id('Completed');
 
-        $new_contribution_record['is_email_receipt'] = 0;
+        $new_contribution_record['is_email_receipt'] = Civi::settings()->get('eway_recurring_keep_sending_receipts');
 
         if ($contribution->failure_count > 0 && $contribution->contribution_status_id == _contribution_status_id('Failed')) {
           // Failed recurring contribution completed successfuly after several retry.
