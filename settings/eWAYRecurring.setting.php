@@ -35,4 +35,18 @@ return [
     ],
     'quick_form_type' => 'Element',
   ],
+  'eway_recurring_keep_sending_receipts' => [
+    'group_name' => 'eWay Recurring Settings',
+    'group' => 'eWAYRecurring',
+    'name' => 'eway_recurring_keep_sending_receipts',
+    'type' => 'Boolean',
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'default' => '0',
+    'description' => 'Whether to keep sending CiviCRM receipt/invoice after initial contribution. User will continue to receive receipts from eWay regardless of this setting.',
+    'title' => 'Send receipt for all recurring contributions',
+    'help_text' => 'Whether to keep sending CiviCRM receipt/invoice after initial contribution. User will continue to receive receipts from eWay regardless of this setting.',
+    'html_type' => 'checkbox',
+    'quick_form_type' => 'YesNo',
+  ],
 ];
