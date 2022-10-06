@@ -459,12 +459,13 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
       'return' => [
         'contribution_page_id',
         'contribution_recur_id',
+        'total_amount',
         'is_test',
       ],
       'is_test' => ($paymentProcessor->_mode == 'test') ? 1 : 0,
     ]);
 
-    if (count($contribution['values']) > 0) {
+    if (count($contribution['values']) > 0 && $contribution['values'][0]['total_amount'] > 0) {
       // Include eWay SDK.
       require_once extensionPath('vendor/autoload.php');
 
