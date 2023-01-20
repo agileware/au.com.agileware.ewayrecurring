@@ -554,15 +554,6 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
 }
 
 /**
- * Implements hook_civicrm_postInstall().
- *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_postInstall
- */
-function eWAYRecurring_civicrm_postInstall() {
-  _eWAYRecurring_civix_civicrm_postInstall();
-}
-
-/**
  * Implements hook_civicrm_entityTypes().
  *
  * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_entityTypes
