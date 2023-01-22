@@ -256,15 +256,6 @@ function ewayrecurring_civicrm_managed(&$entities) {
 }
 
 /**
- * Implements hook_civicrm_alterSettingsFolders().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_alterSettingsFolders
- */
-function ewayrecurring_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
-  _ewayrecurring_civix_civicrm_alterSettingsFolders($metaDataFolders);
-}
-
-/**
  * Implements hook_civicrm_entityTypes().
  *
  * Declare entity types provided by this module.
