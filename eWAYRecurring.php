@@ -33,16 +33,6 @@ function ewayrecurring_civicrm_install() {
 function ewayrecurring_civicrm_postInstall() {
   // Update schemaVersion if added new version in upgrade process.
   CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 20200);
-  _ewayrecurring_civix_civicrm_postInstall();
-}
-
-/**
- * Implements hook_civicrm_uninstall().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
- */
-function ewayrecurring_civicrm_uninstall() {
-  _ewayrecurring_civix_civicrm_uninstall();
 }
 
 /**
@@ -52,15 +42,6 @@ function ewayrecurring_civicrm_uninstall() {
  */
 function ewayrecurring_civicrm_enable() {
   _ewayrecurring_civix_civicrm_enable();
-}
-
-/**
- * Implements hook_civicrm_disable().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_disable
- */
-function ewayrecurring_civicrm_disable() {
-  _ewayrecurring_civix_civicrm_disable();
 }
 
 /**
@@ -152,7 +133,8 @@ function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
       );
     }
   }
-  return _ewayrecurring_civix_civicrm_upgrade($op, $queue);
+  // @TODO Refactor the upgrader function to use the upgrader class
+  // return _ewayrecurring_civix_civicrm_upgrade($op, $queue);
 }
 
 /**
@@ -243,7 +225,6 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'is_active' => '1',
     ],
   ];
-  _ewayrecurring_civix_civicrm_managed($entities);
 }
 
 /**
@@ -425,6 +406,7 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
       require_once extensionPath('vendor/autoload.php');
 
       $contribution = $contribution['values'][0];
+	  // @TODO $form is an undefined variable
       $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
       $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
 
