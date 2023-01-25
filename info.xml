@@ -1,27 +1,32 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <extension key="au.com.agileware.ewayrecurring" type="module">
-    <file>eWAYRecurring</file>
-    <name>eWay Recurring Payment Processor</name>
-    <description>Payment processor using the eWay payment gateway and eWay Rapid API v4.</description>
-    <urls>
-        <url desc="Main Extension Page">https://github.com/agileware/au.com.agileware.ewayrecurring</url>
-        <url desc="Documentation">https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/docs/index.md</url>
-        <url desc="Support">https://agileware.com.au/contact</url>
-        <url desc="Licensing">https://www.gnu.org/licenses/agpl-3.0.html</url>
-    </urls>
-    <license>AGPL</license>
-    <maintainer>
-        <author>Agileware</author>
-        <email>support@agileware.com.au</email>
-    </maintainer>
-    <develStage>stable</develStage>
-    <releaseDate>2022-10-06</releaseDate>
-    <version>2.4.0</version>
-    <compatibility>
-        <ver>5.0</ver>
-    </compatibility>
-    <comments></comments>
-    <civix>
-        <namespace>CRM/eWAYRecurring</namespace>
-    </civix>
+  <file>eWAYRecurring</file>
+  <name>eWay Recurring Payment Processor</name>
+  <description>Payment processor using the eWay payment gateway and eWay Rapid API v4.</description>
+  <urls>
+    <url desc="Main Extension Page">https://github.com/agileware/au.com.agileware.ewayrecurring</url>
+    <url desc="Documentation">https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/docs/index.md</url>
+    <url desc="Support">https://agileware.com.au/contact</url>
+    <url desc="Licensing">https://www.gnu.org/licenses/agpl-3.0.html</url>
+  </urls>
+  <license>AGPL</license>
+  <maintainer>
+    <author>Agileware</author>
+    <email>support@agileware.com.au</email>
+  </maintainer>
+  <develStage>stable</develStage>
+  <releaseDate>2023-01-25</releaseDate>
+  <version>2.4.3</version>
+  <compatibility>
+    <ver>5.0</ver>
+  </compatibility>
+  <comments/>
+  <civix>
+    <namespace>CRM/eWAYRecurring</namespace>
+    <format>22.05.2</format>
+  </civix>
+  <mixins>
+    <mixin>menu-xml@1.0.0</mixin>
+    <mixin>setting-php@1.0.0</mixin>
+  </mixins>
 </extension>

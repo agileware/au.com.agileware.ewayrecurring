@@ -1,6 +1,6 @@
 <?php
 
-class CRM_EwayRecurring_TestCase extends PHPUnit_Framework_TestCase {
+class CRM_EwayRecurring_TestCase extends PHPUnit\Framework\TestCase {
 
   /**
    * @var int
