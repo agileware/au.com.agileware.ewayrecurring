@@ -317,11 +317,12 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
     if (count($contribution['values']) > 0 && $contribution['values'][0]['total_amount'] > 0) {
       // Include eWay SDK.
       require_once extensionPath('vendor/autoload.php');
+      $store = NULL;
 
       $contribution = $contribution['values'][0];
 	  // @TODO $form is an undefined variable
-      $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
-      $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
+      $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $store, FALSE, "");
+      $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $store, FALSE, "");
 
       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
 
