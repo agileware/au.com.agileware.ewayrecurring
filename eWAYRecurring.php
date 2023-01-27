@@ -33,16 +33,6 @@ function ewayrecurring_civicrm_install() {
 function ewayrecurring_civicrm_postInstall() {
   // Update schemaVersion if added new version in upgrade process.
   CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 20200);
-  _ewayrecurring_civix_civicrm_postInstall();
-}
-
-/**
- * Implements hook_civicrm_uninstall().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
- */
-function ewayrecurring_civicrm_uninstall() {
-  _ewayrecurring_civix_civicrm_uninstall();
 }
 
 /**
@@ -51,16 +41,12 @@ function ewayrecurring_civicrm_uninstall() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_enable
  */
 function ewayrecurring_civicrm_enable() {
+  // Ensure payment processor is active, will be deactivated if extension is disabled and user has no way to reactivate
+  \Civi\Api4\PaymentProcessorType::update()
+                                 ->addValue('is_active', TRUE)
+                                 ->addWhere('name', '=', 'eWay_Recurring')
+                                 ->execute();
   _ewayrecurring_civix_civicrm_enable();
-}
-
-/**
- * Implements hook_civicrm_disable().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_disable
- */
-function ewayrecurring_civicrm_disable() {
-  _ewayrecurring_civix_civicrm_disable();
 }
 
 /**
@@ -68,92 +54,6 @@ function ewayrecurring_civicrm_disable() {
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_upgrade
  */
-function ewayrecurring_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
-  $schemaVersion = intval(CRM_Core_BAO_Extension::getSchemaVersion('au.com.agileware.ewayrecurring'));
-  $upgrades = [];
-
-  if ($op == 'check') {
-    if ($schemaVersion < 6) {
-      $setting_url = CRM_Utils_System::url('civicrm/admin/paymentProcessor', ['reset' => 1]);
-      CRM_Core_Session::setStatus(ts('Version 2.x of the eWay Payment Processor extension uses the new eWay Rapid API. Please go to the <a href="%2">Payment Processor page</a> and update the eWay API credentials with the new API Key and API Password. For more details see the <a href="%1">upgrade notes</a>.', [
-        1 => 'https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/UPGRADE.md',
-        2 => $setting_url,
-      ]), ts('eWay Payment Processor Update'));
-    }
-    if ($schemaVersion < 7) {
-      CRM_Core_Session::setStatus(ts('Please edit and save (without any changes) your existing eWay payment processor after updating.'), ts('eWay Payment Processor Update'));
-    }
-    return [$schemaVersion < 20201];
-  }
-  elseif ($op == 'enqueue') {
-    if (NULL == $queue) {
-      return CRM_Core_Error::fatal('au.com.agileware.ewayrecurring: No Queue supplied for upgrade');
-    }
-    if ($schemaVersion < 5) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema_version', [
-          5,
-        ],
-          'Update schema version'
-        )
-      );
-    }
-    if ($schemaVersion < 6) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          6,
-          "UPDATE civicrm_payment_processor_type SET user_name_label = 'API Key', password_label = 'API Password' WHERE name = 'eWay_Recurring'",
-        ],
-          'Perform Rapid API related changes'
-        )
-      );
-
-      // add the table if not exist
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          6,
-          "CREATE TABLE IF NOT EXISTS `civicrm_eway_contribution_transactions`(
-    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Unique EwayContributionTransactions ID',
-    `contribution_id` INT UNSIGNED COMMENT 'FK to Contact',
-    `payment_processor_id` INT UNSIGNED COMMENT 'FK to PaymentProcessor',
-    `access_code` TEXT,
-    `failed_message` TEXT DEFAULT NULL,
-    `status` INT UNSIGNED DEFAULT 0,
-    `tries` INT UNSIGNED DEFAULT 0,
-    PRIMARY KEY(`id`),
-    CONSTRAINT FK_civicrm_eway_contribution_transactions_contribution_id FOREIGN KEY(`contribution_id`) REFERENCES `civicrm_contribution`(`id`) ON DELETE CASCADE,
-    CONSTRAINT FK_civicrm_eway_contribution_transactions_payment_processor_id FOREIGN KEY(`payment_processor_id`) REFERENCES `civicrm_payment_processor`(`id`) ON DELETE CASCADE
-);",
-        ],
-          'Create the table if not exist.'
-        )
-      );
-    }
-    if ($schemaVersion < 7) {
-      // CIVIEWAY-76 remember the send email option
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          7,
-          "ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1",
-        ],
-          'Save the send email option.'
-        )
-      );
-    }
-
-    if ($schemaVersion < 20200) {
-      $queue->createItem(
-        new CRM_Queue_Task('_ewayrecurring_upgrade_schema', [
-          20200,
-          "UPDATE civicrm_payment_processor SET billing_mode = 4 WHERE payment_processor_type_id = (SELECT id FROM civicrm_payment_processor_type WHERE name = 'eWay_Recurring')",
-        ],
-          'Updating existing processors.'
-        )
-      );
-    }
-  }
-  return _ewayrecurring_civix_civicrm_upgrade($op, $queue);
-}
 
 /**
  * Implements hook_civicrm_managed().
@@ -243,7 +143,6 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'is_active' => '1',
     ],
   ];
-  _ewayrecurring_civix_civicrm_managed($entities);
 }
 
 /**
@@ -423,10 +322,12 @@ function validateEwayContribution($paymentProcessor, $invoiceID) {
     if (count($contribution['values']) > 0 && $contribution['values'][0]['total_amount'] > 0) {
       // Include eWay SDK.
       require_once extensionPath('vendor/autoload.php');
+      $store = NULL;
 
       $contribution = $contribution['values'][0];
-      $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
-      $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $form, FALSE, "");
+	  // @TODO $form is an undefined variable
+      $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $store, FALSE, "");
+      $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $store, FALSE, "");
 
       $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
 
