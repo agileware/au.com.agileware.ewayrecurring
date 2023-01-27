@@ -24,9 +24,7 @@ processor on your CiviCRM website.
 
 ## Upgrade instructions
 
-If you are changing from a different eWay Payment Processor, please read the [Upgrade Instructions](UPGRADE.md)
-
-If you are upgrading from eWay Recurring 1.x, please read the [Upgrade Instructions](UPGRADE.md)
+If you are changing from a different eWay Payment Processor or upgrading from eWay Recurring 1.x, please read the [Upgrade Instructions](UPGRADE.md)
 
 ## eWay API Key and Password
 
