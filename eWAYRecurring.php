@@ -41,6 +41,11 @@ function ewayrecurring_civicrm_postInstall() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_enable
  */
 function ewayrecurring_civicrm_enable() {
+  // Ensure payment processor is active, will be deactivated if extension is disabled and user has no way to reactivate
+  \Civi\Api4\PaymentProcessorType::update()
+                                 ->addValue('is_active', TRUE)
+                                 ->addWhere('name', '=', 'eWay_Recurring')
+                                 ->execute();
   _ewayrecurring_civix_civicrm_enable();
 }
 
