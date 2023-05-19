@@ -4,48 +4,43 @@ CRM.eway.updatedToken = 0;
 CRM.eway.selectedToken = 0;
 
 CRM.eway.setPaymentTokenOptions = function () {
-    CRM.api3('PaymentToken', 'get', {
-        "sequential": 1,
-        "contact_id": CRM.eway.contact_id,
-        "expiry_date": {">": "now"},
-        "options": {"sort": "expiry_date DESC"}
-    }).then(function (result) {
-        CRM.eway.updateOptions(result);
-    }, function (error) {
-        console.error(error);
-    });
+    CRM.api4('PaymentToken', 'get', {
+        where: [
+            [ 'contact_id', '=', CRM.eway.contact_id ],
+            [ 'expiry_date' , '>', 'now' ],
+        ],
+        orderBy: { expiry_date: 'DESC' }
+    }).then(
+      CRM.eway.updateOptions,
+      console.error
+    );
 };
 
 /**
- * Update the option list with the given api3 response
+ * Update the option list with the given api4 response
  * @param result
  */
-CRM.eway.updateOptions = function (result) {
-    let options = {};
-    options.result = result.values;
-    if (JSON.stringify(CRM.eway.paymentTokens) === JSON.stringify(options.result)) {
+CRM.eway.updateOptions = function (values) {
+    if (JSON.stringify(CRM.eway.paymentTokens) === JSON.stringify(values)) {
         return;
     }
-    options.html = "";
-    options.result.forEach(function (value) {
-        let expireDate = new Date(value.expiry_date.replace(/\s/, 'T'));
+
+    let html = '';
+
+    for(const value of values) {
+        const expireDate = new Date(value.expiry_date.replace(/\s/, 'T'));
         let month = expireDate.getMonth() + 1;
         if (month < 10) {
             month = '0' + month;
         }
-        let text = value.masked_account_number.slice(-4) + " - " + month + "/" + expireDate.getFullYear();
-        html = "<option value=\"" + value.id + "\">" + text + "</option>";
-        options.html += html;
-    });
-    //console.info(options);
-    let $select = CRM.$('#contact_payment_token');
+
+        html += `<option value="${value.id}">${value.masked_account_number.slice(-4)} - ${month}/${expireDate.getFullYear()}</option>`;
+    }
+
+    const $select = CRM.$('#contact_payment_token');
     if ($select) {
-        $select.find('option').remove();
-        if (options.result.length === 0) {
-            $select.append("<option value>No cards found.</option>");
-        } else {
-            $select.append(options.html);
-        }
+        $select.find('option').replaceWith(html || '<option value="">No cards found.</option>')
+
         if(CRM.eway.selectedToken) {
             $select.val(CRM.eway.selectedToken);
         }
@@ -60,19 +55,19 @@ CRM.eway.updateOptions = function (result) {
             }
         );
     }
-    CRM.eway.paymentTokens = options.result;
+    CRM.eway.paymentTokens = values;
     CRM.eway.selectedToken = $select.val();
 };
 
 CRM.eway.toggleCreditCardFields = function () {
     CRM.$('select.eway_credit_card_field').prop('disabled', function (i, v) {
         if (CRM.eway.contact_id === 0) {
-            CRM.$('#add_credit_card_notification').addClass('crm-error');
-            CRM.$('#add_credit_card_notification').text('No contact selected');
+            CRM.$('#add_credit_card_notification')
+              .addClass('crm-error').text('No contact selected');
             return true;
         }
-        CRM.$('#add_credit_card_notification').removeClass('crm-error');
-        CRM.$('#add_credit_card_notification').text('');
+        CRM.$('#add_credit_card_notification')
+          .removeClass('crm-error').text('');
         return false;
     });
 
@@ -90,15 +85,17 @@ CRM.eway.toggleCreditCardFields = function () {
             for (const required of requiredFields) {
                 if (field.name.includes(required)) {
                     if (field.value.length === 0) {
-                        CRM.$('#add_credit_card_notification').addClass('crm-error');
-                        CRM.$('#add_credit_card_notification').text('The Billing Details section must be completed before a Credit Card can be added');
+                        CRM.$('#add_credit_card_notification')
+                          .addClass('crm-error')
+                          .text('The Billing Details section must be completed before a Credit Card can be added');
                         return true;
                     }
                 }
             }
         }
-        CRM.$('#add_credit_card_notification').removeClass('crm-error');
-        CRM.$('#add_credit_card_notification').text('');
+        CRM.$('#add_credit_card_notification')
+          .removeClass('crm-error')
+          .text('');
         return false;
     });
 };

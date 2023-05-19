@@ -14,6 +14,7 @@ use CRM_eWAYRecurring_ExtensionUtil as E;
  */
 function ewayrecurring_civicrm_config(&$config) {
   _ewayrecurring_civix_civicrm_config($config);
+  Civi::dispatcher()->addListener('civi.api.authorize', ['CRM_eWAYRecurring_APIWrapper', 'authorize'], -100);
 }
 
 /**
@@ -407,4 +408,14 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
     }
     CRM_Core_Resources::singleton()->addVars('agilewareEwayExtension', array('paymentProcessorId' => $ids));
   }
+}
+
+/**
+ * Implements hook_civicrm_permission
+ *
+ * @param $permissions permissions list to add to
+ */
+function ewayrecurring_civicrm_permission(&$permissions) {
+  $permissions['view payment tokens'] = E::ts('CiviContribute: view payment tokens');
+  $permissions['edit payment tokens'] = E::ts('CiviContribute: edit payment tokens');
 }
