@@ -469,5 +469,4 @@ class CRM_eWAYRecurring_Utils {
     }
     return NULL;
   }
-
 }

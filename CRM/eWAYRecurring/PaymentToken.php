@@ -1,5 +1,10 @@
 <?php
-require_once 'vendor/autoload.php';
+
+use Civi\Api4\PaymentProcessor;
+use Civi\Api4\PaymentToken;
+use CRM_eWAYRecurring_ExtensionUtil as E;
+
+require_once E::path('vendor/autoload.php');
 
 class CRM_eWAYRecurring_PaymentToken {
 
@@ -293,5 +298,74 @@ class CRM_eWAYRecurring_PaymentToken {
 
     return CRM_Core_Payment_eWAYRecurring::getInstance($paymentProcessorInfo)
       ->getPaymentProcessor();
+  }
+
+  public static function fillTokensMeta() {
+    // Caches payment processors
+    $processors = [];
+
+    $results = ['count' => 0];
+
+    $tokens = PaymentToken::get(FALSE)
+      ->addWhere('payment_processor_id.payment_processor_type_id.name', '=', 'eWay_Recurring')
+      // Unretrieved tokens can end up with a saved token with id 0
+      // ->addWhere('token', '!=', '0')
+      ->addClause('OR', [
+        'expiry_date',
+        'IS NULL'
+      ], [
+        'masked_account_number',
+        'IS NULL'
+      ])
+      ->execute();
+
+    foreach ($tokens as $token) {
+      // Get Login details for eWAY from payment processor
+      $processor = $processors[$token['payment_processor_id']] ??=
+        PaymentProcessor::get(FALSE)
+          ->addWhere('id', '=', $token['payment_processor_id'])
+          ->execute()->first();
+
+      $eway_client = $processor['eway_client'] ??= CRM_eWAYRecurring_Utils::getEWayClient($processor);
+
+      // Skip if unable to log in to eWAY
+      if($eway_client->getErrors()) {
+        continue;
+      }
+
+      $token_customer = $eway_client->queryCustomer($token['token']);
+
+      // Skip if custom query fails
+      $errors = $token_customer->getErrors();
+
+      if($errors){
+        foreach($errors as &$error) {
+          $error = E::ts('Error retrieving data for token id %1: %2', [1 => $token['id'], 2 => $error]);
+        }
+
+        $result['errors'] = array_merge($result['errors'] ?? [], $errors);
+        $result['is_error'] = TRUE;
+        continue;
+      }
+
+      $card_details = $token_customer->Customers[0]->CardDetails;
+
+      $card_number = $card_details->Number;
+
+      $expiry_date = new DateTime();
+      $expiry_date->setDate(2000 + (int) $card_details->ExpiryYear, $card_details->ExpiryMonth, 1);
+      $expiry_date->modify('+ 1 month - 1 day');
+
+      $expiry_date = $expiry_date->format('Ymd');
+
+      $update = PaymentToken::update(FALSE)
+        ->addWhere('id', '=', $token['id'])
+        ->addValue('masked_account_number', $card_number)
+        ->addValue('expiry_date', $expiry_date)
+        ->execute();
+
+      $results['count']++;
+    }
+    return $results;
   }
 }
