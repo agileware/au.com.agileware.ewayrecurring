@@ -1,19 +1,29 @@
 <?php
 
-require_once 'CRM/Core/Payment.php';
-require_once 'eWAYRecurring.process.inc';
-
-// Include eWay SDK.
-require_once extensionPath('vendor/autoload.php');
-
 use Civi\Payment\Exception\PaymentProcessorException;
 use CRM_eWAYRecurring_ExtensionUtil as E;
 
-class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
+// Include eWay SDK.
+require_once E::path('vendor/autoload.php');
 
-  private $jsEmbedded = FALSE;
+class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
+  use CRM_eWAYRecurring_ProcessTrait;
 
-  private $eWayClient;
+	public const RECEIPT_SUBJECT_TITLE = 'Recurring Donation';
+	private $jsEmbedded = FALSE;
+
+  private static $instances = [];
+
+  public static function getInstance(&$paymentProcessor) {
+    [ 'domain_id' => $domain, 'id' => $id ] = $paymentProcessor;
+
+    if(empty(self::$instances["$domain/$id"])) {
+      $mode = empty( $paymentProcessor['is_test'] ) ? 'test' : 'live';
+      self::$instances["$domain/$id"] = new self( $mode, $paymentProcessor );
+    }
+
+    return self::$instances["$domain/$id"];
+  }
 
   /**
    * Constructor
@@ -26,24 +36,6 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
     $this->_mode = $mode;             // live or test
     $this->_paymentProcessor = $paymentProcessor;
     $this->_processorName = ts('eWay Recurring');
-  }
-
-  /**
-   * Create eWay client using credentials from payment processor.
-   *
-   * @return \Eway\Rapid\Contract\Client
-   */
-  function getEWayClient() {
-    if(!$this->eWayClient) {
-      $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
-      $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
-      $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
-
-
-      $this->eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
-    }
-
-    return $this->eWayClient;
   }
 
   /**
@@ -669,7 +661,7 @@ class au_com_agileware_ewayrecurring extends CRM_Core_Payment {
    * @return bool
    */
   function handlePaymentCron() {
-    return process_recurring_payments($this->_paymentProcessor, $this);
+    return $this->process_recurring_payments( $this->_paymentProcessor );
   }
 
   /**

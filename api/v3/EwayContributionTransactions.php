@@ -1,6 +1,6 @@
 <?php
 
-use _ExtensionUtil as E;
+use CRM_eWAYRecurring_ExtensionUtil as E;
 
 /**
  * EwayContributionTransactions.create API specification (optional)

@@ -1,5 +1,7 @@
 <?php
 
+use CRM_eWAYRecurring_ExtensionUtil as E;
+
 class CRM_eWAYRecurring_Utils {
 
   public const STATUS_IN_QUEUE = 0;
@@ -70,7 +72,8 @@ class CRM_eWAYRecurring_Utils {
             $bao = new CRM_Contribute_BAO_ContributionRecur();
             $bao->id = $contribution['contribution_recur_id'];
             $bao->find();
-            _eWAYRecurring_mark_recurring_contribution_Failed($bao);
+            CRM_Core_Payment_eWAYRecurring::getInstance($paymentProcessor)
+              ->mark_recurring_contribution_failed($bao);
           }
           $transactionToValidate['status'] = self::STATUS_FAILED;
           $transactionToValidate['failed_message'] = $response['transactionResponseError'];
@@ -418,9 +421,53 @@ class CRM_eWAYRecurring_Utils {
       $recurringContribution['trxn_id'] = $transactionID;
 
       civicrm_api3('ContributionRecur', 'create', $recurringContribution);
-
-    } catch (CiviCRM_API3_Exception $e) {
-
+    }
+    catch (CiviCRM_API3_Exception $e) {
     }
   }
+
+  /**
+   * Validate eWay contribution by AccessCode, Invoice ID and Payment Processor.
+   *
+   * @param $paymentProcessor
+   * @param $invoiceID
+   *
+   * @return array|null
+   * @throws CRM_Core_Exception
+   * @throws CiviCRM_API3_Exception
+   */
+  public static function validateEwayContribution($paymentProcessor, $invoiceID) {
+    if ($paymentProcessor instanceof CRM_Core_Payment_eWAYRecurring) {
+      $contribution = civicrm_api3('Contribution', 'get', [
+        'invoice_id' => $invoiceID,
+        'sequential' => TRUE,
+        'return' => [
+          'contribution_page_id',
+          'contribution_recur_id',
+          'total_amount',
+          'is_test',
+        ],
+        'is_test' => ($paymentProcessor->_mode == 'test') ? 1 : 0,
+      ]);
+
+      if (count($contribution['values']) > 0 && $contribution['values'][0]['total_amount'] > 0) {
+        // Include eWay SDK.
+        require_once E::path('vendor/autoload.php');
+        $store = NULL;
+
+        $contribution = $contribution['values'][0];
+        // @TODO $form is an undefined variable
+        $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $store, FALSE, "");
+        $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $store, FALSE, "");
+
+        $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
+
+        return [
+          'contribution' => $contribution,
+        ];
+      }
+    }
+    return NULL;
+  }
+
 }

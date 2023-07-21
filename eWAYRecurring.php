@@ -2,7 +2,6 @@
 
 require_once 'eWAYRecurring.civix.php';
 require_once 'vendor/autoload.php';
-include_once 'au_com_agileware_ewayrecurring.class.php';
 
 use Civi\Payment\Exception\PaymentProcessorException;
 use CRM_eWAYRecurring_ExtensionUtil as E;
@@ -75,7 +74,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'name' => 'eWay_Recurring',
       'title' => 'eWay Recurring',
       'description' => 'Recurring payments payment processor for eWay',
-      'class_name' => 'au.com.agileware.ewayrecurring',
+      'class_name' => 'Payment_eWAYRecurring',
       'user_name_label' => 'API Key',
       'password_label' => 'API Password',
       'billing_mode' => 'notify',
@@ -173,7 +172,7 @@ function _contribution_status_id($name) {
 function ewayrecurring_civicrm_buildForm($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
     $paymentProcessor = $form->getVar('_paymentProcessorObj');
-    if (($paymentProcessor instanceof au_com_agileware_ewayrecurring)) {
+    if (($paymentProcessor instanceof CRM_Core_Payment_eWAYRecurring)) {
       ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
       if ($crid) {
         $sql = 'SELECT next_sched_contribution_date FROM civicrm_contribution_recur WHERE id = %1';
@@ -184,8 +183,10 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
             'Int',
           ],
         ])) {
-          [$defaults['next_scheduled_date'],
-            $defaults['next_scheduled_date_time']] = CRM_Utils_Date::setDateDefaults($default_nsd);
+          [
+            $defaults['next_scheduled_date'],
+            $defaults['next_scheduled_date_time'],
+          ] = CRM_Utils_Date::setDateDefaults($default_nsd);
           $form->setDefaults($defaults);
         }
         // add next scheduled date field
@@ -204,7 +205,7 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
       }
     }
   }
-  elseif ($formName == 'CRM_Contribute_Form_CancelSubscription' && $form->getVar('_paymentProcessorObj') instanceof au_com_agileware_ewayrecurring) {
+  elseif ($formName == 'CRM_Contribute_Form_CancelSubscription' && $form->getVar('_paymentProcessorObj') instanceof CRM_Core_Payment_eWAYRecurring) {
     // remove send request to eway field
     $form->removeElement('send_cancel_request');
   }
@@ -263,7 +264,7 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
       $invoiceID = $form->_params['invoiceID'];
       $validated = &Civi::$statics[__FUNCTION__ . '::validated'];
       if(!isset($validated[$invoiceID])) {
-        validateEwayContribution($paymentProcessor, $invoiceID);
+        CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $invoiceID);
       }
       // fixme CIVIEWAY-144 temporary fix, remove this if the issue is solved in core
       if (!$form->_priceSetId || CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $form->_priceSetId, 'is_quick_config')) {
@@ -274,17 +275,18 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
     case 'CRM_Contribute_Form_Contribution_Confirm':
     case 'CRM_Event_Form_Registration_Confirm':
       $qfKey = $form->get('qfKey');
-      $eWAYResponse = $qfKey ? unserialize(CRM_Core_Session::singleton()->get('eWAYResponse', $qfKey)) : false;
+      $eWAYResponse = $qfKey ? unserialize(CRM_Core_Session::singleton()
+        ->get('eWAYResponse', $qfKey)) : FALSE;
       $paymentProcessor = $form->getVar('_paymentProcessor') ?? NULL;
-      if (!empty($eWAYResponse->AccessCode) && ($paymentProcessor['object'] instanceof au_com_agileware_ewayrecurring)) {
+      if (!empty($eWAYResponse->AccessCode) && ($paymentProcessor['object'] instanceof CRM_Core_Payment_eWAYRecurring)) {
         $transaction = CRM_eWAYRecurring_Utils::validateEwayAccessCode($eWAYResponse->AccessCode, $paymentProcessor);
-        if($transaction['hasTransactionFailed']) {
+        if ($transaction['hasTransactionFailed']) {
           CRM_Core_session::setStatus(E::ts(
             'A transaction has already been submitted, but failed. Continuing will result in a new transaction.'
           ));
-          CRM_Core_Session::singleton()->set('eWAYResponse', null, $qfKey);
+          CRM_Core_Session::singleton()->set('eWAYResponse', NULL, $qfKey);
         }
-        elseif(!$transaction['transactionNotProcessedYet']) {
+        elseif (!$transaction['transactionNotProcessedYet']) {
           throw new PaymentProcessorException(
             $form instanceof CRM_Event_Form_Registration_Confirm
               ? E::ts('Payment already completed for this Registration')
@@ -293,50 +295,6 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
         }
       }
       break;
-  }
-}
-
-/**
- * Validate eWay contribution by AccessCode, Invoice ID and Payment Processor.
- *
- * @param $paymentProcessor
- * @param $invoiceID
- *
- * @return array|null
- * @throws CRM_Core_Exception
- * @throws CiviCRM_API3_Exception
- */
-function validateEwayContribution($paymentProcessor, $invoiceID) {
-  if ($paymentProcessor instanceof au_com_agileware_ewayrecurring) {
-    $contribution = civicrm_api3('Contribution', 'get', [
-      'invoice_id' => $invoiceID,
-      'sequential' => TRUE,
-      'return' => [
-        'contribution_page_id',
-        'contribution_recur_id',
-        'total_amount',
-        'is_test',
-      ],
-      'is_test' => ($paymentProcessor->_mode == 'test') ? 1 : 0,
-    ]);
-
-    if (count($contribution['values']) > 0 && $contribution['values'][0]['total_amount'] > 0) {
-      // Include eWay SDK.
-      require_once extensionPath('vendor/autoload.php');
-      $store = NULL;
-
-      $contribution = $contribution['values'][0];
-	  // @TODO $form is an undefined variable
-      $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $store, FALSE, "");
-      $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $store, FALSE, "");
-
-      $paymentProcessor->validateContribution($eWayAccessCode, $contribution, $qfKey, $paymentProcessor->getPaymentProcessor());
-
-      return [
-        'contribution' => $contribution,
-      ];
-    }
-    return NULL;
   }
 }
 
@@ -359,22 +317,6 @@ function _ewayrecurring_upgrade_schema(CRM_Queue_TaskContext $ctx, $schema, $st,
 /* Because we can't rely on PHP having anonymous functions. */
 function _ewayrecurring_get_pp_id($processor) {
   return $processor['id'];
-}
-
-/**
- * Get the path of a resource file (in this extension).
- *
- * @param string|NULL $file
- *   Ex: NULL.
- *   Ex: 'css/foo.css'.
- *
- * @return string
- *   Ex: '/var/www/example.org/sites/default/ext/org.example.foo'.
- *   Ex: '/var/www/example.org/sites/default/ext/org.example.foo/css/foo.css'.
- */
-function extensionPath($file = NULL) {
-  // return CRM_Core_Resources::singleton()->getPath(self::LONG_NAME, $file);
-  return __DIR__ . ($file === NULL ? '' : (DIRECTORY_SEPARATOR . $file));
 }
 
 function ewayrecurring_civicrm_navigationMenu(&$menu) {

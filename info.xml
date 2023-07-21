@@ -14,9 +14,9 @@
     <author>Agileware</author>
     <email>support@agileware.com.au</email>
   </maintainer>
-  <develStage>stable</develStage>
-  <releaseDate>2023-05-19</releaseDate>
-  <version>2.5.0</version>
+  <develStage>beta</develStage>
+  <releaseDate>2023-07-21</releaseDate>
+  <version>2.6.0</version>
   <compatibility>
     <ver>5.38</ver>
   </compatibility>

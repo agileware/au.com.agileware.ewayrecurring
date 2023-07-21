@@ -1,5 +1,6 @@
 <?php
 
+use Civi\Api4\PaymentProcessorType;
 use CRM_eWAYRecurring_ExtensionUtil as E;
 
 /**
@@ -53,4 +54,14 @@ SQL;
     CRM_Core_DAO::executeQuery('DROP TABLE IF EXISTS `civicrm_contribution_page_recur_cycle`');
     return TRUE;
   }
+
+  public function upgrade_20600() {
+    $this->ctx->log->info('Apply 2.6.0 update; Update class names for eWAYRecurring payment processor type.');
+    PaymentProcessorType::update(FALSE)
+      ->addValue('class_name', 'Payment_eWAYRecurring')
+      ->addWhere('class_name', '=', 'au.com.agileware.ewayrecurring')
+      ->execute();
+    return TRUE;
+  }
+
 }

@@ -10,6 +10,8 @@ class CRM_eWAYRecurring_PaymentToken {
    * @throws \CiviCRM_API3_Exception
    */
   public static function createToken() {
+    $store = NULL;
+
     $contact_id = CRM_Utils_Request::retrieve('contact_id', 'String', $store, TRUE);
     $pp_id = CRM_Utils_Request::retrieve('pp_id', 'String', $store, TRUE);
 
@@ -288,7 +290,8 @@ class CRM_eWAYRecurring_PaymentToken {
       return NULL;
     }
     $paymentProcessorInfo = $paymentProcessorInfo[0];
-    $paymentProcessor = new au_com_agileware_ewayrecurring(($paymentProcessorInfo['is_test']) ? 'test' : 'live', $paymentProcessorInfo);
-    return $paymentProcessor->getPaymentProcessor();
+
+    return CRM_Core_Payment_eWAYRecurring::getInstance($paymentProcessorInfo)
+      ->getPaymentProcessor();
   }
 }

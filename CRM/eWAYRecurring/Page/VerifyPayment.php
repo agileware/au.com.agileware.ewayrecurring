@@ -24,11 +24,11 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
 
     if (count($paymentProcessorInfo) > 0) {
       $paymentProcessorInfo = $paymentProcessorInfo[0];
-      $paymentProcessor = new au_com_agileware_ewayrecurring(($paymentProcessorInfo['is_test']) ? 'test' : 'live', $paymentProcessorInfo);
+      $paymentProcessor = new CRM_Core_Payment_eWAYRecurring(($paymentProcessorInfo['is_test']) ? 'test' : 'live', $paymentProcessorInfo);
 
       try {
         // This function will do redirect if the payment failed
-        $response = validateEwayContribution($paymentProcessor, $contributionInvoiceID);
+        $response = CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $contributionInvoiceID);
       } catch (CRM_Core_Exception $e) {
       } catch (CiviCRM_API3_Exception $e) {
       }
