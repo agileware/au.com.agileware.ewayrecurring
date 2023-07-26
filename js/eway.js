@@ -3,17 +3,20 @@ CRM.eway.paymentTokens = [];
 CRM.eway.updatedToken = 0;
 CRM.eway.selectedToken = 0;
 
-CRM.eway.setPaymentTokenOptions = function () {
-    CRM.api4('PaymentToken', 'get', {
-        where: [
-            [ 'contact_id', '=', CRM.eway.contact_id ],
-            [ 'expiry_date' , '>', 'now' ],
-        ],
-        orderBy: { expiry_date: 'DESC' }
-    }).then(
-      CRM.eway.updateOptions,
-      console.error
-    );
+CRM.eway.setPaymentTokenOptions = async function () {
+  try {
+    const options = await CRM.api4('PaymentToken', 'get', {
+      where: [
+        ['contact_id', '=', CRM.eway.contact_id],
+        ['expiry_date', '>', 'now'],
+      ],
+      orderBy: {expiry_date: 'DESC'}
+    });
+
+    CRM.eway.updateOptions(options);
+  } catch (e) {
+    console.error(e);
+  }
 };
 
 /**
