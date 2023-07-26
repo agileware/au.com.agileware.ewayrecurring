@@ -110,7 +110,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       $jsSetting .= "CRM.eway.ppid = {$this->_paymentProcessor['id']};";
       $jsSetting .= 'CRM.eway.paymentTokenInitialize();';
 
-      CRM_Core_Resources::singleton()->addScript($jsSetting);
+      CRM_Core_Resources::singleton()->addScript($jsSetting, ['weight' => 10, 'region' => 'page-footer']);
       $this->jsEmbedded = TRUE;
     }
     return [
