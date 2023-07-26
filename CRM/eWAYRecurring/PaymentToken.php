@@ -25,7 +25,8 @@ class CRM_eWAYRecurring_PaymentToken {
     $billingDetails['first_name'] = CRM_Utils_Request::retrieve('billing_first_name', 'String');
     $billingDetails['middle_name'] = CRM_Utils_Request::retrieve('billing_middle_name', 'String');
     $billingDetails['last_name'] = CRM_Utils_Request::retrieve('billing_last_name', 'String');
-    foreach ($_POST as $key => $data) {
+    foreach (array_keys($_POST) as $key) {
+      $data = CRM_Utils_Request::retrieve($key, 'String');
       if (strpos($key, 'billing_street_address') !== FALSE) {
         $billingDetails['billing_street_address'] = $data;
       }
