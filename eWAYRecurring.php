@@ -50,17 +50,12 @@ function ewayrecurring_civicrm_enable() {
 }
 
 /**
- * Implements hook_civicrm_upgrade().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_upgrade
- */
-
-/**
  * Implements hook_civicrm_managed().
  *
  * Generate a list of entities to create/deactivate/delete when this module
  * is installed, disabled, uninstalled.
  *
+ * @param array $entities list of managed entities to update
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_managed
  */
 function ewayrecurring_civicrm_managed(&$entities) {
@@ -140,6 +135,22 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'api_entity' => 'EwayContributionTransactions',
       'api_action' => 'validate',
       'parameters' => "",
+      'is_active' => '1',
+    ],
+  ];
+  $entities[] = [
+    'module' => 'au.com.agileware.ewayrecurring',
+    'name' => 'eWay_fillTokensMeta_cron',
+    'entity' => 'Job',
+    'update' => 'never',
+    'params' => [
+      'version' => 3,
+      'run_frequency' => 'Hourly',
+      'name' => 'eWay Recurring: fill missing tokens metadata',
+      'description' => 'Loops through PaymentTokens for eWAY Recurring linked PaymentTokens that are missing expiry date or masked card number and queries eWAY Rapid API to fill these details in',
+      'api_entity' => 'EwayRecurring',
+      'api_action' => 'fillTokensMeta',
+      'paramters' => '',
       'is_active' => '1',
     ],
   ];
