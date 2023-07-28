@@ -353,9 +353,9 @@ class CRM_eWAYRecurring_PaymentToken {
 
       $card_number = $card_details->Number;
 
-      $expiry_date = new DateTime();
+      $expiry_date = new DateTime('00:00:00.000');
       $expiry_date->setDate(2000 + (int) $card_details->ExpiryYear, $card_details->ExpiryMonth, 1);
-      $expiry_date->modify('+ 1 month - 1 day');
+      $expiry_date->modify('+ 1 month - 1 second');
 
       $expiry_date = $expiry_date->format('Ymd');
 
