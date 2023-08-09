@@ -1,5 +1,6 @@
 <?php
 
+use Civi\Api4\PaymentProcessor;
 use Civi\Api4\PaymentProcessorType;
 use CRM_eWAYRecurring_ExtensionUtil as E;
 
@@ -55,11 +56,16 @@ SQL;
     return TRUE;
   }
 
-  public function upgrade_20600() {
-    $this->ctx->log->info('Apply 2.6.0 update; Update class names for eWAYRecurring payment processor type.');
+  public function upgrade_20601() {
+    $this->ctx->log->info('Apply 2.6.1 update; Update class names for eWAYRecurring payment processor type.');
     PaymentProcessorType::update(FALSE)
       ->addValue('class_name', 'Payment_eWAYRecurring')
       ->addWhere('class_name', '=', 'au.com.agileware.ewayrecurring')
+      ->execute();
+    PaymentProcessor::update(FALSE)
+      ->addValue('class_name', 'Payment_eWAYRecurring')
+      ->addWhere('class_name', '=', 'au.com.agileware.ewayrecurring')
+      ->addWhere('is_test', 'IS NOT NULL')
       ->execute();
     return TRUE;
   }
