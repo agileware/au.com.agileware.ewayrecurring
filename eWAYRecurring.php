@@ -169,7 +169,6 @@ function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
     'class' => 'CRM_eWAYRecurring_DAO_EwayContributionTransactions',
     'table' => 'civicrm_eway_contribution_transactions',
   ];
-  _ewayrecurring_civix_civicrm_entityTypes($entityTypes);
 }
 
 function _contribution_status_id($name) {
