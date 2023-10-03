@@ -91,7 +91,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'description' => 'Process pending and scheduled payments in the eWay_Recurring processor',
       'api_entity' => 'Job',
       'api_action' => 'run_payment_cron',
-      'parameters' => "processor_name=eWay_Recurring",
+      'parameters' => 'processor_name=eWay_Recurring',
       'is_active' => '1',
     ],
   ];
@@ -134,7 +134,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'description' => 'Process pending transaction verifications in the eWay_Recurring processor',
       'api_entity' => 'EwayContributionTransactions',
       'api_action' => 'validate',
-      'parameters' => "",
+      'parameters' => '',
       'is_active' => '1',
     ],
   ];
@@ -150,7 +150,7 @@ function ewayrecurring_civicrm_managed(&$entities) {
       'description' => 'Loops through PaymentTokens for eWAY Recurring linked PaymentTokens that are missing expiry date or masked card number and queries eWAY Rapid API to fill these details in',
       'api_entity' => 'EwayRecurring',
       'api_action' => 'fillTokensMeta',
-      'paramters' => '',
+      'parameters' => '',
       'is_active' => '1',
     ],
   ];
@@ -349,7 +349,7 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
     Civi::resources()->addScriptFile('au.com.agileware.ewayrecurring', 'js/eway.js', [ 'region' => $region, 'weight' => 9 ]);
     $result = civicrm_api3('PaymentProcessorType', 'get', [
       'sequential' => 1,
-      'name' => "eWay_Recurring",
+      'name' => 'eWay_Recurring',
       'api.PaymentProcessor.get' => ['payment_processor_type_id' => "\$value.id"],
     ]);
     if ($result['is_error'] || $result['values'][0]['api.PaymentProcessor.get']['is_error']) {
