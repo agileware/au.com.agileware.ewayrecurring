@@ -369,4 +369,46 @@ class CRM_eWAYRecurring_PaymentToken {
     }
     return $results;
   }
+
+  public static function fillTokenMetaSingle($payment_processor_id, $token_id) {
+    // Caches payment processors
+    $processors = [];
+
+    // Get Login details for eWAY from payment processor
+    $processor = $processors[$payment_processor_id] ??=
+      PaymentProcessor::get(FALSE)
+                      ->addWhere('id', '=', $payment_processor_id)
+                      ->execute()->first();
+
+      $eway_client = $processor['eway_client'] ??= CRM_eWAYRecurring_Utils::getEWayClient($processor);
+
+      // Exit if unable to log in to eWAY
+      if($eway_client->getErrors()) {
+        return FALSE;
+      }
+
+      $token_customer = $eway_client->queryCustomer($token_id);
+
+      // Exit if custom query fails
+      $errors = $token_customer->getErrors();
+      if ($errors) {
+        return FALSE;
+      }
+
+      $card_details = $token_customer->Customers[0]->CardDetails;
+      $card_number = $card_details->Number;
+
+      $expiry_date = new DateTime('00:00:00.000');
+      $expiry_date->setDate(2000 + (int) $card_details->ExpiryYear, $card_details->ExpiryMonth, 1);
+      $expiry_date->modify('+ 1 month - 1 second');
+
+      $expiry_date = $expiry_date->format('Ymd');
+
+      PaymentToken::update(FALSE)
+                  ->addWhere('id', '=', $token_id)
+                  ->addValue('masked_account_number', $card_number)
+                  ->addValue('expiry_date', $expiry_date)
+                  ->execute();
+    return TRUE;
+  }
 }

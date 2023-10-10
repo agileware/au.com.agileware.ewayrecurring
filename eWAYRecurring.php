@@ -3,6 +3,7 @@
 require_once 'eWAYRecurring.civix.php';
 require_once 'vendor/autoload.php';
 
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Civi\Payment\Exception\PaymentProcessorException;
 use CRM_eWAYRecurring_ExtensionUtil as E;
 
@@ -370,4 +371,11 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
 function ewayrecurring_civicrm_permission(&$permissions) {
   $permissions['view payment tokens'] = E::ts('CiviContribute: view payment tokens');
   $permissions['edit payment tokens'] = E::ts('CiviContribute: edit payment tokens');
+}
+
+/**
+ * Implements hook_civicrm_container().
+ */
+function ewayrecurring_civicrm_container(ContainerBuilder $container) {
+  $container->addCompilerPass(new Civi\Ewayactions\CompilerPass());
 }
