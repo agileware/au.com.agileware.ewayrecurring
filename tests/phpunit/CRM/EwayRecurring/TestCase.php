@@ -69,8 +69,8 @@ class CRM_EwayRecurring_TestCase extends PHPUnit\Framework\TestCase {
     $this->priceSetID = $this->eventPriceSetCreate(55, 0, 'Radio');
     CRM_Price_BAO_PriceSet::addTo('civicrm_event', $event['id'], $this->priceSetID);
     $priceSet = CRM_Price_BAO_PriceSet::getSetDetail($this->priceSetID, TRUE, FALSE);
-    $priceSet = CRM_Utils_Array::value($this->priceSetID, $priceSet);
-    $this->eventFeeBlock = CRM_Utils_Array::value('fields', $priceSet);
+    $priceSet = $priceSet[$this->priceSetID];
+    $this->eventFeeBlock = $priceSet['fields'];
     return $event;
   }
 
@@ -154,7 +154,7 @@ class CRM_EwayRecurring_TestCase extends PHPUnit\Framework\TestCase {
   private function _contactCreate($params) {
     $result = $this->callAPISuccess('contact', 'create', $params);
     if (!empty($result['is_error']) || empty($result['id'])) {
-      throw new \Exception('Could not create test contact, with message: ' . \CRM_Utils_Array::value('error_message', $result) . "\nBacktrace:" . \CRM_Utils_Array::value('trace', $result));
+      throw new \Exception('Could not create test contact, with message: ' . $result['error_message'] . "\nBacktrace:" . $result['trace']);
     }
     return $result['id'];
   }

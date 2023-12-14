@@ -226,20 +226,20 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
 
   switch($formName) {
     case'CRM_Admin_Form_PaymentProcessor':
-      if(CRM_Utils_Array::value('payment_processor_type_id', $fields) != $paymentProcessorID) {
+      if($fields['payment_processor_type_id'] != $paymentProcessorID) {
         break;
       }
 
-      if (empty(CRM_Utils_Array::value('user_name', $fields, ''))) {
+      if (empty($fields['user_name')) {
         $errors['user_name'] = E::ts('API Key is a required field.');
       }
 
-      if (empty(CRM_Utils_Array::value('password', $fields, ''))) {
+      if (empty($fields['password')) {
         $errors['password'] = E::ts('API Password is a required field.');
       }
       break;
     case 'CRM_Contribute_Form_UpdateSubscription':
-      $submitted_nsd = strtotime(CRM_Utils_Array::value('next_scheduled_date', $fields) . ' ' . CRM_Utils_Array::value('next_scheduled_date_time', $fields));
+      $submitted_nsd = strtotime($fields['next_scheduled_date'] . ' ' . $fields['next_scheduled_date_time']);
 
       ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
 
