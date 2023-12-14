@@ -221,11 +221,13 @@ CRM.$(function ($) {
 
 // modify the templates
 CRM.eway.modifyUpdateSubscriptionForm = function (elements = null) {
-    CRM.$('.crm-recurcontrib-form-block > table tbody').append('<tr class="crm-contribution-form-block-receive_date">\n' +
-        '                <td class="label">' + elements.next_scheduled_date.label + '</td>\n' +
-        '                <td>' + elements.date_picker +
-        '                <br/>\n' +
-        '                    <span class="description">The next date on which this contribution will be made.</span>\n' +
-        '                </td>\n' +
-        '            </tr>');
+    CRM.$('.crm-recurcontrib-form-block > table tbody').append(
+      `<tr class="crm-contribution-form-block-receive_date">
+         <td class="label">${elements.next_scheduled_date.label}</td>
+         <td>${elements.next_scheduled_date.html}<br/>
+             <span class="description">The next date on which this contribution will be made.</span>
+         </td>
+       </tr>`
+    );
+    CRM.$('[name=next_scheduled_date]').crmDatepicker();
 };
