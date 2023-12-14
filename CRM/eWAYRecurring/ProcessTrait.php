@@ -348,7 +348,6 @@ trait CRM_eWAYRecurring_ProcessTrait {
   }
 
   protected function update_contribution_status($next_sched, $contribution) {
-    $d_now = new DateTime();
     if ($next_sched) {
       CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
         $contribution->id,
@@ -363,7 +362,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
       CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
         $contribution->id,
         'end_date',
-        CRM_Utils_Date::isoToMysql($d_now));
+        date('YmdHis'));
     }
   }
 
