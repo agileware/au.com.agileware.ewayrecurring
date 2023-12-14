@@ -171,10 +171,6 @@ function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
   ];
 }
 
-function _contribution_status_id($name) {
-  return CRM_Utils_Array::key($name, \CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name'));
-}
-
 /**
  * @param $formName
  * @param $form CRM_Core_Form
@@ -186,7 +182,7 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
       ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
       if ($crid) {
         $sql = 'SELECT next_sched_contribution_date FROM civicrm_contribution_recur WHERE id = %1';
-        $form->addDateTime('next_scheduled_date', ts('Next Scheduled Date'), FALSE, ['formatType' => 'activityDateTime']);
+        $form->add('datepicker', 'next_scheduled_date', ts('Next Scheduled Date'), NULL, FALSE, ['formatType' => 'activityDateTime']);
         if ($default_nsd = CRM_Core_DAO::singleValueQuery($sql, [
           1 => [
             $crid,
@@ -222,7 +218,14 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
 }
 
 function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
-  $paymentProcessorID = CRM_Core_ManagedEntities::singleton()->get('au.com.agileware.ewayrecurring', 'eWay_Recurring')['id'];
+  $paymentProcessorID = \Civi\Api4\Managed::get(FALSE)
+    ->addSelect('entity_id')
+    ->addWhere('module', '=', 'au.com.agileware.ewayrecurring')
+    ->addWhere('name', '=', 'eWay_Recurring')
+    ->setLimit(1)
+    ->execute()
+    ->first()
+    ['entity_id'];
 
   switch($formName) {
     case'CRM_Admin_Form_PaymentProcessor':

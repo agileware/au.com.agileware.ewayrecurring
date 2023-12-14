@@ -35,7 +35,6 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
   function __construct($mode, &$paymentProcessor) {
     $this->_mode = $mode;             // live or test
     $this->_paymentProcessor = $paymentProcessor;
-    $this->_processorName = ts('eWay Recurring');
   }
 
   /**
@@ -58,7 +57,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     if ($hasTransactionFailed) {
       civicrm_api3('Contribution', 'create', [
         'id' => $contributionID,
-        'contribution_status_id' => _contribution_status_id('Failed'),
+        'contribution_status_id' => CRM_eWAYRecurring_Utils::contribution_status_id('Failed'),
         'trxn_id' => $transactionID,
       ]);
 
@@ -280,7 +279,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 	  }
 
     if (!defined('CURLOPT_SSLCERT')) {
-      CRM_Core_Error::fatal(ts('eWay - Gateway requires curl with SSL support'));
+      throw new CRM_Core_Exception(ts('eWay - Gateway requires curl with SSL support'));
     }
 
     $eWayClient = $this->getEWayClient();
@@ -739,10 +738,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       //----------------------------------------------------------------------------------------------------
 
       switch ($contribution['contribution_status_id']) {
-        case _contribution_status_id('Completed'):
+        case CRM_eWAYRecurring_Utils::contribution_status_id('Completed', TRUE):
           throw new Exception(ts('Attempted to update billing details for a completed contribution.'));
           break;
-        case _contribution_status_id('Cancelled'):
+        case CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled', TRUE):
           throw new Exception(ts('Attempted to update billing details for a cancelled contribution.'));
           break;
         default:

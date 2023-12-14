@@ -354,7 +354,7 @@ class CRM_EwayRecurring_TestCase extends PHPUnit\Framework\TestCase {
       $priceSet = CRM_Price_BAO_PriceSet::findById($result['id']);
     }
     else {
-      $priceSet = CRM_Price_BAO_PriceSet::create($paramsSet);
+      $priceSet = CRM_Price_BAO_PriceSet::writeRecord($paramsSet);
     }
     $this->_ids['price_set'] = $priceSet->id;
 

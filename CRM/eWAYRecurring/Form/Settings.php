@@ -40,7 +40,7 @@ class CRM_eWAYRecurring_Form_Settings extends CRM_Core_Form {
       if (isset($setting['quick_form_type'])) {
         $add = 'add' . $setting['quick_form_type'];
         if ($add == 'addElement') {
-          $this->$add($setting['html_type'], $name, $setting['title'], $setting['html_attributes'] ?? [], TRUE);
+          $this->$add($setting['html_type'], $name, $setting['title'], $setting['html_attributes'], TRUE);
         }
         elseif ($setting['html_type'] == 'Select') {
           $optionValues = [];

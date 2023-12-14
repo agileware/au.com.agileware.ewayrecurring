@@ -3,7 +3,7 @@
 class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
 
   public function run() {
-    $store = NULL;
+    $store = $form = NULL;
 
     $recurringContributionID = CRM_Utils_Request::retrieve('recurringContributionID', 'String', $store, FALSE, "");
     $eWayAccessCode = CRM_Utils_Request::retrieve('AccessCode', 'String', $form, FALSE, "");
@@ -28,7 +28,7 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
           $paymentProcessorInfo = $paymentProcessorInfo[0];
           //$paymentProcessorInfo['is_test'] = 1;
 
-          $response = CRM_eWAYRecurring_Utils::validateEwayAccessCode($eWayAccessCode, $paymentProcessorInfo, TRUE);
+          $response = \CRM_eWAYRecurring_Utils::validateEwayAccessCode($eWayAccessCode, $paymentProcessorInfo, TRUE);
           $hasTransactionFailed = $response['hasTransactionFailed'];
           $transactionResponseError = $response['transactionResponseError'];
 
@@ -48,13 +48,14 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
             // Updating the billing details should fixed failed contributions
             //----------------------------------------------------------------------------------------------------
 
-            CRM_eWAYRecurring_Utils::updateCustomerDetails($response, $recurringContribution);
+            \CRM_eWAYRecurring_Utils::updateCustomerDetails($response, $recurringContribution);
 
-            if (_contribution_status_id('Failed') == $recurringContribution['contribution_status_id']) {
+            if ( \CRM_eWAYRecurring_Utils::contribution_status_id('Failed', TRUE) == $recurringContribution['contribution_status_id']) {
               CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
                 $recurringContribution['id'],
                 'contribution_status_id',
-                _contribution_status_id('In Progress'));
+	              \CRM_eWAYRecurring_Utils::contribution_status_id('In Progress', TRUE)
+              );
             }
 
             CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',

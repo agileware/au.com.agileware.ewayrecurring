@@ -417,7 +417,7 @@ class CRM_eWAYRecurring_Utils {
       $recurringContribution['processor_id'] = $customerTokenId;
       $recurringContribution['payment_token_id'] = $paymentTokenID;
       $recurringContribution['create_date'] = CRM_Utils_Date::isoToMysql(date('Y-m-d H:i:s'));
-      $recurringContribution['contribution_status_id'] = _contribution_status_id('In Progress');
+      $recurringContribution['contribution_status_id'] = self::contribution_status_id('In Progress', TRUE);
       $recurringContribution['trxn_id'] = $transactionID;
 
       civicrm_api3('ContributionRecur', 'create', $recurringContribution);
@@ -469,4 +469,10 @@ class CRM_eWAYRecurring_Utils {
     }
     return NULL;
   }
+
+  public static function contribution_status_id($name, $for_recur = FALSE) {
+    $baoName = $for_recur ? 'CRM_Contribute_BAO_ContributionRecur' : 'CRM_Contribute_BAO_Contribution';
+    return \CRM_Core_PseudoConstant::getKey($baoName, 'contribution_status_id', $name);
+  }
+
 }

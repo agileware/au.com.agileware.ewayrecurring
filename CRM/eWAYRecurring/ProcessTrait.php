@@ -79,12 +79,11 @@ trait CRM_eWAYRecurring_ProcessTrait {
       else {
         $next_sched = NULL;
         /* Mark recurring contribution as complteted*/
-        civicrm_api(
+        civicrm_api3(
           'ContributionRecur', 'create',
           [
-            'version' => '3',
             'id' => $contribution->id,
-            'contribution_recur_status_id' => _contribution_status_id('Completed'),
+            'contribution_recur_status_id' => CRM_eWAYRecurring_Utils::contribution_status_id('Completed', TRUE),
           ]
         );
       }
@@ -93,11 +92,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
       $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
         $contribution->amount);
 
-      $addresses = civicrm_api('Address', 'get',
-        [
-          'version' => '3',
-          'contact_id' => $contribution->contact_id,
-        ]);
+      $addresses = civicrm_api3('Address', 'get', ['contact_id' => $contribution->contact_id,]);
 
       $billing_address = array_shift($addresses['values']);
 
@@ -118,7 +113,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
 
         $repeat_params = [
           'contribution_recur_id' => $contribution->id,
-          'contribution_status_id' => _contribution_status_id('Pending'),
+          'contribution_status_id' => CRM_eWAYRecurring_Utils::contribution_status_id('Pending'),
           'total_amount' => $contribution->amount,
           'is_email_receipt' => 0,
         ];
@@ -226,23 +221,23 @@ trait CRM_eWAYRecurring_ProcessTrait {
 
         if (count($responseErrors)) {
           // Mark transaction as failed
-          $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
+          $new_contribution_record['contribution_status_id'] = CRM_eWAYRecurring_Utils::contribution_status_id('Failed');
           $this->mark_recurring_contribution_failed($contribution);
         }
         else {
           // $this->send_receipt_email($new_contribution_record->id);
-          $new_contribution_record['contribution_status_id'] = _contribution_status_id('Completed');
+          $new_contribution_record['contribution_status_id'] = CRM_eWAYRecurring_Utils::contribution_status_id('Completed');
 
           $new_contribution_record['is_email_receipt'] = Civi::settings()
             ->get('eway_recurring_keep_sending_receipts');
 
-          if ($contribution->failure_count > 0 && $contribution->contribution_status_id == _contribution_status_id('Failed')) {
+          if ($contribution->failure_count > 0 && $contribution->contribution_status_id == CRM_eWAYRecurring_Utils::contribution_status_id('Failed')) {
             // Failed recurring contribution completed successfuly after several retry.
             $this->update_contribution_status($next_sched, $contribution);
             CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
               $contribution->id,
               'contribution_status_id',
-              _contribution_status_id('In Progress'));
+              CRM_eWAYRecurring_Utils::contribution_status_id('In Progress', TRUE));
 
             try {
               civicrm_api3('Activity', 'create', [
@@ -266,7 +261,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
         }
 
         $api_action = (
-        $new_contribution_record['contribution_status_id'] == _contribution_status_id('Completed')
+        $new_contribution_record['contribution_status_id'] == CRM_eWAYRecurring_Utils::contribution_status_id('Completed')
           ? 'completetransaction'
           : 'create'
         );
@@ -303,10 +298,10 @@ trait CRM_eWAYRecurring_ProcessTrait {
 
         // already talk to eway? then we need to check the payment status
         if ($eWayResponse) {
-          $new_contribution_record['contribution_status_id'] = _contribution_status_id('Pending');
+          $new_contribution_record['contribution_status_id'] = CRM_eWAYRecurring_Utils::contribution_status_id('Pending');
         }
         else {
-          $new_contribution_record['contribution_status_id'] = _contribution_status_id('Failed');
+          $new_contribution_record['contribution_status_id'] = CRM_eWAYRecurring_Utils::contribution_status_id('Failed');
         }
 
         try {
@@ -364,7 +359,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
       CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
         $contribution->id,
         'contribution_status_id',
-        _contribution_status_id('Completed'));
+        CRM_eWAYRecurring_Utils::contribution_status_id('Completed', TRUE));
       CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
         $contribution->id,
         'end_date',
@@ -422,8 +417,8 @@ trait CRM_eWAYRecurring_ProcessTrait {
 
     // Don't get cancelled or failed contributions
     $status_ids = implode(', ', [
-      _contribution_status_id('In Progress'),
-      _contribution_status_id('Pending'),
+      CRM_eWAYRecurring_Utils::contribution_status_id('In Progress', TRUE),
+      CRM_eWAYRecurring_Utils::contribution_status_id('Pending', TRUE),
     ]);
     $scheduled_today->whereAdd("`contribution_status_id` IN ({$status_ids})");
 
@@ -469,7 +464,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
 
     $scheduled_today->whereAdd("`failure_retry_date` <= now()");
 
-    $scheduled_today->contribution_status_id = _contribution_status_id('In Progress');
+    $scheduled_today->contribution_status_id = CRM_eWAYRecurring_Utils::contribution_status_id('In Progress', TRUE);
     $scheduled_today->whereAdd("`failure_count` < " . $maxFailRetry);
     $scheduled_today->whereAdd("`failure_count` > 0");
 
