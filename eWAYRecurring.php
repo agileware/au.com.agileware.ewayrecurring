@@ -176,10 +176,10 @@ function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
  * @param $form CRM_Core_Form
  */
 function ewayrecurring_civicrm_buildForm($formName, &$form) {
-  if ($formName == 'CRM_Contribute_Form_UpdateSubscription') {
-    $paymentProcessor = $form->getVar('_paymentProcessorObj');
-    if (($paymentProcessor instanceof CRM_Core_Payment_eWAYRecurring)) {
-      ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
+  if ($form instanceof CRM_Contribute_Form_UpdateSubscription) {
+    $contributionRecur = $form->_paymentProcessorObj;
+    if (($contributionRecur instanceof CRM_Core_Payment_eWAYRecurring)) {
+      $crid = $form->getEntityId();
       if ($crid) {
         $sql = 'SELECT next_sched_contribution_date FROM civicrm_contribution_recur WHERE id = %1';
         $form->add('datepicker','next_scheduled_date', ts('Next Scheduled Date'), [ 'minDate' => date('Y-m-d')]);
@@ -203,8 +203,8 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
       }
     }
   }
-  elseif ($formName == 'CRM_Contribute_Form_CancelSubscription' && $form->getVar('_paymentProcessorObj') instanceof CRM_Core_Payment_eWAYRecurring) {
-    // remove send request to eway field
+  elseif (($form instanceof CRM_Contribute_Form_CancelSubscription) &&
+    ($form->_paymentProcessor['payment_processor_type'] == 'eWay_Recurring')) {
     $form->removeElement('send_cancel_request');
   }
 }
