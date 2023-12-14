@@ -177,7 +177,6 @@ class CRM_EwayRecurring_TestCase extends PHPUnit\Framework\TestCase {
    */
   public function callAPISuccess($entity, $action, $params, $checkAgainst = NULL) {
     $params = array_merge([
-      'version' => $this->_apiversion,
       'debug' => 1,
     ],
       $params
@@ -242,7 +241,7 @@ class CRM_EwayRecurring_TestCase extends PHPUnit\Framework\TestCase {
    * @return array|int
    */
   public function civicrm_api($entity, $action, $params) {
-    return civicrm_api($entity, $action, $params);
+    return civicrm_api3($entity, $action, $params);
   }
 
   /**
