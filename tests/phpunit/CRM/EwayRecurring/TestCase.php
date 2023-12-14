@@ -69,8 +69,8 @@ class CRM_EwayRecurring_TestCase extends PHPUnit\Framework\TestCase {
     $this->priceSetID = $this->eventPriceSetCreate(55, 0, 'Radio');
     CRM_Price_BAO_PriceSet::addTo('civicrm_event', $event['id'], $this->priceSetID);
     $priceSet = CRM_Price_BAO_PriceSet::getSetDetail($this->priceSetID, TRUE, FALSE);
-    $priceSet = $priceSet[$this->priceSetID];
-    $this->eventFeeBlock = $priceSet['fields'];
+    $priceSet = $priceSet[$this->priceSetID] ?? [];
+    $this->eventFeeBlock = $priceSet['fields'] ?? [];
     return $event;
   }
 

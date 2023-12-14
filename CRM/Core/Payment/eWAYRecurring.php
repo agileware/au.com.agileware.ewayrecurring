@@ -194,11 +194,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
   static private function getBillingParam($name, &$params) {
     $billingLocationId = civicrm_api3('LocationType', 'getvalue', ['return' => "id", 'name' => "Billing" ]);
 
-    return CRM_Utils_Array::value("billing_{$name}-{$billingLocationId}", $params,
-      CRM_Utils_Array::value("{$name}-{$billingLocationId}", $params,
-        CRM_Utils_Array::value("{$name}-Primary", $params,
-          CRM_Utils_Array::value("{$name}", $params, NULL)
-        )));
+    return $params["billing_{$name}-{$billingLocationId}"] ??
+      $params["{$name}-{$billingLocationId}"] ??
+      $params["{$name}-Primary"]??
+      $params[$name] ?? NULL;
   }
 
   /**

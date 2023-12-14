@@ -144,8 +144,8 @@ class CRM_EwayRecurring_MyTest extends CiviUnitTestCase {
         ],
       ]
     );
-    $this->assertEquals($financialTrxn['payment_processor_id'], $paymentProcessorID);
-    $this->assertEquals($financialTrxn['card_type_id.label'], 'Visa');
-    $this->assertEquals($financialTrxn['pan_truncation'], 1111);
+    $this->assertEquals($financialTrxn['payment_processor_id'] ?? NULL, $paymentProcessorID);
+    $this->assertEquals($financialTrxn['card_type_id.label'] ?? NULL, 'Visa');
+    $this->assertEquals($financialTrxn['pan_truncation'] ?? NULL, 1111);
   }
 }
