@@ -182,7 +182,8 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
       ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
       if ($crid) {
         $sql = 'SELECT next_sched_contribution_date FROM civicrm_contribution_recur WHERE id = %1';
-        $form->add('datepicker', 'next_scheduled_date', ts('Next Scheduled Date'), NULL, FALSE, ['formatType' => 'activityDateTime']);
+        // TODO Replace this with $form->add('datepicker').  Attempts to do this so far have resulted in a widget that does not open on click.
+        $form->addDateTime('next_scheduled_date', ts('Next Scheduled Date'), FALSE, ['formatType' => 'activityDateTime']);
         if ($default_nsd = CRM_Core_DAO::singleValueQuery($sql, [
           1 => [
             $crid,
@@ -206,8 +207,8 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
             json_encode([
               'next_scheduled_date' => $template['next_scheduled_date'],
               'date_picker' => $datePicker,
-            ]) .
-            ");");
+            ]) . ");"
+          );
       }
     }
   }
