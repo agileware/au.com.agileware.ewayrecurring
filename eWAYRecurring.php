@@ -176,34 +176,7 @@ function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
  * @param $form CRM_Core_Form
  */
 function ewayrecurring_civicrm_buildForm($formName, &$form) {
-  if ($form instanceof CRM_Contribute_Form_UpdateSubscription) {
-    $contributionRecur = $form->_paymentProcessorObj;
-    if (($contributionRecur instanceof CRM_Core_Payment_eWAYRecurring)) {
-      $crid = $form->getEntityId();
-      if ($crid) {
-        $sql = 'SELECT next_sched_contribution_date FROM civicrm_contribution_recur WHERE id = %1';
-        $form->add('datepicker','next_scheduled_date', ts('Next Scheduled Date'), [ 'minDate' => date('Y-m-d')]);
-        if ($default_nsd = CRM_Core_DAO::singleValueQuery($sql, [
-          1 => [
-            $crid,
-            'Int',
-          ],
-        ])) {
-          $defaults['next_scheduled_date'] = $default_nsd;
-          $form->setDefaults($defaults);
-        }
-        // add next scheduled date field
-        $template = $form->toSmarty();
-        Civi::resources()
-          ->addScript("CRM.eway.modifyUpdateSubscriptionForm(" .
-            json_encode([
-              'next_scheduled_date' => $template['next_scheduled_date'],
-            ]) . ");"
-          );
-      }
-    }
-  }
-  elseif (($form instanceof CRM_Contribute_Form_CancelSubscription) &&
+  if (($form instanceof CRM_Contribute_Form_CancelSubscription) &&
     ($form->_paymentProcessor['payment_processor_type'] == 'eWay_Recurring')) {
     $form->removeElement('send_cancel_request');
   }
@@ -231,22 +204,6 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
 
       if (empty($fields['password'])) {
         $errors['password'] = E::ts('API Password is a required field.');
-      }
-      break;
-    case 'CRM_Contribute_Form_UpdateSubscription':
-      $submitted_nsd = strtotime(($fields['next_scheduled_date'] ?? '') . ' ' . ($fields['next_scheduled_date_time'] ?? ''));
-
-      ($crid = $form->getVar('contributionRecurID')) || ($crid = $form->getVar('_crid'));
-
-      $sql = 'SELECT UNIX_TIMESTAMP(MAX(receive_date)) FROM civicrm_contribution WHERE contribution_recur_id = %1';
-      $current_nsd = CRM_Core_DAO::singleValueQuery($sql, [1 => [$crid, 'Int']]);
-      $form->setVar('_currentNSD', $current_nsd);
-
-      if ($submitted_nsd < $current_nsd) {
-        $errors['next_scheduled_date'] = ts('Cannot schedule next contribution date before latest received date');
-      }
-      elseif ($submitted_nsd < time()) {
-        $errors['next_scheduled_date'] = ts('Cannot schedule next contribution in the past');
       }
       break;
   }
