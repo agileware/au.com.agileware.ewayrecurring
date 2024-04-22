@@ -804,4 +804,12 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     civicrm_api3('Address', 'create', $billingAddress);
   }
 
+  /**
+   * Specify which fields are valid for update on Recurring Contributions
+   *
+   * @return array
+   */
+  public function getEditableRecurringScheduleFields() {
+    return ['amount', 'installments', 'frequency_interval', 'frequency_unit', 'next_sched_contribution_date', 'end_date'];
+  }
 }
