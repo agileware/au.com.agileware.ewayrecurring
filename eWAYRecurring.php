@@ -320,6 +320,10 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
  * @param $permissions permissions list to add to
  */
 function ewayrecurring_civicrm_permission(&$permissions) {
-  $permissions['view payment tokens'] = E::ts('CiviContribute: view payment tokens');
-  $permissions['edit payment tokens'] = E::ts('CiviContribute: edit payment tokens');
+  $permissions['view payment tokens'] = [
+    'label' => E::ts('CiviContribute: view payment tokens'),
+  ];
+  $permissions['edit payment tokens'] = [
+    'label' => E::ts('CiviContribute: edit payment tokens'),
+  ];
 }
