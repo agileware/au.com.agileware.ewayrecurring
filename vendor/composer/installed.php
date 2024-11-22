@@ -1,20 +1,20 @@
 <?php return array(
     'root' => array(
-        'name' => '__root__',
+        'name' => 'agileware/au.com.agileware.ewayrecurring',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => 'c512aa91ec9d050782df1d6fc73adcb3d335ecbd',
-        'type' => 'library',
+        'reference' => '46994853321898c3beab3da8c0ac508d79c64e30',
+        'type' => 'civicrm-ext',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        '__root__' => array(
+        'agileware/au.com.agileware.ewayrecurring' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'c512aa91ec9d050782df1d6fc73adcb3d335ecbd',
-            'type' => 'library',
+            'reference' => '46994853321898c3beab3da8c0ac508d79c64e30',
+            'type' => 'civicrm-ext',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
             'dev_requirement' => false,
