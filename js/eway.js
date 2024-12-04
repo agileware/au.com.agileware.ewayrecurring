@@ -9,6 +9,7 @@ CRM.eway.setPaymentTokenOptions = async function () {
       where: [
         ['contact_id', '=', CRM.eway.contact_id],
         ['expiry_date', '>', 'now'],
+        ['payment_processor_id', '=', CRM.eway.ppid],
       ],
       orderBy: {expiry_date: 'DESC'}
     });
@@ -37,7 +38,13 @@ CRM.eway.updateOptions = function (values) {
             month = '0' + month;
         }
 
-        html += `<option value="${value.id}">${value.masked_account_number.slice(-4)} - ${month}/${expireDate.getFullYear()}</option>`;
+        // Handle for tokens created via the legacy payment processor.
+        if (value.masked_account_number) {
+          html += `<option value="${value.id}">${value.masked_account_number.slice(-4)} - ${month}/${expireDate.getFullYear()}</option>`;
+        }
+        else {
+          html += `<option value="${value.id}">${month}/${expireDate.getFullYear()}</option>`;
+        }
     }
 
     const $select = CRM.$('#contact_payment_token');
