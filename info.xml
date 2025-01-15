@@ -15,10 +15,10 @@
     <email>support@agileware.com.au</email>
   </maintainer>
   <develStage>stable</develStage>
-  <releaseDate>2024-05-03</releaseDate>
-  <version>2.6.7</version>
+  <releaseDate>2025-01-15</releaseDate>
+  <version>2.6.8</version>
   <compatibility>
-    <ver>5.38</ver>
+    <ver>5.70</ver>
   </compatibility>
   <comments/>
   <civix>
