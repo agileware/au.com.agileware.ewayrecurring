@@ -1,4 +1,7 @@
 {
+  "name": "agileware/au.com.agileware.ewayrecurring",
+  "type": "civicrm-ext",
+  "description": "CiviCRM Extension to support Integration with Eway Payment Processing",
   "require": {
     "eway/eway-rapid-php": "^1.3"
   }
