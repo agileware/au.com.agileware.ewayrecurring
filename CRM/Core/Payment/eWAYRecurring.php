@@ -760,7 +760,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       $tokenResult = civicrm_api3('PaymentToken', 'getsingle', ['id' => $tokenid]);
       // Modify passed in params to set the credit_card_number and the credit_card_exiry_date for use in emails
       $params['credit_card_number'] = $tokenResult['masked_account_number'];
-      $params['credit_card_exp_date'] = $tokenResult['expiry_date'];
+      $params['credit_card_exp_date'] = [
+        'Y' => substr($tokenResult['expiry_date'], 0, 4),
+        'M' => substr($tokenResult['expiry_date'], 5, 2),
+      ];
       $contribution['payment_token_id'] = $tokenid;
       $contribution['processor_id'] = $tokenResult['token'];
       civicrm_api3('ContributionRecur', 'create', $contribution);
