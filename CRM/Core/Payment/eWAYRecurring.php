@@ -704,7 +704,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    *
    * @return bool|object
    */
-  function updateSubscriptionBillingInfo(&$message = '', $params = []) {
+  function updateSubscriptionBillingInfo(&$message = '', &$params = []) {
     //----------------------------------------------------------------------------------------------------
     // Something happens to the PseudoConstant cache so it stores the country label in place of its ISO 3166 code.
     // Flush to cache to work around this.
@@ -758,6 +758,9 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       //update token
       // store token in processor_id is the legacy way
       $tokenResult = civicrm_api3('PaymentToken', 'getsingle', ['id' => $tokenid]);
+      // Modify passed in params to set the credit_card_number and the credit_card_exiry_date for use in emails
+      $params['credit_card_number'] = $tokenResult['masked_account_number'];
+      $params['credit_card_exp_date'] = $tokenResult['expiry_date'];
       $contribution['payment_token_id'] = $tokenid;
       $contribution['processor_id'] = $tokenResult['token'];
       civicrm_api3('ContributionRecur', 'create', $contribution);
