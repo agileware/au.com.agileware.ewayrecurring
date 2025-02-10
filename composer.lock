@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "eway/eway-rapid-php",
-            "version": "1.4.1",
+            "version": "1.4.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/eWAYPayment/eway-rapid-php.git",
-                "reference": "3ccc17406101db7e6670b2e76b088124c6955c14"
+                "reference": "9d0b74fb0710f9f1ffeb015d198fc85b083ab5ba"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/eWAYPayment/eway-rapid-php/zipball/3ccc17406101db7e6670b2e76b088124c6955c14",
-                "reference": "3ccc17406101db7e6670b2e76b088124c6955c14",
+                "url": "https://api.github.com/repos/eWAYPayment/eway-rapid-php/zipball/9d0b74fb0710f9f1ffeb015d198fc85b083ab5ba",
+                "reference": "9d0b74fb0710f9f1ffeb015d198fc85b083ab5ba",
                 "shasum": ""
             },
             "require": {
@@ -44,11 +44,11 @@
             ],
             "authors": [
                 {
-                    "name": "eWAY",
+                    "name": "Eway",
                     "homepage": "https://www.eway.com.au"
                 }
             ],
-            "description": "eWAY Rapid PHP library",
+            "description": "Eway Rapid PHP library",
             "homepage": "https://www.eway.com.au",
             "keywords": [
                 "eway",
@@ -58,9 +58,9 @@
             ],
             "support": {
                 "issues": "https://github.com/eWAYPayment/eway-rapid-php/issues",
-                "source": "https://github.com/eWAYPayment/eway-rapid-php/tree/v1.4.1"
+                "source": "https://github.com/eWAYPayment/eway-rapid-php/tree/v1.4.2"
             },
-            "time": "2022-08-04T05:24:33+00:00"
+            "time": "2024-11-11T01:31:31+00:00"
         }
     ],
     "packages-dev": [],
@@ -71,5 +71,5 @@
     "prefer-lowest": false,
     "platform": [],
     "platform-dev": [],
-    "plugin-api-version": "2.3.0"
+    "plugin-api-version": "2.6.0"
 }
