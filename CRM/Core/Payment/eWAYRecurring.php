@@ -14,6 +14,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 
   private static $instances = [];
 
+  public $_mode = 'live';
+
+  protected $eWayClient;
+
   public static function getInstance(&$paymentProcessor) {
     [ 'domain_id' => $domain, 'id' => $id ] = $paymentProcessor;
 
@@ -35,6 +39,23 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
   function __construct($mode, &$paymentProcessor) {
     $this->_mode = $mode;             // live or test
     $this->_paymentProcessor = $paymentProcessor;
+  }
+
+  /**
+   * Create eWay client using credentials from payment processor.
+   *
+   * @return \Eway\Rapid\Contract\Client
+   */
+  protected function getEWayClient() {
+    if (!$this->eWayClient) {
+      $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
+      $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
+      $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
+
+      $this->eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
+    }
+
+    return $this->eWayClient;
   }
 
   /**
@@ -811,5 +832,29 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    */
   public function getEditableRecurringScheduleFields() {
     return ['amount', 'installments', 'frequency_interval', 'frequency_unit', 'next_sched_contribution_date', 'end_date'];
+  }
+
+  /**
+   * Generate the exportable array, excluding transient members.
+   *
+   * __unserialize() is not implemented because disallowed properties are instantiated on demand.
+   */
+  function __serialize(): array {
+    $disallowed_properties = [
+      'eWayClient', // object contains unserializable CurlHandle resource
+      'instances'   // Can produce recursion
+    ];
+    $exportable = [];
+    $reflector = new \ReflectionClass($this);
+
+    foreach ($reflector->getProperties() as $property) {
+      if (in_array($property->getName(), $disallowed_properties)) {
+        continue;
+      }
+      $property->setAccessible(TRUE);
+      $exportable[$property->getName()] = $property->getValue($this);
+    }
+
+    return $exportable;
   }
 }

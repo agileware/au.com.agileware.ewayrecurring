@@ -12,24 +12,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
    */
   abstract public function setPaymentProcessor($processor);
 
-  protected $eWayClient;
-
-  /**
-   * Create eWay client using credentials from payment processor.
-   *
-   * @return \Eway\Rapid\Contract\Client
-   */
-  protected function getEWayClient() {
-    if (!$this->eWayClient) {
-      $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
-      $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
-      $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
-
-      $this->eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
-    }
-
-    return $this->eWayClient;
-  }
+  abstract protected function getEWayClient();
 
   public function process_recurring_payments() {
     // If an ewayrecurring job is already running, we want to exit as soon as possible.
