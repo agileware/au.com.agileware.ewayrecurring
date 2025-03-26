@@ -240,7 +240,7 @@ class CRM_eWAYRecurring_PaymentToken {
     /**
      * update the record if exist
      * Dedupe rule:
-     *  Same contact with
+     *  Same contact and same payment processor with
      *    same token or
      *    same masked card number
      */
@@ -248,6 +248,7 @@ class CRM_eWAYRecurring_PaymentToken {
       'sequential' => 1,
       'contact_id' => $cid,
       'token' => $token,
+      'payment_processor_id' => $pp_id,
       'masked_account_number' => $response->CardDetails->Number,
       'options' => ['or' => [["masked_account_number", "token"]]],
     ]);
