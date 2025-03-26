@@ -119,6 +119,10 @@ class CRM_eWAYRecurring_Utils {
           'contribution_status_id' => 'Failed',
         ]);
 
+        // Update queue accordingly
+        $transactionPendingMaxTries['status'] = self::STATUS_FAILED;
+        civicrm_api3('EwayContributionTransactions', 'create', $transactionPendingMaxTries);
+
       } catch (CiviCRM_API3_Exception $e) {
       // Contribution not found.
       }
