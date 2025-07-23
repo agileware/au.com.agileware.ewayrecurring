@@ -114,24 +114,45 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     ];
     if (!$this->jsEmbedded && $this->backOffice) {
       $jsSetting = '';
-      if ($cid = CRM_Utils_Request::retrieve('cid', 'Int')) {
-        $jsSetting .= "CRM.eway.contact_id = {$cid};\n";
-      }
-      if ($crid = CRM_Utils_Request::retrieve('crid', 'Int')) {
-        $jsSetting .= "CRM.eway.contribution_recur_id = {$crid};\n";
-        try {
-          $tokenId = civicrm_api3('ContributionRecur', 'getvalue', [ 'id' => $crid, 'return' => 'payment_token_id' ]);
-          $jsSetting .= "CRM.eway.selectedToken = {$tokenId};\n";
-        }
-        catch (CiviCRM_API3_Exception $e) {
-        }
-      }
 
-      $jsSetting .= "CRM.eway.ppid = {$this->_paymentProcessor['id']};";
-      $jsSetting .= 'CRM.eway.paymentTokenInitialize();';
+      try {
+        // Try to set the Contact ID if available
+        $contact_id = CRM_Utils_Request::retrieve('cid', 'Int');
 
-      CRM_Core_Resources::singleton()->addScript($jsSetting, ['weight' => 10, 'region' => 'page-footer']);
-      $this->jsEmbedded = TRUE;
+        if ($crid = CRM_Utils_Request::retrieve('crid', 'Int')) {
+          $result = civicrm_api3('ContributionRecur', 'get', [
+            'sequential' => 1,
+            'id' => $crid,
+            'return' => ['payment_token_id', 'contact_id'],
+            'payment_token_id' => ['IS NOT NULL' => 1],
+            'options' => ['limit' => 1]
+          ]);
+          if ($result['is_error'] == 0 && $result['count'] > 0) {
+            $contribution_recur = $result['values'][0];
+            $contact_id = $contribution_recur['contact_id'];
+
+            $jsSetting .= 'CRM.eway.contribution_recur_id = ' . $crid . ";\n";
+            $jsSetting .= 'CRM.eway.selectedToken = ' . $contribution_recur['payment_token_id'] . ";\n";
+          }
+        }
+
+        // If cid not set try and retrieve from the Contribution ID
+        if (!$contact_id && $contribution_id = CRM_Utils_Request::retrieve('id', 'Int')) {
+          $contact_id = civicrm_api3('Contribution', 'getvalue', ['id' => $contribution_id, 'return' => 'contact_id']);
+        }
+
+        if ($contact_id) {
+          $jsSetting .= "CRM.eway.contact_id = {$contact_id};\n";
+        }
+
+        $jsSetting .= 'CRM.eway.ppid = ' . $this->_paymentProcessor['id'] . ";\n";
+        $jsSetting .= 'CRM.eway.paymentTokenInitialize();';
+
+        CRM_Core_Resources::singleton()->addScript($jsSetting, ['weight' => 10, 'region' => 'page-footer']);
+        $this->jsEmbedded = TRUE;
+      } catch (CiviCRM_API3_Exception $e) {
+        // Do nothing
+      }
     }
     return [
       'contact_payment_token' => [
