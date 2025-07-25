@@ -1,7 +1,7 @@
 <?php
 
-require_once 'eWAYRecurring.civix.php';
-require_once 'vendor/autoload.php';
+require_once __DIR__ . '/eWAYRecurring.civix.php';
+require_once __DIR__ . '/vendor/autoload.php';
 
 use Civi\Payment\Exception\PaymentProcessorException;
 use CRM_eWAYRecurring_ExtensionUtil as E;
@@ -157,21 +157,6 @@ function ewayrecurring_civicrm_managed(&$entities) {
 }
 
 /**
- * Implements hook_civicrm_entityTypes().
- *
- * Declare entity types provided by this module.
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_entityTypes
- */
-function ewayrecurring_civicrm_entityTypes(&$entityTypes) {
-  $entityTypes[] = [
-    'name' => 'EwayContributionTransactions',
-    'class' => 'CRM_eWAYRecurring_DAO_EwayContributionTransactions',
-    'table' => 'civicrm_eway_contribution_transactions',
-  ];
-}
-
-/**
  * @param $formName
  * @param $form CRM_Core_Form
  */
@@ -317,7 +302,7 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
 /**
  * Implements hook_civicrm_permission
  *
- * @param $permissions permissions list to add to
+ * @param $permissions array permissions list to add to
  */
 function ewayrecurring_civicrm_permission(&$permissions) {
   $permissions['view payment tokens'] = [
