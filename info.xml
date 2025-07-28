@@ -16,7 +16,7 @@
   </maintainer>
   <develStage>stable</develStage>
   <releaseDate>2025-07-28</releaseDate>
-  <version>2.7.3</version>
+  <version>2.7.4</version>
   <compatibility>
     <ver>5.82</ver>
   </compatibility>
