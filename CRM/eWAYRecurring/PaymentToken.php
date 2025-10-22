@@ -12,7 +12,7 @@ class CRM_eWAYRecurring_PaymentToken {
    * civicrm/ewayrecurring/createtoken
    *
    * @throws \CRM_Core_Exception
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public static function createToken() {
     $store = NULL;
@@ -171,7 +171,7 @@ class CRM_eWAYRecurring_PaymentToken {
    * civicrm/ewayrecurring/savetoken
    *
    * @throws \CRM_Core_Exception
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public static function saveToken() {
     $pp_id = CRM_Utils_Request::retrieve('pp_id', 'String');
@@ -285,7 +285,7 @@ class CRM_eWAYRecurring_PaymentToken {
    * @param $id
    *
    * @return array|null
-   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
    */
   public static function getPaymentProcessorById($id) {
     $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [

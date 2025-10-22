@@ -150,7 +150,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 
         CRM_Core_Resources::singleton()->addScript($jsSetting, ['weight' => 10, 'region' => 'page-footer']);
         $this->jsEmbedded = TRUE;
-      } catch (CiviCRM_API3_Exception $e) {
+      } catch (CRM_Core_Exception $e) {
         // Do nothing
       }
     }
@@ -220,7 +220,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
             'return' => "id",
             'name' => "Billing",
           ]);
-        } catch (CiviCRM_API3_Exception $e) {
+        } catch (CRM_Core_Exception $e) {
         }
         $billingCountryIdKey = "billing_country_id-" . $billingLocationTypeId;
         if (isset($params[$billingCountryIdKey]) && !empty($params[$billingCountryIdKey])) {
@@ -369,7 +369,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
           'sequential' => 1,
           'id' => $payment_token,
         ]);
-      } catch (CiviCRM_API3_Exception $e) {
+      } catch (CRM_Core_Exception $e) {
         $this->paymentFailed($params, 'Please select a valid credit card token.');
       }
       if ($result['is_error']) {

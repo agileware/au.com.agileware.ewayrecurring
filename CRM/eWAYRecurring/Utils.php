@@ -20,7 +20,7 @@ class CRM_eWAYRecurring_Utils {
    * @param array $params
    *
    * @return array
-   * @throws CiviCRM_API3_Exception
+   * @throws CRM_Core_Exception
    */
   public function validatePendingTransactions($params = []) {
     // Fetch all transactions to validate
@@ -92,7 +92,7 @@ class CRM_eWAYRecurring_Utils {
         // Update the transaction
         civicrm_api3('EwayContributionTransactions', 'create', $transactionToValidate);
 
-      } catch (CiviCRM_API3_Exception $e) {
+      } catch (CRM_Core_Exception $e) {
         // Contribution/Payment Processor not found, delete the transaction.
         civicrm_api3('EwayContributionTransactions', 'delete', [
           'id' => $transactionToValidate['id'],
@@ -123,7 +123,7 @@ class CRM_eWAYRecurring_Utils {
         $transactionPendingMaxTries['status'] = self::STATUS_FAILED;
         civicrm_api3('EwayContributionTransactions', 'create', $transactionPendingMaxTries);
 
-      } catch (CiviCRM_API3_Exception $e) {
+      } catch (CRM_Core_Exception $e) {
       // Contribution not found.
       }
     }
@@ -159,7 +159,7 @@ class CRM_eWAYRecurring_Utils {
       ]);
       $eWayTransaction['status'] = self::STATUS_SUCCESS;
       civicrm_api3('EwayContributionTransactions', 'create', $eWayTransaction);
-    } catch (CiviCRM_API3_Exception $e) {
+    } catch (CRM_Core_Exception $e) {
       // Transaction not found.
     }
   }
@@ -234,7 +234,7 @@ class CRM_eWAYRecurring_Utils {
    * @param $recurringContribution
    *
    * @return |null
-   * @throws CiviCRM_API3_Exception
+   * @throws CRM_Core_Exception
    */
   public static function updateCustomerDetails($response, $recurringContribution) {
     $transactionResponse = $response['transactionResponse'];
@@ -384,7 +384,7 @@ class CRM_eWAYRecurring_Utils {
       civicrm_api3('ContributionRecur', 'delete', [
         'id' => $contributionRecurringId,
       ]);
-    } catch (CiviCRM_API3_Exception $e) {
+    } catch (CRM_Core_Exception $e) {
       // Recurring contribution not found. Skip!
     }
   }
@@ -426,7 +426,7 @@ class CRM_eWAYRecurring_Utils {
 
       civicrm_api3('ContributionRecur', 'create', $recurringContribution);
     }
-    catch (CiviCRM_API3_Exception $e) {
+    catch (CRM_Core_Exception $e) {
     }
   }
 
@@ -438,7 +438,7 @@ class CRM_eWAYRecurring_Utils {
    *
    * @return array|null
    * @throws CRM_Core_Exception
-   * @throws CiviCRM_API3_Exception
+   * @throws CRM_Core_Exception
    */
   public static function validateEwayContribution($paymentProcessor, $invoiceID) {
     if ($paymentProcessor instanceof CRM_Core_Payment_eWAYRecurring) {

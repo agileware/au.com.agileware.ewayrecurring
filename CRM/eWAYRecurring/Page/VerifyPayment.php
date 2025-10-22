@@ -30,7 +30,7 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
         // This function will do redirect if the payment failed
         $response = CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $contributionInvoiceID);
       } catch (CRM_Core_Exception $e) {
-      } catch (CiviCRM_API3_Exception $e) {
+      } catch (CRM_Core_Exception $e) {
       }
 
       // payment success
