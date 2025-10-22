@@ -74,7 +74,7 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
           }
         }
 
-      } catch (CiviCRM_API3_Exception $e) {
+      } catch (CRM_Core_Exception $e) {
 
       }
     }

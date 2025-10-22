@@ -146,7 +146,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
             'id' => $contribution->financial_type_id,
           ]);
         }
-        catch (CiviCRM_API3_Exception $e) { // Most likely due to FinancialType API not being available in < 4.5 - try DAO directly
+        catch (CRM_Core_Exception $e) { // Most likely due to FinancialType API not being available in < 4.5 - try DAO directly
           $ft_bao = new CRM_Financial_BAO_FinancialType();
           $ft_bao->id = $contribution->financial_type_id;
           $found = $ft_bao->find(TRUE);
@@ -173,7 +173,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
               'id' => $contribution->payment_token_id,
             ]);
           }
-          catch (CiviCRM_API3_Exception $e) {
+          catch (CRM_Core_Exception $e) {
             $token = $contribution->processor_id;
           }
         }
@@ -230,7 +230,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
                 'details' => 'Transaction Succeeded after ' . $contribution->failure_count . ' retries',
               ]);
             }
-            catch (CiviCRM_API3_Exception $e) {
+            catch (CRM_Core_Exception $e) {
               \Civi::log()
                 ->info('eWAY Recurring: Couldn\'t record success activity: ' . $e->getMessage());
             }
@@ -292,7 +292,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
 
           $new_contribution_record = reset($updated['values']);
         }
-        catch (CiviCRM_API3_Exception $e) {
+        catch (CRM_Core_Exception $e) {
           Civi::log()
             ->warning("Recurring contribution - Unable to set status of new contribution: " . $e->getMessage(), $new_contribution_record);
         }
@@ -363,7 +363,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
         'source_record' => $contribution->id,
       ]);
     }
-    catch (CiviCRM_API3_Exception $e) {
+    catch (CRM_Core_Exception $e) {
       /* Failing to create the failure activity should not prevent the
          ContributionRecur entity from being updated. Log it and move on. */
       \Civi::log()
