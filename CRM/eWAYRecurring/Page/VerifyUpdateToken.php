@@ -34,7 +34,7 @@ class CRM_eWAYRecurring_Page_VerifyUpdateToken extends CRM_Core_Page {
 
           if ($hasTransactionFailed) {
             CRM_Core_Session::setStatus(
-              ts('Failed to update billing details, Error: ' . $transactionResponseError),
+              ts('Failed to update billing details, Error: %1', [1 => $transactionResponseError]),
               ts('Update Billing Details'), 'error');
 
             $redirectUrl = CRM_Utils_System::url('civicrm/contribute/updatebilling', [
