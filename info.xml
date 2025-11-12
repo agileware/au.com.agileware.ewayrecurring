@@ -23,7 +23,7 @@
   <comments/>
   <civix>
     <namespace>CRM/eWAYRecurring</namespace>
-    <format>25.10.1</format>
+    <format>25.10.2</format>
   </civix>
   <mixins>
     <mixin>menu-xml@1.0.0</mixin>
