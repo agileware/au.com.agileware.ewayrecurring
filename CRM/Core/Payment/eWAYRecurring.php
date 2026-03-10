@@ -346,6 +346,18 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     // Now set the payment details - see https://eway.io/api-v3/#direct-connection
     //----------------------------------------------------------------------------------------------------
 
+    // Sanitize Customer Data
+    if (is_array($eWayCustomer)) {
+      foreach ($eWayCustomer as $key => $val) {
+        $eWayCustomer[$key] = CRM_eWAYRecurring_Utils::sanitizeToAscii($val);
+      }
+    }
+    // Prepare & Sanitize Invoice Data
+    $invoiceDescription = trim(CRM_eWAYRecurring_Utils::sanitizeToAscii($params['description'] ?? ''));
+    $invoiceReference   = trim(CRM_eWAYRecurring_Utils::sanitizeToAscii($params['invoiceID'] ?? ''));
+    if ($invoiceDescription == '') {
+      $invoiceDescription = 'Invoice ID: ' . $invoiceReference;
+    }
 
     //----------------------------------------------------------------------------------------------------
     // We use CiviCRM's param's 'invoiceID' as the unique transaction token to feed to eWay
@@ -353,12 +365,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     // As its made from a "$invoiceID = md5(uniqid(rand(), true));" then using the first 12 chars
     // should be alright
     //----------------------------------------------------------------------------------------------------
-
-    $uniqueTrnxNum = substr($params['invoiceID'], 0, 12);
-    $invoiceDescription = $params['description'];
-    if ($invoiceDescription == '') {
-      $invoiceDescription = 'Invoice ID: ' . $params['invoiceID'];
-    }
+    // Create Unique Trxn Num (First 12 chars of sanitized InvoiceID)
+    $uniqueTrnxNum = substr($invoiceReference, 0, 12);
 
     if ($this->backOffice) {
       $payment_token = CRM_Utils_Request::retrieve('contact_payment_token', CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
@@ -383,8 +391,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
         'Payment' => [
           'TotalAmount' => substr($amountInCents,0,10),
           'InvoiceNumber' => substr($uniqueTrnxNum,0,64),
-          'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
-          'InvoiceReference' => substr($params['invoiceID'],0,50)
+          'InvoiceDescription' => substr($invoiceDescription, 0, 64),
+          'InvoiceReference' => substr($invoiceReference,0,50)
         ],
         'TransactionType' => \Eway\Rapid\Enum\TransactionType::MOTO
       ];
@@ -400,8 +408,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
         'Payment' => [
           'TotalAmount' => substr($amountInCents,0,10),
           'InvoiceNumber' => substr($uniqueTrnxNum,0,64),
-          'InvoiceDescription' => substr(trim($invoiceDescription), 0, 64),
-          'InvoiceReference' => substr($params['invoiceID'],0,50)
+          'InvoiceDescription' => substr($invoiceDescription, 0, 64),
+          'InvoiceReference' => substr($invoiceReference,0,50)
         ],
         'CustomerIP' => (isset($params['ip_address'])) ? $params['ip_address'] : '',
         'Capture' => TRUE,

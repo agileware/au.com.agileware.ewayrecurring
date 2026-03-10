@@ -479,4 +479,21 @@ class CRM_eWAYRecurring_Utils {
     return \CRM_Core_PseudoConstant::getKey($baoName, 'contribution_status_id', $name);
   }
 
+  /** 
+   * Sanitizer Function to remove non-ASCII characters
+   * 
+   * @param string $string
+   * @return string
+   */
+  public static function sanitizeToAscii($string) {
+    if (empty($string)) {
+      return '';
+    }
+
+    if (function_exists('iconv')) {
+      $string = iconv('UTF-8', 'ASCII//TRANSLIT', $string);
+
+    }
+    return preg_replace('/[^\x20-\x7E]/', '', $string);
+  }
 }

@@ -185,7 +185,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
           throw new CRM_Core_Exception(\CRM_eWAYRecurring_ExtensionUtil::ts('No eWAY token found for Recurring Contribution %1', [1 => $contribution->id]));
         }
 
-        $eWayResponse = self::process_payment(
+        $eWayResponse = $this->process_payment(
           $token,
           $amount_in_cents,
           substr($invoice_id, 0, 16),
@@ -488,6 +488,10 @@ trait CRM_eWAYRecurring_ProcessTrait {
     static $prev_response = NULL;
 
     $eWayClient = $this->getEWayClient();
+
+    // Avoid sending non-ASCII characters to eWAY, as that causes the transaction to fail.
+    $invoice_reference = CRM_eWAYRecurring_Utils::sanitizeToAscii($invoice_reference);
+    $invoice_description = CRM_eWAYRecurring_Utils::sanitizeToAscii($invoice_description);
 
     $paymentTransaction = [
       'Customer' => [
