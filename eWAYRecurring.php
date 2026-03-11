@@ -223,7 +223,7 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
     case 'CRM_Event_Form_Registration_Confirm':
       $qfKey = $form->get('qfKey');
       $eWAYResponse = $qfKey ? unserialize(CRM_Core_Session::singleton()
-        ->get('eWAYResponse', $qfKey)) : FALSE;
+        ->get('eWAYResponse', $qfKey) ?? '') : FALSE;
       $paymentProcessor = $form->getVar('_paymentProcessor') ?? NULL;
       if (!empty($eWAYResponse->AccessCode) && ($paymentProcessor['object'] instanceof CRM_Core_Payment_eWAYRecurring)) {
         $transaction = CRM_eWAYRecurring_Utils::validateEwayAccessCode($eWAYResponse->AccessCode, $paymentProcessor);
