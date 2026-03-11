@@ -140,7 +140,6 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
         if (!$contact_id && $contribution_id = CRM_Utils_Request::retrieve('id', 'Int')) {
           $contact_id = civicrm_api3('Contribution', 'getvalue', ['id' => $contribution_id, 'return' => 'contact_id']);
         }
-      }
 
         if ($contact_id) {
           $jsSetting .= "CRM.eway.contact_id = {$contact_id};\n";
