@@ -65,7 +65,7 @@ SQL;
     PaymentProcessor::update(FALSE)
       ->addValue('class_name', 'Payment_eWAYRecurring')
       ->addWhere('class_name', '=', 'au.com.agileware.ewayrecurring')
-      ->addWhere('is_test', 'IS NOT NULL')
+      ->addWhere('is_test', '=', FALSE)
       ->execute();
     return TRUE;
   }

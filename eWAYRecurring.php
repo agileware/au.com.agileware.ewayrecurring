@@ -351,7 +351,7 @@ function ewayrecurring_civicrm_check(&$messages, $statusNames, $includeDisabled)
 
   try {
     $failed = ContributionRecur::get(FALSE)
-      ->addWhere('is_test', 'IS NOT NULL')
+      ->addWhere('is_test', '=', FALSE)
       ->addWhere('contribution_status_id:name', '=', 'Failed')
       ->addWhere('failure_retry_date', '<', 'now - 4 hours')
       ->selectRowCount()

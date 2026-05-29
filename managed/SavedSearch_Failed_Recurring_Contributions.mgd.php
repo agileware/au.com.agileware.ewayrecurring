@@ -31,11 +31,20 @@ return [
           ],
           'orderBy' => [],
           'where' => [
-            ['is_test', 'IS NOT NULL'],
             [
               'ContributionRecur_PaymentProcessor_payment_processor_id_01.payment_processor_type_id:name',
               '=',
               'eWay_Recurring',
+            ],
+            [
+              'OR',
+              [
+                [
+                  'is_test',
+                  '=',
+                  FALSE,
+                ],
+              ],
             ],
           ],
           'groupBy' => [],
@@ -62,7 +71,9 @@ return [
           'having' => [],
         ],
       ],
-      'match' => ['name'],
+      'match' => [
+        'name',
+      ],
     ],
   ],
   [
@@ -169,7 +180,10 @@ return [
                     [
                       'contribution_status_id:name',
                       'IN',
-                      ['Failing', 'Failed'],
+                      [
+                        'Failing',
+                        'Failed',
+                      ],
                     ],
                   ],
                   'task' => 'reset_recur_status',
@@ -188,7 +202,10 @@ return [
             'reset_recur_status',
             'update',
           ],
-          'classes' => ['table', 'table-striped'],
+          'classes' => [
+            'table',
+            'table-striped',
+          ],
           'columnMode' => 'custom',
           'actions_display_mode' => 'buttons',
         ],
