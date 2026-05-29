@@ -11,7 +11,7 @@ return [
       'version' => 4,
       'values' => [
         'name' => 'Failed_Recurring_Contributions',
-        'label' => 'Failed Recurring Contributions',
+        'label' => E::ts('Failed Recurring Contributions'),
         'api_entity' => 'ContributionRecur',
         'api_params' => [
           'version' => 4,
@@ -85,7 +85,7 @@ return [
       'version' => 4,
       'values' => [
         'name' => 'Failed_Recurring_Contribution_Listing',
-        'label' => 'Failed Recurring Contribution Listing',
+        'label' => E::ts('Failed Recurring Contribution Listing'),
         'saved_search_id.name' => 'Failed_Recurring_Contributions',
         'type' => 'table',
         'settings' => [
@@ -107,7 +107,7 @@ return [
             [
               'type' => 'field',
               'key' => 'contact_id.display_name',
-              'label' => 'Contact',
+              'label' => E::ts('Contact'),
               'sortable' => TRUE,
               'link' => [
                 'path' => '',
@@ -122,50 +122,50 @@ return [
             [
               'type' => 'field',
               'key' => 'id',
-              'label' => 'ID',
+              'label' => E::ts('ID'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'start_date',
-              'label' => 'Start Date',
+              'label' => E::ts('Start Date'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'next_sched_contribution_date',
-              'label' => 'Next Scheduled Date',
+              'label' => E::ts('Next Scheduled Date'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'contribution_status_id:label',
-              'label' => 'Status',
+              'label' => E::ts('Status'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'amount',
-              'label' => 'Amount',
+              'label' => E::ts('Amount'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'frequency_unit:label',
-              'label' => 'Frequency',
+              'label' => E::ts('Frequency'),
               'sortable' => FALSE,
               'rewrite' => '[frequency_interval] [frequency_unit:label]',
             ],
             [
               'type' => 'field',
               'key' => 'failure_count',
-              'label' => 'Number of Failures',
+              'label' => E::ts('Number of Failures'),
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'failure_retry_date',
-              'label' => 'Retry Failed Attempt On',
+              'label' => E::ts('Retry Failed Attempt On'),
               'sortable' => TRUE,
             ],
             [
