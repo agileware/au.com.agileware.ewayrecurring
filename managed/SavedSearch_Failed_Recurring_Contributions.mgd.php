@@ -117,7 +117,7 @@ return [
                 'target' => '',
                 'task' => '',
               ],
-              'title' => 'View Contact',
+              'title' => E::ts('View Contact'),
             ],
             [
               'type' => 'field',
@@ -174,7 +174,7 @@ return [
                 [
                   'path' => '',
                   'icon' => 'fa-undo',
-                  'text' => 'Reactivate',
+                  'text' => E::ts('Reactivate'),
                   'style' => 'success',
                   'conditions' => [
                     [
