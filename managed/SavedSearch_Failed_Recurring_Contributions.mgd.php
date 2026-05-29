@@ -11,7 +11,7 @@ return [
       'version' => 4,
       'values' => [
         'name' => 'Failed_Recurring_Contributions',
-        'label' => E::ts('Failed Recurring Contributions'),
+        'label' => 'Failed Recurring Contributions',
         'api_entity' => 'ContributionRecur',
         'api_params' => [
           'version' => 4,
@@ -31,11 +31,20 @@ return [
           ],
           'orderBy' => [],
           'where' => [
-            ['is_test', 'IS NOT NULL'],
             [
               'ContributionRecur_PaymentProcessor_payment_processor_id_01.payment_processor_type_id:name',
               '=',
               'eWay_Recurring',
+            ],
+            [
+              'OR',
+              [
+                [
+                  'is_test',
+                  '=',
+                  FALSE,
+                ],
+              ],
             ],
           ],
           'groupBy' => [],
@@ -62,7 +71,9 @@ return [
           'having' => [],
         ],
       ],
-      'match' => ['name'],
+      'match' => [
+        'name',
+      ],
     ],
   ],
   [
@@ -74,7 +85,7 @@ return [
       'version' => 4,
       'values' => [
         'name' => 'Failed_Recurring_Contribution_Listing',
-        'label' => E::ts('Failed Recurring Contribution Listing'),
+        'label' => 'Failed Recurring Contribution Listing',
         'saved_search_id.name' => 'Failed_Recurring_Contributions',
         'type' => 'table',
         'settings' => [
@@ -96,7 +107,7 @@ return [
             [
               'type' => 'field',
               'key' => 'contact_id.display_name',
-              'label' => E::ts('Contact'),
+              'label' => 'Contact',
               'sortable' => TRUE,
               'link' => [
                 'path' => '',
@@ -106,55 +117,55 @@ return [
                 'target' => '',
                 'task' => '',
               ],
-              'title' => E::ts('View Contact'),
+              'title' => 'View Contact',
             ],
             [
               'type' => 'field',
               'key' => 'id',
-              'label' => E::ts('ID'),
+              'label' => 'ID',
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'start_date',
-              'label' => E::ts('Start Date'),
+              'label' => 'Start Date',
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'next_sched_contribution_date',
-              'label' => E::ts('Next Scheduled Date'),
+              'label' => 'Next Scheduled Date',
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'contribution_status_id:label',
-              'label' => E::ts('Status'),
+              'label' => 'Status',
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'amount',
-              'label' => E::ts('Amount'),
+              'label' => 'Amount',
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'frequency_unit:label',
-              'label' => E::ts('Frequency'),
+              'label' => 'Frequency',
               'sortable' => FALSE,
               'rewrite' => '[frequency_interval] [frequency_unit:label]',
             ],
             [
               'type' => 'field',
               'key' => 'failure_count',
-              'label' => E::ts('Number of Failures'),
+              'label' => 'Number of Failures',
               'sortable' => TRUE,
             ],
             [
               'type' => 'field',
               'key' => 'failure_retry_date',
-              'label' => E::ts('Retry Failed Attempt On'),
+              'label' => 'Retry Failed Attempt On',
               'sortable' => TRUE,
             ],
             [
@@ -163,13 +174,16 @@ return [
                 [
                   'path' => '',
                   'icon' => 'fa-undo',
-                  'text' => E::ts('Reactivate'),
+                  'text' => 'Reactivate',
                   'style' => 'success',
                   'conditions' => [
                     [
                       'contribution_status_id:name',
                       'IN',
-                      ['Failing', 'Failed'],
+                      [
+                        'Failing',
+                        'Failed',
+                      ],
                     ],
                   ],
                   'task' => 'reset_recur_status',
@@ -188,7 +202,10 @@ return [
             'reset_recur_status',
             'update',
           ],
-          'classes' => ['table', 'table-striped'],
+          'classes' => [
+            'table',
+            'table-striped',
+          ],
           'columnMode' => 'custom',
           'actions_display_mode' => 'buttons',
         ],
