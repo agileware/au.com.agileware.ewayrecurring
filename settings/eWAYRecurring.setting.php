@@ -49,4 +49,45 @@ return [
     'html_type' => 'checkbox',
     'quick_form_type' => 'YesNo',
   ],
+  'eway_settlement_window_days' => [
+    'group_name' => 'eWay Recurring Settings',
+    'group' => 'eWAYRecurring',
+    'name' => 'eway_settlement_window_days',
+    'type' => 'Integer',
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'default' => '10',
+    'description' => 'Settlement sync window, in days back from today. Bounds both (a) which Completed eWAY contributions are treated as still awaiting reconciliation and (b) how many calendar days of eWAY settlement reports are queried each run. Sized to cover eWAY settlement lag (mostly 24-72h, occasionally overnight) plus a weekend margin. Contributions older than this drop out of the sync; standard manual reconciliation owns them.',
+    'title' => 'Settlement Sync: Window (days)',
+    'help_text' => 'Days back from today for the settlement sync window. Covers both contribution candidacy and the eWAY settlement report date range.',
+    'html_type' => 'Text',
+    'html_attributes' => [
+      'size' => 10,
+    ],
+    'quick_form_type' => 'Element',
+  ],
+  'eway_settlement_processors' => [
+    'group_name' => 'eWay Recurring Settings',
+    'group' => 'eWAYRecurring',
+    'name' => 'eway_settlement_processors',
+    // 'Array' (not 'String' + serialize): the settings form writes via APIv3,
+    // which flattens arrays for type String into a legacy delimited string and
+    // ignores 'serialize'. Type Array is stored/read as an array on every path.
+    'type' => 'Array',
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'default' => [],
+    'title' => 'Settlement Sync: Payment Processors',
+    'description' => 'Which eWAY payment processors the settlement sync covers. Select only the processors that are enabled for eWAY Settlement Search. If none are selected the settlement sync does nothing. Test processors are not eligible for settlement sync and are not listed.',
+    'help_text' => 'Select the eWAY payment processors that are configured for settlement reporting on the eWAY side. Leave empty to disable the settlement sync entirely.',
+    'html_type' => 'Select',
+    'quick_form_type' => 'Select',
+    'pseudoconstant' => [
+      'callback' => 'CRM_eWAYRecurring_SettlementSync::getSettlementProcessorOptions',
+    ],
+    'html_attributes' => [
+      'multiple' => 'multiple',
+      'class' => 'crm-select2 huge',
+    ],
+  ],
 ];

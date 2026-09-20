@@ -25,7 +25,7 @@ class CRM_EwayRecurring_MyTest extends CiviUnitTestCase {
 
   protected $paymentProcessorId;
 
-  public static function setUpBeforeClass() {
+  public static function setUpBeforeClass(): void {
     // See: https://docs.civicrm.org/dev/en/latest/testing/phpunit/#civitest
     parent::setUpBeforeClass();
 
@@ -41,12 +41,12 @@ class CRM_EwayRecurring_MyTest extends CiviUnitTestCase {
     // \Civi\Test::e2e()->uninstall('*')->install('org.civicrm.*')->apply();
   }
 
-  public function setUp() {
+  public function setUp(): void {
     $this->useTransaction(TRUE);
     parent::setUp();
   }
 
-  public function testProcessor() {
+  public function testProcessor(): void {
     $result = civicrm_api3('PaymentProcessorType', 'get', [
       'sequential' => 1,
       'name' => "eWay_Recurring",
@@ -64,7 +64,7 @@ class CRM_EwayRecurring_MyTest extends CiviUnitTestCase {
    *
    * @throws \Exception
    */
-  public function testPaidSubmit($thousandSeparator) {
+  public function testPaidSubmit($thousandSeparator): void {
     $this->setCurrencySeparators($thousandSeparator);
     $paymentProcessorID = $this->processorCreate([
       'payment_processor_type_id' => $this->paymentProcessorId,
