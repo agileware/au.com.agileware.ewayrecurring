@@ -122,6 +122,36 @@ update the recurring contribution status, however the behaviour depends on the p
 setup and a majority do not take the status in CiviCRM into account due to the payment being
 processed automatically on the gateway.
 
+## eWay Settlement Sync
+
+The **eWay Settlement Sync** job reconciles the **Fee Amount** and **Net
+Amount** on Completed contributions using eWay's [Settlement Reports
+API](https://go.eway.io/s/article/Settlement-Reports-API-Snippets?language=en_US),
+which returns daily summaries of settled transactions and the fees eWay
+deducted from each one. This automates fee/net amount reconciliation that
+would otherwise have to be done manually by cross-checking the MYeWAY portal.
+
+By default this feature is **disabled** and does nothing. To enable it:
+
+1. Go to `civicrm/ewayrecurring/settings` and select which **live** eWay
+   payment processors the sync should cover, under **Settlement Sync:
+   Payment Processors**. Leaving this empty disables the sync entirely -
+   test/sandbox processors are never covered, as eWay's sandbox does not
+   return settlement data.
+2. Optionally adjust **Settlement Sync: Window (days)** (default: 10, valid
+   range 1-90). This controls both how far back a Completed contribution is
+   still treated as awaiting reconciliation, and how many days of eWay
+   settlement reports are queried on each run. A contribution older than
+   this window is left for standard manual reconciliation.
+3. Visit `civicrm/admin/job` and enable the **eWay Settlement Sync** job
+   (runs Daily by default).
+
+The sync only ever updates a contribution's Fee Amount / Net Amount while
+they are still unset (Fee Amount = 0), so it will not overwrite a fee that
+has already been reconciled by some other means. You can also trigger a
+sync for a single contribution manually via the API (for example from the
+CiviCRM API Explorer, or `cv api3 EwaySettlement.Sync contribution_id=123`).
+
 ## CiviCRM template overrides
 
 This extension applies changes to the following CiviCRM templates:
