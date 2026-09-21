@@ -1,17 +1,74 @@
-# eWay Recurring Payment Processor for CiviCRM
+# eWay Recurring Payment Processor (au.com.agileware.ewayrecurring)
 
 CiviCRM payment processor extension for [eWay](https://eway.com.au) which uses
 the latest [eWay Rapid API](https://www.eway.com.au/features/api-rapid-api/) and
-ensures [PCI DSS compliance](https://www.eway.com.au/about-eway/technology-security/pci-dss/). 
+ensures [PCI DSS compliance](https://www.eway.com.au/about-eway/technology-security/pci-dss/).
 
-Supports both once-off and recurring payment utilising the secure token payment
-method. This essential for automating the process setting up recurring donations
-and memberships in your CiviCRM securely and reliably. This payment processor
-also allows you to specify a particular day of the month to process all
-recurring payments together.
+Supports both once-off and recurring payments using eWay's secure token
+payment method, so card details never touch your CiviCRM server. Recurring
+billing is scheduled and processed by CiviCRM itself (not by a subscription
+managed on eWay's side), which gives full control over retry behaviour for
+failed payments. Provides:
 
-You will need to have an [eWay account](https://eway.com.au) to use this payment
-processor on your CiviCRM website.
+* Once-off and recurring payments via eWay's Shared Page / Responsive Shared Page checkout
+* Secure, tokenised "pay with saved card" for repeat/recurring contributions, without re-entering card details
+* Configurable automatic retries for failed recurring payments, with a system status check for contributions that have exhausted their retries
+* A Search Kit action to reactivate a failed Recurring Contribution
+* Background verification of pending/unconfirmed transactions
+* Automatic backfill of saved card metadata (expiry date, masked number) via the eWay Rapid API
+* Automated reconciliation of a contribution's Fee Amount / Net Amount against eWay's Settlement Reports API (opt-in, disabled by default)
+
+This extension is licensed under [GPL-3.0](../LICENSE.txt).
+
+You will need an [eWay account](https://eway.com.au) with Rapid API access to
+use this payment processor on your CiviCRM website.
+
+## Usage
+
+Once the extension is installed and a **eWay Recurring** payment processor
+is configured (see [eWay API Key and Password](#eway-api-key-and-password)),
+it can be selected as the payment processor on any Contribution Page, Event,
+or Membership type like any other CiviCRM payment processor, for both
+once-off and recurring payments.
+
+### Scheduled Jobs
+
+| Job | Frequency | Default | What it does |
+| --- | --- | --- | --- |
+| **eWay Recurring Payments** | Always | Enabled | Processes recurring contributions that are due, and retries failed ones on schedule (see [Failed eWay Transactions](#failed-eway-transactions)) |
+| **eWay Transaction Verifications** | Always | Enabled | Verifies pending/unconfirmed transactions (see [eWay Transactions Verification](#eway-transactions-verification)) |
+| **eWay Recurring: fill missing tokens metadata** | Hourly | Enabled | Backfills the expiry date / masked card number on stored Payment Tokens that are missing them, via the eWay Rapid API |
+| **eWay Settlement Sync** | Daily | **Disabled** | Reconciles Fee Amount / Net Amount from eWay's Settlement Reports API (see [eWay Settlement Sync](#eway-settlement-sync)) |
+
+All jobs are configurable at `civicrm/admin/job`.
+
+### Permissions
+
+* **CiviContribute: view payment tokens** and **CiviContribute: edit payment
+  tokens** control who can view or manage a contact's stored eWay card
+  tokens.
+
+### API
+
+In addition to the standard `PaymentProcessor`/`Contribution`/`ContributionRecur`
+APIs, this extension exposes:
+
+* `EwayRecurring.fillTokensMeta` - manually trigger the saved-card metadata backfill described above.
+* `EwayContributionTransactions.get` / `.create` / `.delete` / `.validate` - the pending-transaction verification queue; `.validate` is what the **eWay Transaction Verifications** job calls.
+* `EwaySettlement.Sync` - manually trigger settlement reconciliation, optionally scoped to a single contribution (see [eWay Settlement Sync](#eway-settlement-sync)).
+
+## Special Configuration Requirements
+
+* An eWay Rapid API **Key and Password** are required to configure the
+  payment processor - see [eWay API Key and Password](#eway-api-key-and-password).
+* If your CiviCRM site is behind a proxy (Nginx, CloudFlare, etc.), the
+  **Allow Beagle Alerts Customer IP Override** permission must be enabled on
+  the eWay account - see [eWay Account Configuration](#eway-account-configuration).
+* It is recommended to set eWay's **Redirect After Payment Processing** delay
+  to 0 seconds - see [Recommended eWay Shared Page Settings](#recommended-eway-shared-page-settings).
+* eWay Settlement Sync (Fee/Net Amount reconciliation) is optional and
+  disabled by default - see [eWay Settlement Sync](#eway-settlement-sync) if
+  you want to enable it.
 
 ## Installation
 
@@ -21,6 +78,15 @@ processor on your CiviCRM website.
    Settings / Directories".
 3. Go to "Administer / System Settings / Extensions" and enable the "eWay
    Recurring Payment Processor (au.com.agileware.ewayrecurring)" extension.
+
+## Requirements
+
+* CiviCRM - `info.xml` declares compatibility up to version 5.82; no explicit
+  minimum version is declared.
+* PHP - no explicit minimum version is declared in `composer.json`.
+* [eway/eway-rapid-php](https://packagist.org/packages/eway/eway-rapid-php)
+  `^2.0`, installed automatically as a dependency.
+* An eWay account with Rapid API access.
 
 ## Upgrade instructions
 
@@ -82,7 +148,8 @@ eway. This is required for when CiviCRM is unable to verify the transaction
 immediately, for example if the end user does not press the *Return to Merchant*
 button or if the contribution was made via a Drupal Webform.
 
-Visit `civicrm/admin/job` to enable **eWay Transaction Verifications** job.
+This job is enabled by default; visit `civicrm/admin/job` if you need to
+review or adjust it.
 
 ## Failed eWay Transactions
 
@@ -152,13 +219,20 @@ has already been reconciled by some other means. You can also trigger a
 sync for a single contribution manually via the API (for example from the
 CiviCRM API Explorer, or `cv api3 EwaySettlement.Sync contribution_id=123`).
 
-## CiviCRM template overrides
+## Recurring Contribution Form Behaviour
 
-This extension applies changes to the following CiviCRM templates:
+This extension changes some standard CiviCRM recurring-contribution form
+behaviour for the eWay Recurring processor, via CiviCRM's own extension
+hooks (not by overriding template files):
 
-1. **CancelSubscription** - hides an option to send cancellation request, as all processing is done locally
-2. **Amount** - adds a field to specify the day for recurring payment in the contribution page settings
-3. **UpdateSubscription** - adds a field to change the next payment date
+1. **Cancel Subscription** - the "send cancellation request" option is
+   hidden, since eWay Recurring schedules and processes all recurring
+   billing locally in CiviCRM rather than via a subscription managed on
+   eWay's side. Cancelling in CiviCRM stops future scheduled charges; it
+   does not delete or otherwise notify eWay about the saved card token.
+2. **Update Subscription** - the Amount, Number of Installments, Interval,
+   Interval Unit, Next Scheduled Contribution Date, and End Date fields are
+   all editable.
 
 # About the Authors
 
