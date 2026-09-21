@@ -1,0 +1,19 @@
+name: PHPUnit tests
+
+on:
+  push: {}
+  workflow_dispatch: {}
+
+jobs:
+  phpunit:
+    uses: agileware/ci-workflows/.github/workflows/civicrm-phpunit-tests.yml@main
+    secrets:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    with:
+      EXTENSION_NAME: au.com.agileware.ewayrecurring
+      # tests/phpunit/CRM/EwayRecurring/ (legacy) is currently broken - see
+      # docs/TESTING.md - so the full suite (phpunit.xml.dist) can't run as
+      # a whole yet. Scope to the active, working test suite until the
+      # legacy tests are migrated or removed.
+      PHPUNIT_ARGS: tests/phpunit/CRM/eWAYRecurring/SettlementSyncTest.php
