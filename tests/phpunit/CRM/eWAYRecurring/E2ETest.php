@@ -1,29 +1,22 @@
 <?php
 
-use CRM_eWAYRecurring_ExtensionUtil as E;
 use Civi\Test\EndToEndInterface;
 
 /**
- * FIXME - Add test description.
+ * End-to-end tests for paid event registration and contribution page
+ * checkout through the eWAY Recurring payment processor.
  *
- * Tips:
- *  - The global variable $_CV has some properties which may be useful, such
- * as:
- *    CMS_URL, ADMIN_USER, ADMIN_PASS, ADMIN_EMAIL, DEMO_USER, DEMO_PASS,
- * DEMO_EMAIL.
- *  - To spawn a new CiviCRM thread and execute an API call or PHP code, use
- * cv(), e.g. cv('api system.flush');
- *      $data = cv('eval "return Civi::settings()->get(\'foobar\')"');
- *      $dashboardUrl = cv('url civicrm/dashboard');
- *  - This template uses the most generic base-class, but you may want to use a
- * more powerful base class, such as \PHPUnit_Extensions_SeleniumTestCase or
- *    \PHPUnit_Extensions_Selenium2TestCase.
- *    See also: https://phpunit.de/manual/4.8/en/selenium.html
+ * Unlike the extension's headless tests (see SettlementSyncTest), these
+ * drive real HTTP requests against a live, network-reachable CiviCRM site
+ * and the real eWAY sandbox gateway - CIVICRM_UF=UnitTests headless boot
+ * doesn't apply here. Run explicitly with `phpunit9 --group e2e` against
+ * a site configured with a live eWAY sandbox account; phpunit.xml.dist
+ * excludes this group from the default run.
  *
  * @group e2e
  * @see cv
  */
-class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements EndToEndInterface {
+class CRM_eWAYRecurring_E2ETest extends \PHPUnit\Framework\TestCase implements EndToEndInterface {
 
   protected $_contactID;
 
@@ -34,7 +27,7 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
 
   protected $paymentProcessor;
 
-  public static function setUpBeforeClass() {
+  public static function setUpBeforeClass(): void {
     // See: https://docs.civicrm.org/dev/en/latest/testing/phpunit/#civitest
 
     // Example: Install this extension. Don't care about anything else.
@@ -47,16 +40,16 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     // \Civi\Test::e2e()->uninstall('*')->install('org.civicrm.*')->apply();
   }
 
-  public function setUp() {
+  public function setUp(): void {
     //    $this->useTransaction(TRUE);
     parent::setUp();
   }
 
-  public function tearDown() {
+  public function tearDown(): void {
     parent::tearDown();
   }
 
-  public function testEventRegistration() {
+  public function testEventRegistration(): void {
     $ppid = $this->createPaymentProcessor();
     civicrm_api3('Event', 'create', [
       'id' => 3,
@@ -161,7 +154,7 @@ class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements En
     $this->assertEquals('Registered', $pp_result['values'][0]['api.Participant.getsingle']['participant_status']);
   }
 
-  public function testContributionPage() {
+  public function testContributionPage(): void {
     $ppid = $this->createPaymentProcessor();
     civicrm_api3('ContributionPage', 'create', [
       'sequential' => 1,

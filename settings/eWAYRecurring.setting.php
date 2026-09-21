@@ -49,4 +49,45 @@ return [
     'html_type' => 'checkbox',
     'quick_form_type' => 'YesNo',
   ],
+  'eway_settlement_window_days' => [
+    'group_name' => 'eWay Recurring Settings',
+    'group' => 'eWAYRecurring',
+    'name' => 'eway_settlement_window_days',
+    'type' => 'Integer',
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'default' => '10',
+    'description' => 'Settlement sync window, in days back from today. Covers which Completed eWAY contributions are treated as still awaiting reconciliation and how many calendar days of eWAY settlement reports are queried each run. Contributions older than this require standard manual reconciliation.',
+    'title' => 'Settlement Sync: Window (days)',
+    'help_text' => 'Days back from today for the settlement sync window. Covers both contribution candidacy and the eWAY settlement report date range.',
+    'html_type' => 'Text',
+    'html_attributes' => [
+      'size' => 10,
+    ],
+    'quick_form_type' => 'Element',
+  ],
+  'eway_settlement_processors' => [
+    'group_name' => 'eWay Recurring Settings',
+    'group' => 'eWAYRecurring',
+    'name' => 'eway_settlement_processors',
+    // 'Array' (not 'String' + serialize): the settings form writes via APIv3,
+    // which flattens arrays for type String into a legacy delimited string and
+    // ignores 'serialize'. Type Array is stored/read as an array on every path.
+    'type' => 'Array',
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'default' => [],
+    'title' => 'Settlement Sync: Payment Processors',
+    'description' => 'Which eWAY payment processors the settlement sync covers. If none are selected the settlement sync does nothing.',
+    'help_text' => 'Select the eWAY payment processors that are configured for settlement reporting on the eWAY side. Leave empty to disable the settlement sync entirely.',
+    'html_type' => 'Select',
+    'quick_form_type' => 'Select',
+    'pseudoconstant' => [
+      'callback' => 'CRM_eWAYRecurring_SettlementSync::getSettlementProcessorOptions',
+    ],
+    'html_attributes' => [
+      'multiple' => 'multiple',
+      'class' => 'crm-select2 huge',
+    ],
+  ],
 ];

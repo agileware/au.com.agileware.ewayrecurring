@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" backupGlobals="false" backupStaticAttributes="false" colors="true" convertErrorsToExceptions="true" convertNoticesToExceptions="true" convertWarningsToExceptions="true" processIsolation="false" stopOnFailure="false" bootstrap="tests/phpunit/bootstrap.php" cacheResult="false" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd">
+  <coverage>
+    <include>
+      <directory suffix=".php">./</directory>
+    </include>
+  </coverage>
+  <testsuites>
+    <testsuite name="My Test Suite">
+      <directory>./tests/phpunit</directory>
+    </testsuite>
+  </testsuites>
+  <groups>
+    <!-- e2e tests need a real, network-reachable site and live eWAY sandbox
+         credentials; they don't run under CIVICRM_UF=UnitTests. Run them
+         explicitly with phpunit9's own "group e2e" option, in a suitable
+         environment. -->
+    <exclude>
+      <group>e2e</group>
+    </exclude>
+  </groups>
+  <listeners>
+    <listener class="Civi\Test\CiviTestListener">
+      <arguments/>
+    </listener>
+  </listeners>
+</phpunit>
