@@ -15,8 +15,8 @@
     <email>support@agileware.com.au</email>
   </maintainer>
   <develStage>stable</develStage>
-  <releaseDate>2026-09-12</releaseDate>
-  <version>2.7.9</version>
+  <releaseDate>2026-09-21</releaseDate>
+  <version>2.8.0</version>
   <compatibility>
     <ver>5.82</ver>
   </compatibility>
