@@ -861,29 +861,23 @@ class CRM_eWAYRecurring_SettlementSyncTest extends \PHPUnit\Framework\TestCase i
     $this->assertEquals(0.40, $b['fee_amount'], 'Processor B still processed after A failed');
   }
 
-  public function testSyncDoesNotMatchContributionAgainstAnotherProcessorsSettlement(): void {
+  public function testTrxnIdCollisionAcrossProcessorsCannotBeCreated(): void {
+    // SettlementSync matches contributions by trxn_id, so it could in
+    // principle mis-reconcile contribution B using a settlement record
+    // meant for contribution A if the two ever shared a trxn_id across
+    // different processors. That can't happen: civicrm_contribution.trxn_id
+    // carries a DB-level unique index (UI_contrib_trxn_id), so CiviCRM
+    // itself refuses to create a second Completed contribution with a
+    // trxn_id that already exists, whichever processor it belongs to. This
+    // documents that guarantee, rather than exercising sync() against a
+    // state the schema makes unreachable.
     $processorA = $this->createEwayProcessor(FALSE);
     $processorB = $this->createEwayProcessor(FALSE);
-    $cidA = $this->createCompletedEwayContribution($processorA, 'DUP', 100.00);
-    $cidB = $this->createCompletedEwayContribution($processorB, 'DUP', 100.00);
-    $this->allowProcessors($processorA, $processorB);
+    $this->createCompletedEwayContribution($processorA, 'DUP', 100.00);
 
-    // A is visited first (2 days), then B (2 days), because getProcessorsById()
-    // orders by `id ASC` and A was created first (do not remove that ORDER BY).
-    // Only A's first day carries DUP.
-    $sync = $this->syncWithMockedHttp([
-      $this->makeSettlementResponse([['TransactionID' => 'DUP', 'FeePerTransaction' => 55, 'Amount' => 10000]]),
-      $this->makeSettlementResponse([]),
-      $this->makeSettlementResponse([]),
-      $this->makeSettlementResponse([]),
-    ]);
-
-    $sync->sync();
-
-    $a = Contribution::get(FALSE)->addWhere('id', '=', $cidA)->addSelect('fee_amount')->execute()->first();
-    $b = Contribution::get(FALSE)->addWhere('id', '=', $cidB)->addSelect('fee_amount')->execute()->first();
-    $this->assertEquals(0.55, $a['fee_amount'], 'Processor A contribution reconciled from A settlement');
-    $this->assertEquals(0.00, $b['fee_amount'], 'Processor B contribution NOT reconciled from A settlement despite trxn_id collision');
+    $this->expectException(\CRM_Core_Exception::class);
+    $this->expectExceptionMessage('Duplicate error');
+    $this->createCompletedEwayContribution($processorB, 'DUP', 100.00);
   }
 
   public function testSyncScopedOlderThanWindowMakesNoHttpCall(): void {
