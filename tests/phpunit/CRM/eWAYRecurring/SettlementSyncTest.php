@@ -867,17 +867,21 @@ class CRM_eWAYRecurring_SettlementSyncTest extends \PHPUnit\Framework\TestCase i
     // meant for contribution A if the two ever shared a trxn_id across
     // different processors. That can't happen: civicrm_contribution.trxn_id
     // carries a DB-level unique index (UI_contrib_trxn_id), so CiviCRM
-    // itself refuses to create a second Completed contribution with a
-    // trxn_id that already exists, whichever processor it belongs to. This
-    // documents that guarantee, rather than exercising sync() against a
-    // state the schema makes unreachable.
-    $processorA = $this->createEwayProcessor(FALSE);
-    $processorB = $this->createEwayProcessor(FALSE);
-    $this->createCompletedEwayContribution($processorA, 'DUP', 100.00);
-
-    $this->expectException(\CRM_Core_Exception::class);
-    $this->expectExceptionMessage('Duplicate error');
-    $this->createCompletedEwayContribution($processorB, 'DUP', 100.00);
+    // itself refuses to create a second contribution with a trxn_id that
+    // already exists, whichever processor it belongs to.
+    //
+    // This asserts the index rather than provoking the duplicate-key error:
+    // a Contribution::create() failure inside CiviCRM's nested transaction
+    // marks it for rollback and breaks later tests in the same run.
+    $nonUnique = \CRM_Core_DAO::singleValueQuery(
+      "SELECT non_unique FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name = 'civicrm_contribution'
+         AND index_name = 'UI_contrib_trxn_id'
+         AND column_name = 'trxn_id'"
+    );
+    $this->assertNotNull($nonUnique, 'UI_contrib_trxn_id index exists on civicrm_contribution.trxn_id');
+    $this->assertSame(0, (int) $nonUnique, 'trxn_id index is unique, so cross-processor collisions cannot exist');
   }
 
   public function testSyncScopedOlderThanWindowMakesNoHttpCall(): void {

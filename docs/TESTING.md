@@ -2,16 +2,16 @@
 
 ## Running Tests
 
-Tests use PHPUnit 9 with CiviCRM's headless test framework. Run from the extension root:
-
-```bash
-phpunit9 tests/phpunit/CRM/eWAYRecurring/SettlementSyncTest.php
-```
-
-Or to run all test suites (using `phpunit.xml.dist`):
+Tests use PHPUnit 9 with CiviCRM's headless test framework. Run the full suite from the extension root:
 
 ```bash
 phpunit9
+```
+
+Or a single file:
+
+```bash
+phpunit9 tests/phpunit/CRM/eWAYRecurring/SettlementSyncTest.php
 ```
 
 The bootstrap file (`tests/phpunit/bootstrap.php`) uses `cv php:boot` to initialise CiviCRM. Run tests from a directory where `cv` can locate your CiviCRM installation.
@@ -21,23 +21,23 @@ The bootstrap file (`tests/phpunit/bootstrap.php`) uses `cv php:boot` to initial
 ```
 tests/phpunit/
   CRM/
-    eWAYRecurring/         ← Active tests (current pattern)
-      SettlementSyncTest.php
-    EwayRecurring/         ← Legacy tests (currently broken — see below)
-      MyTest.php
-      E2ETest.php
-      TestCase.php
+    eWAYRecurring/
+      SettlementSyncTest.php  ← headless (default run)
+      E2ETest.php             ← @group e2e (excluded by default - see below)
 ```
 
-## Known Issues: Legacy Tests
+## End-to-end tests
 
-The tests in `tests/phpunit/CRM/EwayRecurring/` are currently broken and not part of the active test suite:
+`E2ETest.php` drives real HTTP requests against a live, network-reachable
+CiviCRM site and the actual eWAY sandbox gateway - it doesn't run under
+`CIVICRM_UF=UnitTests` like the headless tests do, and needs a properly
+configured site plus live eWAY sandbox credentials. `phpunit.xml.dist`
+excludes `@group e2e` from the default `phpunit9` run; run it explicitly
+in a suitable environment:
 
-- **Wrong base class:** They extend `CiviUnitTestCase`, which is no longer compatible with this extension's test bootstrap. The correct pattern uses `PHPUnit\Framework\TestCase` with `HeadlessInterface`, `HookInterface`, and `TransactionalInterface`.
-- **Syntax error:** `MyTest.php` line 75 has a mismatched quote in a string literal (`'name => "eWay test'`), causing a parse error.
-- **Wrong directory casing:** The `EwayRecurring` directory name doesn't match the PSR-0 convention for classes in the `CRM_eWAYRecurring_` namespace.
-
-These tests should be migrated to the `CRM/eWAYRecurring/` directory and rewritten to use the current pattern. This is tracked as a separate piece of work.
+```bash
+phpunit9 --group e2e
+```
 
 ## Writing New Tests
 

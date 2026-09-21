@@ -146,6 +146,7 @@ class CRM_eWAYRecurring_SettlementSync {
       ->addWhere('trxn_id', 'IS NOT NULL')
       ->addWhere('trxn_id', 'IS NOT EMPTY')
       ->addGroupBy('id')
+      ->addGroupBy('processor.id')
       ->addOrderBy('id', 'ASC');
 
     $cutoffDate = date('Y-m-d H:i:s', strtotime('-' . $this->getWindowDays() . ' days'));

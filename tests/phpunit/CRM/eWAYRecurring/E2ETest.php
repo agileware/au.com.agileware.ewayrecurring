@@ -1,29 +1,22 @@
 <?php
 
-use CRM_eWAYRecurring_ExtensionUtil as E;
 use Civi\Test\EndToEndInterface;
 
 /**
- * FIXME - Add test description.
+ * End-to-end tests for paid event registration and contribution page
+ * checkout through the eWAY Recurring payment processor.
  *
- * Tips:
- *  - The global variable $_CV has some properties which may be useful, such
- * as:
- *    CMS_URL, ADMIN_USER, ADMIN_PASS, ADMIN_EMAIL, DEMO_USER, DEMO_PASS,
- * DEMO_EMAIL.
- *  - To spawn a new CiviCRM thread and execute an API call or PHP code, use
- * cv(), e.g. cv('api system.flush');
- *      $data = cv('eval "return Civi::settings()->get(\'foobar\')"');
- *      $dashboardUrl = cv('url civicrm/dashboard');
- *  - This template uses the most generic base-class, but you may want to use a
- * more powerful base class, such as \PHPUnit_Extensions_SeleniumTestCase or
- *    \PHPUnit_Extensions_Selenium2TestCase.
- *    See also: https://phpunit.de/manual/4.8/en/selenium.html
+ * Unlike the extension's headless tests (see SettlementSyncTest), these
+ * drive real HTTP requests against a live, network-reachable CiviCRM site
+ * and the real eWAY sandbox gateway - CIVICRM_UF=UnitTests headless boot
+ * doesn't apply here. Run explicitly with `phpunit9 --group e2e` against
+ * a site configured with a live eWAY sandbox account; phpunit.xml.dist
+ * excludes this group from the default run.
  *
  * @group e2e
  * @see cv
  */
-class CRM_EwayRecurring_E2ETest extends CRM_EwayRecurring_TestCase implements EndToEndInterface {
+class CRM_eWAYRecurring_E2ETest extends \PHPUnit\Framework\TestCase implements EndToEndInterface {
 
   protected $_contactID;
 
