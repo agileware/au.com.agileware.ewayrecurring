@@ -1,0 +1,27 @@
+services:
+  mariadb:
+    image: mariadb:10
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wp_user
+      MYSQL_PASSWORD: wp_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  wordpress:
+    image: docker.io/agilewareprojects/wordpress:pipeline-latest
+    depends_on:
+      - mariadb
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wp_user
+      WORDPRESS_DB_PASSWORD: wp_pass
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html/wp-content/uploads/civicrm/ext/au.com.agileware.ewayrecurring
+
+volumes:
+  mariadb_data:
