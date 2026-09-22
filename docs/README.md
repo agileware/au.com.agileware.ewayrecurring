@@ -18,7 +18,7 @@ failed payments. Provides:
 * Automatic backfill of saved card metadata (expiry date, masked number) via the eWay Rapid API
 * Automated reconciliation of a contribution's Fee Amount / Net Amount against eWay's Settlement Reports API (opt-in, disabled by default)
 
-This extension is licensed under [GPL-3.0](../LICENSE.txt).
+This extension is licensed under [GPL-3.0](https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/LICENSE.txt).
 
 You will need an [eWay account](https://eway.com.au) with Rapid API access to
 use this payment processor on your CiviCRM website.
@@ -90,7 +90,7 @@ APIs, this extension exposes:
 
 ## Upgrade instructions
 
-If you are changing from a different eWay Payment Processor or upgrading from eWay Recurring 1.x, please read the [Upgrade Instructions](UPGRADE.md)
+If you are changing from a different eWay Payment Processor or upgrading from eWay Recurring 1.x, please read the [Upgrade Instructions](https://github.com/agileware/au.com.agileware.ewayrecurring/blob/master/docs/UPGRADE.md)
 
 ## eWay API Key and Password
 
@@ -111,7 +111,7 @@ This is required for any CiviCRM site which is operating behind a proxy server s
 
 This can be indicated by eWay error response with text: _Function Not Permitted to Terminal_
 
-![Allow Beagle Alerts Customer IP Override](img/eway-customer-ip-override.png)
+![Allow Beagle Alerts Customer IP Override](https://github.com/agileware/au.com.agileware.ewayrecurring/raw/master/docs/img/eway-customer-ip-override.png)
 
 ## Recommended eWay Shared Page Settings
 
@@ -135,11 +135,11 @@ To change the **Redirect After Payment Processing** option:
 
 For more details see, [https://go.eway.io/s/article/Can-I-customize-the-eWAY-hosted-Payment-page?language=en_US](https://go.eway.io/s/article/Can-I-customize-the-eWAY-hosted-Payment-page?language=en_US)
 
-![Redirect After Payment Processing](img/eway-shared-page-settings.png)
+![Redirect After Payment Processing](https://github.com/agileware/au.com.agileware.ewayrecurring/raw/master/docs/img/eway-shared-page-settings.png)
 
 Recommended setting for **Redirect After Payment Processing** is **0 seconds**.
 
-![Redirect After Payment Processing](img/eway-shared-page-redirect-after-payment-delay.png)
+![Redirect After Payment Processing](https://github.com/agileware/au.com.agileware.ewayrecurring/raw/master/docs/img/eway-shared-page-redirect-after-payment-delay.png)
 
 ## eWay Transactions Verification
 
@@ -253,4 +253,4 @@ Support your Australian [CiviCRM](https://civicrm.org) developers, [contact
 Agileware](https://agileware.com.au/contact) today!
 
 
-![Agileware](logo/agileware-logo.png)
+![Agileware](https://github.com/agileware/au.com.agileware.ewayrecurring/raw/master/docs/logo/agileware-logo.png)
