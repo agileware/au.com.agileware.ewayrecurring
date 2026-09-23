@@ -297,7 +297,7 @@ function ewayrecurring_civicrm_coreResourceList(&$list, $region) {
     foreach ($result['values'][0]['api.PaymentProcessor.get']['values'] as $pp) {
       $ids[] = $pp['id'];
     }
-    CRM_Core_Resources::singleton()->addVars('agilewareEwayExtension', array('paymentProcessorId' => $ids));
+    CRM_Core_Resources::singleton()->addVars('agilewareEwayExtension', ['paymentProcessorId' => $ids]);
   }
 }
 
