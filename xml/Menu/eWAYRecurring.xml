@@ -22,10 +22,14 @@
         <path>civicrm/ewayrecurring/createtoken</path>
         <page_callback>CRM_eWAYRecurring_PaymentToken::createToken</page_callback>
         <access_arguments>access CiviContribute</access_arguments>
+        <is_ajax>true</is_ajax>
     </item>
     <item>
         <path>civicrm/ewayrecurring/savetoken</path>
         <page_callback>CRM_eWAYRecurring_PaymentToken::saveToken</page_callback>
         <access_arguments>make online contributions</access_arguments>
+        <!-- Not a pure AJAX endpoint: eWAY also redirects the browser here directly
+             after the hosted payment page, so the XHR/CSRF guard must stay off. -->
+        <is_ajax>false</is_ajax>
     </item>
 </menu>
