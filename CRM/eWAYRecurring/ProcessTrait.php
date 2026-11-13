@@ -214,8 +214,9 @@ trait CRM_eWAYRecurring_ProcessTrait {
           $new_contribution_record['is_email_receipt'] = Civi::settings()
             ->get('eway_recurring_keep_sending_receipts');
 
-          if ($contribution->failure_count > 0 && $contribution->contribution_status_id == CRM_eWAYRecurring_Utils::contribution_status_id('Failed')) {
-            // Failed recurring contribution completed successfuly after several retry.
+          if ($contribution->failure_count > 0) {
+            // A recurring contribution that had failed was charged successfully on a retry. It is still
+            // In Progress while it is being retried, so this cannot depend on it being marked Failed.
             $this->update_contribution_status($next_sched, $contribution);
             CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
               $contribution->id,
@@ -370,14 +371,23 @@ trait CRM_eWAYRecurring_ProcessTrait {
         ->info('eWAY Recurring: Couldn\'t record failure activity: ' . $e->getMessage());
     }
 
-    civicrm_api3('ContributionRecur', 'create', [
+    $params = [
       'id' => $contribution->id,
       'failure_count' => (++$contribution->failure_count),
       'failure_retry_date' => $today->format("Y-m-d H:i:s"),
-      // CIVIEWAY-125: Don't actually mark as failed, because that causes the UI
+      // CIVIEWAY-125: Don't mark it as failed while retries remain, because that causes the UI
       // to melt down.
-      // 'contribution_status_id' => _contribution_status_id('Failed'),
-    ]);
+    ];
+
+    // Once the maximum number of retries is used up nothing will charge it again (the retry list
+    // stops at this count), so mark it Failed. That is what puts it on the "Failed Recurring
+    // Contributions" list and in the system status check, and what Reactivate resets.
+    $maxRetries = (int) Civi::settings()->get('eway_recurring_contribution_max_retry');
+    if ($contribution->failure_count >= $maxRetries) {
+      $params['contribution_status_id'] = CRM_eWAYRecurring_Utils::contribution_status_id('Failed', TRUE);
+    }
+
+    civicrm_api3('ContributionRecur', 'create', $params);
   }
 
   /**
