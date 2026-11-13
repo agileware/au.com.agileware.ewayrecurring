@@ -26,11 +26,12 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
       $paymentProcessorInfo = $paymentProcessorInfo[0];
       $paymentProcessor = new CRM_Core_Payment_eWAYRecurring(($paymentProcessorInfo['is_test']) ? 'test' : 'live', $paymentProcessorInfo);
 
+      $response = NULL;
       try {
         // This function will do redirect if the payment failed
         $response = CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $contributionInvoiceID);
       } catch (CRM_Core_Exception $e) {
-      } catch (CRM_Core_Exception $e) {
+        // Treated as neither success nor failure: the request is rejected below.
       }
 
       // payment success
