@@ -68,21 +68,21 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **243**. Done: **0**. In progress: **0**. Blocked: **67**. To do: **175**. Dropped (`n/a`): **1** (UP-07).
+Cases defined: **244**. Done: **0**. In progress: **48**. Blocked: **9**. To do: **186**. Dropped (`n/a`): **1** (UP-07).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | PU-A | PHPUnit | `ProcessorBasicsTest` | 10 | 0 | 0 | 0 | 10 | 0 | none |
-| PU-B | PHPUnit | `DoPaymentTest` | 17 | 0 | 0 | 17 | 0 | 0 | S1 |
+| PU-B | PHPUnit | `DoPaymentTest` | 17 | 0 | 0 | 0 | 17 | 0 | none (S1 done) |
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 0 | 0 | 0 | 3 | 0 | none |
-| PU-D | PHPUnit | `ValidateContributionTest` | 12 | 0 | 0 | 11 | 1 | 0 | S1 |
-| PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 0 | 0 | 9 | 3 | 0 | S1 |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 23 | 0 | 0 | 15 | 8 | 0 | S1 |
-| PU-G | PHPUnit | `PaymentTokenTest` | 10 | 0 | 0 | 9 | 1 | 0 | S1 |
+| PU-D | PHPUnit | `ValidateContributionTest` | 12 | 0 | 12 | 0 | 0 | 0 | none (S1 done) |
+| PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 0 | 12 | 0 | 0 | 0 | none (S1 done) |
+| PU-F | PHPUnit | `RecurringProcessingTest` | 24 | 0 | 24 | 0 | 0 | 0 | none (S1 done) |
+| PU-G | PHPUnit | `PaymentTokenTest` | 10 | 0 | 0 | 3 | 7 | 0 | none (S1 done); PU-G8 to G10 need the `die()` refactor |
 | PU-H | PHPUnit | `HooksAndManagedTest` | 12 | 0 | 0 | 0 | 12 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
 | PU-J | PHPUnit | `SettingsFormTest` | 7 | 0 | 0 | 0 | 7 | 0 | none |
-| PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 6 | 0 | 0 | S1 and page refactor |
+| PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 6 | 0 | 0 | page refactor |
 | PU-L | PHPUnit | `SchemaAndUpgradeTest` | 5 | 0 | 0 | 0 | 5 | 0 | none |
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 0 | 0 | 0 | 4 | 0 | none |
 | PU-N | PHPUnit | `SubscriptionManagementTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
@@ -401,13 +401,16 @@ Defect status values: `Open, unconfirmed` (observed in review, not yet pinned by
 | --- | --- | --- | --- | --- |
 | DEF-1 | Open, unconfirmed | `CRM_Core_Payment_eWAYRecurring::getInstance()` | `$mode = empty($paymentProcessor['is_test']) ? 'test' : 'live'` looks inverted (a live processor gets mode `test`). `Utils::validateEwayContribution` then filters contributions by `is_test` from that mode. `VerifyPayment` builds the object with the correct mapping. Whether core ever routes through `getInstance` for these paths needs confirming. | PU-A5, PU-D12 |
 | DEF-2 | Open, unconfirmed | `doPayment()`, repeat-submit branch | `$priorAccessCode` is the access code **string**, but is then read as `$priorAccessCode['status']` and `['failed_message']`. That is never a valid lookup, so the "already succeeded / already failed" shortcuts cannot work and, on PHP 8, throw. | PU-B12, PW-F1-07 |
-| DEF-3 | Open, unconfirmed | `ewayrecurring_civicrm_check()` and `get_scheduled_failed_contributions()` | The check and the Failed Recurring list look for recurring status `Failed`/`Failing`, but `mark_recurring_contribution_failed()` deliberately does not set that status (CIVIEWAY-125). It is not clear what ever moves a recurring contribution to Failed once retries are exhausted, so the status check and the "Failed" listing may never show the contributions they exist for. | PU-F14, PU-H12, PW-B-failed-02 |
-| DEF-4 | Open, unconfirmed | `Utils::validatePendingTransactions()` | `require_once 'vendor/autoload.php'` is relative to the current working directory, so it can fail when the job runs from another directory. | PU-E12 |
+| DEF-3 | Pinned | `ewayrecurring_civicrm_check()` and `get_scheduled_failed_contributions()` | The check and the Failed Recurring list look for recurring status `Failed`/`Failing`, but `mark_recurring_contribution_failed()` deliberately does not set that status (CIVIEWAY-125). It is not clear what ever moves a recurring contribution to Failed once retries are exhausted, so the status check and the "Failed" listing may never show the contributions they exist for. | PU-F14, PU-H12, PW-B-failed-02 **Update:** PU-F14 and PU-F15 confirm it, and show more: the code that restores a recurring contribution and records a success activity after retries is unreachable, because it needs status Failed while the retry list only selects In Progress. |
+| DEF-4 | Pinned (not reproduced) | `Utils::validatePendingTransactions()` | `require_once 'vendor/autoload.php'` is relative to the current working directory, so it can fail when the job runs from another directory. | PU-E12 **Update:** PU-E12 runs the job from another directory and it succeeds in the test environment, so this may only fail where PHP's include path does not cover the extension. Low priority. |
 | DEF-5 | Open, unconfirmed | `VerifyPayment::run()` | `$response` is undefined if the call throws; duplicated `catch (CRM_Core_Exception)` blocks. Harmless today but fragile. | PU-K3 |
-| DEF-6 | Open, unconfirmed | `process_recurring_payments()` amount handling | `$amount_in_cents` is derived with a regex that strips the decimal point, which is only right for amounts with exactly two decimals ("10.5" would become 105 cents). | PU-F8 |
+| DEF-6 | Pinned (low impact) | `process_recurring_payments()` amount handling | `$amount_in_cents` is derived with a regex that strips the decimal point, which is only right for amounts with exactly two decimals ("10.5" would become 105 cents). | PU-F8 **Update:** the database stores amounts with exactly two decimals, so the only effect is a leading zero for amounts under a dollar ("099"). PU-F8. |
 | DEF-7 | Open, unconfirmed | `ProcessTrait::send_receipt_email` | Unused (the only call site is commented out). Dead code. | none, flag only |
 | DEF-8 | Open, unconfirmed | `ewayrecurring_civicrm_postInstall()` | Sets schema version 20200 while upgrade steps run to 20601. Check a fresh install does not replay or skip steps. | PU-L2 |
 | DEF-9 | Open, unconfirmed | `saveToken()` | `$cid` is parsed from the eWAY customer `Reference` with a regex and used with no check that it exists, and `queryTransaction(...)->Transactions[0]` is dereferenced with no check. Malformed or hostile responses cause a fatal. | PU-G9, PW-S-02 |
+| DEF-10 | Pinned | `ProcessTrait::mark_recurring_contribution_failed()` and the success branch of `process_recurring_payments()` | The "eWay Transaction Failed" and "eWay Transaction Succeeded" activities are never created on CiviCRM 6.16: the code passes the option's label to `Activity.create`, which only accepts the name (`eWay_Transaction_Failed`), so the call is rejected and the exception is caught and logged. Found while writing PU-F13. | PU-F13, PU-F15 |
+| DEF-11 | Pinned | `ProcessTrait::process_payment()` | The guard against two consecutive responses with the same TransactionID uses `static $prev_response; $prev_response = &$eWayResponse;`. PHP does not keep a reference assigned to a static between calls, so the guard never fires. CiviCRM's own duplicate check catches it later (the second charge ends Pending). | PU-F20 |
+| DEF-12 | Pinned | `process_recurring_payments()` | A contact with no address at all makes the job read `$billing_address['id']` on null, raising a PHP warning. The charge still proceeds. | PU-F24 |
 
 ---
 
@@ -434,23 +437,23 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-B1 | blocked | Zero amount returns Completed without calling eWAY |
-| PU-B2 | blocked | Amount parsing: `"1,234.50"`, `"10"`, `"0.05"` become the right cents |
-| PU-B3 | blocked | Front-end payload: `RESPONSIVE_SHARED`, `SaveCustomer`, `Capture`, `CustomerReadOnly`, `Options.ContributionID`, `TransactionType` PURCHASE |
-| PU-B4 | blocked | Back-office without CVV setting uses MOTO; with `cvv_backoffice_required` uses PURCHASE |
-| PU-B5 | blocked | Invoice number is the first 12 characters of the invoice id; reference 50, description 64; blank description falls back to `Invoice ID: ...`; non-ASCII stripped |
-| PU-B6 | blocked | `alterPaymentProcessorParams` hook runs and can change the payload |
-| PU-B7 | blocked | Duplicate invoice (`checkDupe`) fails with the documented message and sets status Failed |
-| PU-B8 | blocked | Gateway returns errors: `PaymentProcessorException` containing each translated message, params status Failed |
-| PU-B9 | blocked | Null client response: failure message, no queue row |
-| PU-B10 | blocked | Success creates one `EwayContributionTransactions` row (access code, contribution, processor, `is_email_receipt` defaulting to 1) and redirects to `SharedPaymentUrl` |
-| PU-B11 | blocked | Session stores the serialised response under the `qfKey` |
-| PU-B12 | blocked | Repeat submit with matching and non-matching prior access code (characterises DEF-2) |
-| PU-B13 | blocked | Back office: valid token sends `TokenCustomerID` (first 16 characters) and MOTO |
-| PU-B14 | blocked | Back office: missing or unknown token fails with "valid credit card token" |
-| PU-B15 | blocked | Back office with `contributionRecurID`: `processor_id` and `payment_token_id` written to the recurring record |
-| PU-B16 | blocked | Back office with `is_recur` but no recurring id: the "update the credit card manually" status message |
-| PU-B17 | blocked | Back office success sets `payment_status_id` Completed and `trxn_id`; declined transaction fails with the translated message |
+| PU-B1 | todo | Zero amount returns Completed without calling eWAY |
+| PU-B2 | todo | Amount parsing: `"1,234.50"`, `"10"`, `"0.05"` become the right cents |
+| PU-B3 | todo | Front-end payload: `RESPONSIVE_SHARED`, `SaveCustomer`, `Capture`, `CustomerReadOnly`, `Options.ContributionID`, `TransactionType` PURCHASE |
+| PU-B4 | todo | Back-office without CVV setting uses MOTO; with `cvv_backoffice_required` uses PURCHASE |
+| PU-B5 | todo | Invoice number is the first 12 characters of the invoice id; reference 50, description 64; blank description falls back to `Invoice ID: ...`; non-ASCII stripped |
+| PU-B6 | todo | `alterPaymentProcessorParams` hook runs and can change the payload |
+| PU-B7 | todo | Duplicate invoice (`checkDupe`) fails with the documented message and sets status Failed |
+| PU-B8 | todo | Gateway returns errors: `PaymentProcessorException` containing each translated message, params status Failed |
+| PU-B9 | todo | Null client response: failure message, no queue row |
+| PU-B10 | todo | Success creates one `EwayContributionTransactions` row (access code, contribution, processor, `is_email_receipt` defaulting to 1) and redirects to `SharedPaymentUrl` |
+| PU-B11 | todo | Session stores the serialised response under the `qfKey` |
+| PU-B12 | todo | Repeat submit with matching and non-matching prior access code (characterises DEF-2) |
+| PU-B13 | todo | Back office: valid token sends `TokenCustomerID` (first 16 characters) and MOTO |
+| PU-B14 | todo | Back office: missing or unknown token fails with "valid credit card token" |
+| PU-B15 | todo | Back office with `contributionRecurID`: `processor_id` and `payment_token_id` written to the recurring record |
+| PU-B16 | todo | Back office with `is_recur` but no recurring id: the "update the credit card manually" status message |
+| PU-B17 | todo | Back office success sets `payment_status_id` Completed and `trxn_id`; declined transaction fails with the translated message |
 
 ### PU-C `ReturnUrlsTest`
 
@@ -464,35 +467,35 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-D1 | blocked | `validateEwayAccessCode`: approved, declined (message prefixed "Your payment was declined"), eWAY errors (joined with comma), no response (error code 1001), transaction id empty means not processed yet |
-| PU-D2 | blocked | `validatingUpdateToken = TRUE` skips the transaction status checks |
-| PU-D3 | blocked | Approved pending contribution is completed via `completetransaction` with the transaction id and processor id |
-| PU-D4 | blocked | Only Pending contributions are touched; an already Completed one is left alone |
-| PU-D5 | blocked | Receipt flag comes from the queue row (`is_email_receipt` 0 and 1) |
-| PU-D6 | blocked | Declined: contribution set to Failed with `trxn_id`, `is_email_receipt` 0 |
-| PU-D7 | blocked | Not processed yet: nothing changes |
-| PU-D8 | blocked | Recurring: token id read from either response location (`TokenCustomerID` at top level, or under `Transactions[0]`) |
-| PU-D9 | blocked | Recurring approved: recurring record becomes In Progress, `processor_id` and `payment_token_id` set, `next_sched_contribution_date` computed from interval and unit, `trxn_id` stored |
-| PU-D10 | blocked | `updateCustomerDetails`: creates a new `PaymentToken` (masked number, expiry as last day of month, billing name), updates the existing token when `payment_token_id` is set, returns null when the customer has no card details |
-| PU-D11 | todo | `completeEWayTransaction` marks the queue row success, silently ignores an unknown access code |
-| PU-D12 | blocked | `validateEwayContribution` ignores non-eWAY processors, zero-amount contributions, unknown invoice ids, and respects live/test (`is_test`) |
+| PU-D1 | wip | `validateEwayAccessCode`: approved, declined (message prefixed "Your payment was declined"), eWAY errors (joined with comma), no response (error code 1001), transaction id empty means not processed yet **Note:** the "no response (error code 1001)" branch cannot be reached: the SDK always returns a response object, and a connection failure arrives as an error response, which is what is tested. |
+| PU-D2 | wip | `validatingUpdateToken = TRUE` skips the transaction status checks |
+| PU-D3 | wip | Approved pending contribution is completed via `completetransaction` with the transaction id and processor id |
+| PU-D4 | wip | Only Pending contributions are touched; an already Completed one is left alone |
+| PU-D5 | wip | Receipt flag comes from the queue row (`is_email_receipt` 0 and 1) |
+| PU-D6 | wip | Declined: contribution set to Failed with `trxn_id`, `is_email_receipt` 0 |
+| PU-D7 | wip | Not processed yet: nothing changes |
+| PU-D8 | wip | Recurring: token id read from either response location (`TokenCustomerID` at top level, or under `Transactions[0]`) **Note:** only the nested location can occur through the SDK (the response model has no top-level `TokenCustomerID`); the top-level branch is tested directly. |
+| PU-D9 | wip | Recurring approved: recurring record becomes In Progress, `processor_id` and `payment_token_id` set, `next_sched_contribution_date` computed from interval and unit, `trxn_id` stored |
+| PU-D10 | wip | `updateCustomerDetails`: creates a new `PaymentToken` (masked number, expiry as last day of month, billing name), updates the existing token when `payment_token_id` is set, returns null when the customer has no card details |
+| PU-D11 | wip | `completeEWayTransaction` marks the queue row success, silently ignores an unknown access code |
+| PU-D12 | wip | `validateEwayContribution` ignores non-eWAY processors, zero-amount contributions, unknown invoice ids, and respects live/test (`is_test`) |
 
 ### PU-E `PendingTransactionsTest`
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-E1 | todo | `EwayContributionTransactions` create / get / delete round trip, defaults (`status` 0, `tries` 0, `is_email_receipt` 1) |
-| PU-E2 | todo | Deleting the contribution or processor cascades to the queue row (FK) |
-| PU-E3 | blocked | `validate`: success path, `tries` incremented, status Success, summary counts correct |
-| PU-E4 | blocked | Failure path: status Failed, `failed_message` stored |
-| PU-E5 | blocked | Failure on a recurring contribution calls `mark_recurring_contribution_failed` |
-| PU-E6 | blocked | Not-processed-yet leaves status 0 and still increments `tries` |
-| PU-E7 | blocked | Missing contribution or processor deletes the queue row and counts `deleted` |
-| PU-E8 | blocked | Rows with `tries >= MAX_TRIES (7)` mark the contribution Failed and the row Failed |
-| PU-E9 | todo | Rows already Success or Failed are not re-queried |
-| PU-E10 | blocked | `EwayContributionTransactions.validate` returns the four counters via the API |
-| PU-E11 | blocked | Mixed batch of every outcome in one run |
-| PU-E12 | blocked | Runs when current directory is not the extension root (characterises DEF-4) |
+| PU-E1 | wip | `EwayContributionTransactions` create / get / delete round trip, defaults (`status` 0, `tries` 0, `is_email_receipt` 1) |
+| PU-E2 | wip | Deleting the contribution or processor cascades to the queue row (FK) |
+| PU-E3 | wip | `validate`: success path, `tries` incremented, status Success, summary counts correct |
+| PU-E4 | wip | Failure path: status Failed, `failed_message` stored |
+| PU-E5 | wip | Failure on a recurring contribution calls `mark_recurring_contribution_failed` |
+| PU-E6 | wip | Not-processed-yet leaves status 0 and still increments `tries` |
+| PU-E7 | wip | Missing contribution or processor deletes the queue row and counts `deleted` **Note:** the processor case is removed by the foreign key before the job runs, so the job's own clean-up is tested with a contribution that is no longer Pending. |
+| PU-E8 | wip | Rows with `tries >= MAX_TRIES (7)` mark the contribution Failed and the row Failed |
+| PU-E9 | wip | Rows already Success or Failed are not re-queried |
+| PU-E10 | wip | `EwayContributionTransactions.validate` returns the four counters via the API |
+| PU-E11 | wip | Mixed batch of every outcome in one run |
+| PU-E12 | wip | Runs when current directory is not the extension root (characterises DEF-4) **Note:** the job did **not** fail from another working directory in the test environment (see DEF-4). |
 
 ### PU-F `RecurringProcessingTest` (the highest-value suite)
 
@@ -500,45 +503,46 @@ Selection (`get_scheduled_contributions`, `get_scheduled_failed_contributions`):
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-F1 | todo | Due In Progress and Pending recurring contributions are picked; future-dated ones are not |
-| PU-F2 | todo | Cancelled, Completed, Failed-status ones are not picked |
-| PU-F3 | todo | Recurring with `failure_retry_date` set is excluded from the normal list and included in the retry list when due |
-| PU-F4 | todo | Retry list honours `eway_recurring_contribution_max_retry` and requires `failure_count > 0` |
-| PU-F5 | todo | Excluded when no Completed contribution exists yet (CIVIEWAY-124) |
-| PU-F6 | todo | Excluded when a contribution already exists on or after the schedule date or retry date (no double charge) |
-| PU-F7 | todo | Only the current processor's records are processed when two eWAY processors exist |
+| PU-F1 | wip | Due In Progress and Pending recurring contributions are picked; future-dated ones are not |
+| PU-F2 | wip | Cancelled, Completed, Failed-status ones are not picked |
+| PU-F3 | wip | Recurring with `failure_retry_date` set is excluded from the normal list and included in the retry list when due |
+| PU-F4 | wip | Retry list honours `eway_recurring_contribution_max_retry` and requires `failure_count > 0` |
+| PU-F5 | wip | Excluded when no Completed contribution exists yet (CIVIEWAY-124) |
+| PU-F6 | wip | Excluded when a contribution already exists on or after the schedule date or retry date (no double charge) |
+| PU-F7 | wip | Only the current processor's records are processed when two eWAY processors exist |
 
 Processing (`process_recurring_payments`, `process_payment`):
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-F8 | blocked | Amount to cents conversion (`10.00`, `10.50`, `1234.00`, tax inclusive) (characterises DEF-6) |
-| PU-F9 | blocked | Next schedule advances by interval and unit for day, week, month, year |
-| PU-F10 | blocked | Installments: schedule continues while installments remain, last installment marks the recurring contribution Completed with an end date, unlimited (`0`) never completes |
-| PU-F11 | blocked | Success: new Completed contribution linked to the recurring record, `trxn_id`, source prefix "eWay Recurring ...", financial type, campaign, page id, `is_test` copied from the first contribution; `failure_count` reset, `failure_retry_date` cleared |
-| PU-F12 | blocked | Receipt sent only when `eway_recurring_keep_sending_receipts` is on |
-| PU-F13 | blocked | Decline: Failed contribution, Transaction Error note with eWAY messages, `failure_count` incremented, `failure_retry_date` set to today plus the configured delay at midnight, "eWay Transaction Failed" activity |
-| PU-F14 | blocked | Retries exhausted: nothing further processed, recurring status behaviour pinned down (characterises DEF-3) |
-| PU-F15 | blocked | Success after earlier failures: recurring record back to In Progress, schedule updated, "eWay Transaction Succeeded" activity with retry count |
-| PU-F16 | blocked | Exception after a gateway response: contribution left Pending, queue row created with the transaction id as access code |
-| PU-F17 | blocked | Exception before a gateway response: contribution Failed, recurring marked failed, Contribution Error note |
-| PU-F18 | blocked | Token resolution order: `payment_token_id` token, fallback to legacy `processor_id`, missing token raises the "No eWAY token found" error and fails cleanly |
-| PU-F19 | blocked | Race lock: second concurrent run exits early with a logged warning and returns false |
-| PU-F20 | blocked | Duplicate transaction id returned twice in one run raises the duplicate guard |
-| PU-F21 | blocked | Non-ASCII source or financial type text is sanitised in the eWAY payload |
-| PU-F22 | blocked | `handlePaymentCron` and the `Job.run_payment_cron` API reach `process_recurring_payments` for processor `eWay_Recurring` |
-| PU-F23 | todo | `mark_recurring_contribution_failed` still updates the recurring record when the activity create fails |
+| PU-F8 | wip | Amount to cents conversion (`10.00`, `10.50`, `1234.00`, tax inclusive) (characterises DEF-6) **Note:** amounts under a dollar are sent with a leading zero ("099"), which eWAY reads as 99. Compared numerically. |
+| PU-F9 | wip | Next schedule advances by interval and unit for day, week, month, year **Note:** CiviCRM core replaces the extension's date with payment date plus one interval when the date is under 48 hours ahead, so daily schedules always end one day after the payment. The test encodes that rule. |
+| PU-F10 | wip | Installments: schedule continues while installments remain, last installment marks the recurring contribution Completed with an end date, unlimited (`0`) never completes |
+| PU-F11 | wip | Success: new Completed contribution linked to the recurring record, `trxn_id`, source prefix "eWay Recurring ...", financial type, campaign, page id, `is_test` copied from the first contribution; `failure_count` reset, `failure_retry_date` cleared **Note:** a successful charge keeps the source copied from the first contribution; the "eWay Recurring" prefix is only applied when the charge fails (PU-F13). |
+| PU-F12 | wip | Receipt sent only when `eway_recurring_keep_sending_receipts` is on |
+| PU-F13 | wip | Decline: Failed contribution, Transaction Error note with eWAY messages, `failure_count` incremented, `failure_retry_date` set to today plus the configured delay at midnight, "eWay Transaction Failed" activity **Note:** the "eWay Transaction Failed" activity is not created (DEF-10); the test pins that. |
+| PU-F14 | wip | Retries exhausted: nothing further processed, recurring status behaviour pinned down (characterises DEF-3) |
+| PU-F15 | wip | Success after earlier failures: recurring record back to In Progress, schedule updated, "eWay Transaction Succeeded" activity with retry count **Note:** pinned as characterisation: no success activity is recorded (DEF-3, DEF-10). |
+| PU-F16 | wip | Exception after a gateway response: contribution left Pending, queue row created with the transaction id as access code |
+| PU-F17 | wip | Exception before a gateway response: contribution Failed, recurring marked failed, Contribution Error note |
+| PU-F18 | wip | Token resolution order: `payment_token_id` token, fallback to legacy `processor_id`, missing token raises the "No eWAY token found" error and fails cleanly |
+| PU-F19 | wip | Race lock: second concurrent run exits early with a logged warning and returns false **Note:** the test releases the lock by hand: core defers `RELEASE_LOCK` while a transaction is open, which is always true in these tests. |
+| PU-F20 | wip | Two charges returning the same TransactionID in one run: pinned as characterisation (DEF-11). The extension's own duplicate guard never fires; the second charge ends Pending with a queue row because CiviCRM refuses the duplicate transaction id |
+| PU-F21 | wip | Non-ASCII source or financial type text is sanitised in the eWAY payload |
+| PU-F22 | wip | `handlePaymentCron` and the `Job.run_payment_cron` API reach `process_recurring_payments` for processor `eWay_Recurring` **Note:** core runs the live and then the test instance of the processor type and fails if either is missing, so the test creates both. |
+| PU-F23 | wip | `mark_recurring_contribution_failed` still updates the recurring record when the activity create fails |
+| PU-F24 | wip | A contact with no address is still charged, but PHP raises "Trying to access array offset on null" (DEF-12); the test records the warning |
 
 ### PU-G `PaymentTokenTest`
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-G1 | blocked | `fillTokensMeta`: fills missing masked number and expiry for eWAY tokens only (other processor types untouched) |
-| PU-G2 | blocked | Expiry becomes the last day of the month, year offset by 2000 |
-| PU-G3 | blocked | Tokens that already have both fields are not queried |
-| PU-G4 | blocked | Login failure for a processor skips its tokens without error |
-| PU-G5 | blocked | Per-token query error is collected into `errors` with the token id and does not stop the batch |
-| PU-G6 | blocked | Processor lookups are cached across tokens (one `PaymentProcessor.get` per processor) |
+| PU-G1 | todo | `fillTokensMeta`: fills missing masked number and expiry for eWAY tokens only (other processor types untouched) |
+| PU-G2 | todo | Expiry becomes the last day of the month, year offset by 2000 |
+| PU-G3 | todo | Tokens that already have both fields are not queried |
+| PU-G4 | todo | Login failure for a processor skips its tokens without error |
+| PU-G5 | todo | Per-token query error is collected into `errors` with the token id and does not stop the batch |
+| PU-G6 | todo | Processor lookups are cached across tokens (one `PaymentProcessor.get` per processor) |
 | PU-G7 | todo | `getPaymentProcessorById`: found, unknown id returns null |
 | PU-G8 | blocked | `saveToken` dedupe rule: same contact and processor with same token **or** same masked number updates the existing row, otherwise creates one |
 | PU-G9 | blocked | `saveToken` with no `pp_id`, no access code, empty token, unknown processor: documented JSON errors, no fatal on malformed response (characterises DEF-9) |
@@ -881,8 +885,8 @@ Update the Status column as phases start and finish.
 
 | Phase | Status | Scope | Why this order |
 | --- | --- | --- | --- |
-| 0 | Not started | Seam S1, `EwayFixture`, `FakeEwayHttp`, move SettlementSync helpers, fix coverage config. Playwright scaffold, **CMS-agnostic from the start**: package, config, `cms.ts`, `global-setup.ts`, `base.ts`, `civi.ts`, stub extension and `page.route()` hosted-page stub, setup scripts for all four CMSs (including the Joomla groups and access rules), `frontend-tests.yml` (WordPress), one smoke spec. | Everything else depends on these. Building `cms.ts` first means no spec ever hardcodes a WordPress path, which is far cheaper than retrofitting. Also proves the CI wiring early. |
-| 1 | Not started | PU-B, PU-D, PU-E, PU-F, plus PW-F1, PW-F2, PW-F5, PW-B-cron | Money and schedule logic. A regression here charges or fails to charge real donors. |
+| 0 | In progress (seam S1, PHPUnit fakes and fixture, coverage config done; Playwright scaffold and CI pinning not started) | Seam S1, `EwayFixture`, `FakeEwayHttp`, move SettlementSync helpers, fix coverage config. Playwright scaffold, **CMS-agnostic from the start**: package, config, `cms.ts`, `global-setup.ts`, `base.ts`, `civi.ts`, stub extension and `page.route()` hosted-page stub, setup scripts for all four CMSs (including the Joomla groups and access rules), `frontend-tests.yml` (WordPress), one smoke spec. | Everything else depends on these. Building `cms.ts` first means no spec ever hardcodes a WordPress path, which is far cheaper than retrofitting. Also proves the CI wiring early. |
+| 1 | In progress (PU-D, PU-E, PU-F written; PU-B and the Playwright suites not started) | PU-B, PU-D, PU-E, PU-F, plus PW-F1, PW-F2, PW-F5, PW-B-cron | Money and schedule logic. A regression here charges or fails to charge real donors. |
 | 2 | Not started | PU-A, PU-C, PU-G, PU-H, PU-I, PU-J, PU-N, PU-O, plus PW-B-settings, PW-B-failed, PW-B-recurforms, PW-B-jobs, PW-B-processor | Admin features and hook behaviour. |
 | 3 | Not started | PU-K, PU-L, PU-M, UP (adds `tests/upgrade/` and `upgrade-tests.yml`), plus PW-F3, PW-F4, PW-F6, PW-B-backoffice, PW-B-status, PW-B-permissions, PW-S | Remaining journeys, hardening, upgrade safety. |
 | 4 | Not started | Sandbox project (PW-X), delete `E2ETest.php`, accessibility pass (axe) on contribution page, confirm page, failed list | Drift detection and clean-up. |
@@ -904,7 +908,7 @@ moves money would be under test.
 - Every case in scope is `done` here, tagged in the test, and the section 0.1 counts are refreshed.
 - [TESTING.md](TESTING.md) updated; `tests/playwright/README.md` written (same structure as the sibling
   repos); [LOCAL_DEV.md](LOCAL_DEV.md) extended with the Playwright commands.
-- Suspected defects DEF-1 to DEF-9 in scope each either fixed with an agreed change, or pinned by a
+- Suspected defects (DEF-1 to DEF-12) in scope each either fixed with an agreed change, or pinned by a
   characterisation test with a comment that names the open question.
 
 ---
@@ -919,7 +923,7 @@ Record the outcome and date when a decision is made.
 | 2 | Decided | **Sandbox secrets.** Are `EWAY_SANDBOX_KEY` / `EWAY_SANDBOX_PASSWORD` available as repository secrets for the nightly `@sandbox` project? The hardcoded sandbox credentials currently in `E2ETest.php` should be moved to environment variables, and rotated if they turn out to be live. | 2026-11-14: secrets are needed only for the nightly sandbox project (Phase 4). Before then, check whether the credentials hardcoded in `E2ETest.php` are live, rotate them if so, and move them to environment variables. |
 | 3 | Decided | **CMS matrix.** Which CMSs do the frontend tests cover? | 2026-11-14: the same as the elections extension, namely WordPress, Drupal, Joomla and Standalone. See section 2.5. The elections Playwright code implements the first three; Standalone support is new work. |
 | 4 | Decided | **CiviCRM version.** `info.xml` declared 5.82 at the time. Which CiviCRM version do the tests run on? | 2026-11-14: **CiviCRM 6.16**, for PHPUnit, Playwright and the upgrade tests, on every CMS. Revised the same day from an earlier "5.82 plus current stable" outcome. `info.xml` compatibility was updated to 6.16 to match (see change log). The shared workflows must be able to install a pinned version (see follow-ups). |
-| 5 | Decided | **Defects DEF-1 to DEF-9.** Which should be fixed as part of this work, and which only pinned? | 2026-11-14: pin all nine with characterisation tests first (Phase 1), then fix confirmed ones in separate pull requests. DEF-4 and DEF-5 are the lowest-risk fixes; DEF-1 to DEF-3 are the ones that could affect donors. Defect statuses in section 3 move as each is pinned and confirmed. |
+| 5 | Decided | **Defects DEF-1 to DEF-9.** Which should be fixed as part of this work, and which only pinned? | 2026-11-14: pin all nine with characterisation tests first (Phase 1; three more, DEF-10 to DEF-12, were found while writing the first suites and are pinned too), then fix confirmed ones in separate pull requests. DEF-4 and DEF-5 are the lowest-risk fixes; DEF-1 to DEF-3 are the ones that could affect donors. Defect statuses in section 3 move as each is pinned and confirmed. |
 | 6 | Decided | **Mail capture.** Receipt assertions need outbound mail redirected to the database. Confirm this is fine in the test site settings. | 2026-11-14: yes. The test sites redirect outbound mail to the database (as the elections setup script does), so receipt assertions need no mail server. |
 | 7 | Decided | **CI for non-WordPress CMSs.** The shared `playwright-tests.yml` builds WordPress only. Add a `CMS` input to it, add a separate workflow per CMS, or keep those three as local-only runs? | 2026-11-14: separate workflow per CMS (Drupal, Joomla, Standalone) in `agileware/ci-workflows`, with the shared steps in a composite action and the existing WordPress workflow left unchanged. See section 2.5. Still to do: confirm container images exist and scope each site build. |
 | 8 | Decided | **Joomla personas.** The elections suite only has an administrator session on Joomla, so permission-based cases skip there. Script Joomla access levels so those cases can run, or accept the skips? | 2026-11-14: script them. All cases run on Joomla. See section 2.5. |
@@ -929,7 +933,7 @@ Record the outcome and date when a decision is made.
 
 | Action | Phase | Related decision |
 | --- | --- | --- |
-| Implement seam S1 (client factory, overridable HTTP service) | 0 | 1 |
+| ~~Implement seam S1 (client factory, overridable HTTP service)~~ Done: `Utils::setHttpServiceFactory()`, with `FakeEwayHttp` in `tests/phpunit/CRM/eWAYRecurring/Test/` | 0 | 1 |
 | Pin CiviCRM 6.16 in the test environments: check whether the shared workflows (PHPUnit, Playwright, upgrade tests) can install a given version, and add a version input in `ci-workflows` if not; pin it in the DDEV setups for the other CMSs and in the local docker-compose | 0 | 4 |
 | ~~Decide whether `info.xml` compatibility (5.82) still reflects what is supported~~ Done: set to 6.16 | 0 | 4 |
 | Check the credentials in `E2ETest.php`; rotate if live; move to environment variables | before 4 | 2 |
@@ -948,6 +952,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Phase 0 and Phase 1 started on branch `phase0-testing-foundations`: seam S1 implemented, `FakeEwayHttp` / `FakeEwayResponses` / `EwayFixture` added, coverage config restricted to the extension's code, suites PU-D (22 tests), PU-E (13) and PU-F (33) written and passing locally on CiviCRM 6.16.5 (full suite: 106 tests). Cases are `wip` until the pull request passes CI. New case PU-F24; new defects DEF-10 to DEF-12 found (DEF-10: failure and success activities are never created); DEF-3 extended; DEF-4 not reproduced. |
 | 2026-11-14 | UP-07 dropped (`n/a`) at the maintainer's request: the 2.6.1 upgrade test is not needed. Recorded in place with its original description. Single upgrade baseline (2.8.1) remains. Cases defined 243, to do 175, dropped 1. |
 | 2026-11-14 | UP-07 now uses `FROM_REF: 2.6.1` as a second baseline (code review: 2.6.1 is the first release containing `upgrade_20601`, and a fresh install stores schema version 20200, so the step should still run on upgrade). Not yet confirmed on a real site. UP-07 back to `todo`. |
 | 2026-11-14 | Decision 9 settled: upgrade baseline is release 2.8.1. UP-07 set to `blocked` (needs an older baseline), UP-09 added (menu `is_ajax` flags after upgrade). 243 cases. |
