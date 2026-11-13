@@ -33,8 +33,10 @@ function ewayrecurring_civicrm_install() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
  */
 function ewayrecurring_civicrm_postInstall() {
-  // Update schemaVersion if added new version in upgrade process.
-  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 20200);
+  // A fresh install already has everything the upgrade steps would add, so record the newest step as
+  // applied. Read it from the upgrader so it cannot fall behind when a step is added.
+  $revisions = (new CRM_eWAYRecurring_Upgrader())->getRevisions();
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', max($revisions));
 }
 
 /**
