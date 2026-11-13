@@ -618,17 +618,15 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
-   * Characterisation (DEF-11): process_payment() is meant to reject two
-   * consecutive responses with the same TransactionID, but it remembers the
-   * previous response with `static $prev_response; $prev_response = &$local;`.
-   * PHP does not keep a reference assigned to a static variable between calls,
-   * so the guard never sees a previous response and never fires. The second
-   * charge is stopped only later, when CiviCRM refuses a second contribution
-   * with the same transaction id, so it ends up Pending with a queue row.
+   * process_payment() rejects two consecutive responses with the same
+   * TransactionID. The guard used to remember the previous response with
+   * `static $prev_response; $prev_response = &$local;`, which PHP does not keep
+   * between calls, so it never fired and the duplicate was only stopped later,
+   * by CiviCRM's own duplicate check, leaving the second charge Pending (DEF-11).
    *
    * @testPlan PU-F20
    */
-  public function testTheSameTransactionIdTwiceInOneRunIsNotCaughtByTheDuplicateGuard(): void {
+  public function testTheSameTransactionIdTwiceInOneRunIsRejected(): void {
     $processor = Fixture::processor();
     [, $first] = $this->dueRecurring([], $processor);
     [, $second] = $this->dueRecurring([], $processor);
@@ -646,10 +644,32 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
       $notes = array_merge($notes, array_column(civicrm_api3('Note', 'get', ['entity_table' => 'civicrm_contribution', 'entity_id' => $charge['id'], 'sequential' => 1])['values'], 'note'));
     }
     sort($statuses);
-    $this->assertSame(['Completed', 'Pending'], $statuses);
+    $this->assertSame(['Completed', 'Failed'], $statuses);
     $this->assertCount(1, $notes);
-    $this->assertStringNotContainsString('duplicate transaction number', $notes[0]);
-    $this->assertStringContainsString('Duplicate error', $notes[0], 'It is CiviCRM, not the extension, that refuses the duplicate.');
+    $this->assertStringContainsString('duplicate transaction number: ' . $duplicated, $notes[0]);
+  }
+
+  /**
+   * A request eWAY refuses (an error response) has no TransactionID, so two
+   * refused charges in a row must not be mistaken for a duplicate.
+   *
+   * @testPlan PU-F20
+   */
+  public function testConsecutiveRefusedChargesAreNotMistakenForADuplicate(): void {
+    $processor = Fixture::processor();
+    [, $first] = $this->dueRecurring([], $processor);
+    [, $second] = $this->dueRecurring([], $processor);
+    $this->http->respond('postTransaction', Responses::errors('V6010'));
+    $this->http->respond('postTransaction', Responses::errors('V6010'));
+
+    $this->runCron($processor);
+
+    foreach ([$first, $second] as $recur) {
+      $charge = Fixture::reloadContribution($this->charges($recur)[0]['id']);
+      $this->assertSame('Failed', $this->contributionStatus($charge));
+      $note = civicrm_api3('Note', 'getsingle', ['entity_table' => 'civicrm_contribution', 'entity_id' => $charge['id']]);
+      $this->assertSame('Transaction Error', $note['subject'], 'It is a declined payment, not a duplicate.');
+    }
   }
 
   /**

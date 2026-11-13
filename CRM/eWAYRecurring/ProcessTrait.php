@@ -494,7 +494,8 @@ trait CRM_eWAYRecurring_ProcessTrait {
    * @throws SoapFault exceptions
    */
   public function process_payment($managed_customer_id, $amount_in_cents, $invoice_reference, $invoice_description) {
-    static $prev_response = NULL;
+    // The TransactionID of the previous charge made by this process, to catch eWAY returning one twice.
+    static $previousTransactionId = NULL;
 
     $eWayClient = $this->getEWayClient();
 
@@ -515,14 +516,16 @@ trait CRM_eWAYRecurring_ProcessTrait {
     ];
     $eWayResponse = $eWayClient->createTransaction(\Eway\Rapid\Enum\ApiMethod::DIRECT, $paymentTransaction);
 
-    if (isset($prev_response) && $prev_response->getAttribute('TransactionID') == $eWayResponse->getAttribute('TransactionID')) {
+    // Only a real transaction id can be a duplicate: a request eWAY refused carries none.
+    $transactionId = $eWayResponse->getAttribute('TransactionID');
+    if (!empty($transactionId) && (string) $previousTransactionId === (string) $transactionId) {
       throw new Exception (
         'eWay ProcessPayment returned duplicate transaction number: ' .
-        $prev_response->getAttribute('TransactionID') . ' vs ' . $eWayResponse->getAttribute('TransactionID')
+        $previousTransactionId . ' vs ' . $transactionId
       );
     }
 
-    $prev_response = &$eWayResponse;
+    $previousTransactionId = $transactionId;
 
     return $eWayResponse;
   }
