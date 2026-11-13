@@ -225,7 +225,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
             try {
               civicrm_api3('Activity', 'create', [
                 'source_contact_id' => $contribution->contact_id,
-                'activity_type_id' => 'eWay Transaction Succeeded',
+                'activity_type_id' => 'eWay_Transaction_Succeeded',
                 'source_record' => $contribution->id,
                 'details' => 'Transaction Succeeded after ' . $contribution->failure_count . ' retries',
               ]);
@@ -359,7 +359,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
     try {
       civicrm_api3('Activity', 'create', [
         'source_contact_id' => $contribution->contact_id,
-        'activity_type_id' => 'eWay Transaction Failed',
+        'activity_type_id' => 'eWay_Transaction_Failed',
         'source_record' => $contribution->id,
       ]);
     }
