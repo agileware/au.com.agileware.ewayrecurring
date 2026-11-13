@@ -208,7 +208,6 @@ trait CRM_eWAYRecurring_ProcessTrait {
           $this->mark_recurring_contribution_failed($contribution);
         }
         else {
-          // $this->send_receipt_email($new_contribution_record->id);
           $new_contribution_record['contribution_status_id'] = CRM_eWAYRecurring_Utils::contribution_status_id('Completed');
 
           $new_contribution_record['is_email_receipt'] = Civi::settings()
@@ -516,76 +515,6 @@ trait CRM_eWAYRecurring_ProcessTrait {
     $prev_response = &$eWayResponse;
 
     return $eWayResponse;
-  }
-
-  /**
-   * send_receipt_email
-   *
-   * Sends a receipt for a contribution
-   *
-   * @param string $contribution_id The ID of the contribution to mark as
-   *   complete
-   * @param CRM_Core_Payment $paymentObject CRM_Core_Payment object
-   *
-   * @return bool Success or failure
-   * @throws CRM_Core_Exception
-   */
-  protected function send_receipt_email($contribution_id, $paymentObject) {
-    $contribution = new CRM_Contribute_BAO_Contribution();
-    $contribution->id = $contribution_id;
-    $contribution->find(TRUE);
-
-    $is_email_receipt = civicrm_api3('ContributionPage', 'getvalue', [
-      'id' => $contribution->contribution_page_id,
-      'return' => 'is_email_receipt',
-    ]);
-
-    if (!$is_email_receipt) {
-      return NULL;
-    }
-
-    [
-      $name,
-      $email,
-    ] = CRM_Contact_BAO_Contact_Location::getEmailDetails($contribution->contact_id);
-
-    $domainValues = CRM_Core_BAO_Domain::getNameAndEmail();
-    $receiptFrom = "$domainValues[0] <$domainValues[1]>";
-    $receiptFromEmail = $domainValues[1];
-
-    $params = [
-      'groupName' => 'msg_tpl_workflow_contribution',
-      'valueName' => 'contribution_online_receipt',
-      'contactId' => $contribution->contact_id,
-      'tplParams' => [
-        'contributeMode' => 'directIPN',
-        // Tells the person to contact us for cancellations
-        'receiptFromEmail' => $receiptFromEmail,
-        'amount' => $contribution->total_amount,
-        'title' => self::RECEIPT_SUBJECT_TITLE,
-        'is_recur' => TRUE,
-        'is_monetary' => TRUE,
-        'is_pay_later' => FALSE,
-        'billingName' => $name,
-        'email' => $email,
-        'trxn_id' => $contribution->trxn_id,
-        'receive_date' => CRM_Utils_Date::format($contribution->receive_date),
-        'updateSubscriptionBillingUrl' => $paymentObject->subscriptionURL($contribution_id, 'contribution', 'billing'),
-      ],
-      'from' => $receiptFrom,
-      'toName' => $name,
-      'toEmail' => $email,
-      'isTest' => $contribution->is_test,
-    ];
-
-    [
-      $sent,
-      $subject,
-      $message,
-      $html,
-    ] = CRM_Core_BAO_MessageTemplate::sendTemplate($params);
-
-    return $sent;
   }
 
 }
