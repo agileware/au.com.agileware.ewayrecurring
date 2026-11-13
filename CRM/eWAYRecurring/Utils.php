@@ -33,7 +33,7 @@ class CRM_eWAYRecurring_Utils {
     $transactionsToValidate = $transactionsToValidate['values'];
 
     // Include eWay SDK.
-    require_once 'vendor/autoload.php';
+    require_once E::path('vendor/autoload.php');
 
     $apiResponse = [
       'failed' => 0,
