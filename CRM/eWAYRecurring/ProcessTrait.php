@@ -72,8 +72,8 @@ trait CRM_eWAYRecurring_ProcessTrait {
       }
 
       // Process payment
-      $amount_in_cents = preg_replace('/\.([0-9]{0,2}).*$/', '$1',
-        $contribution->amount);
+      // Whole cents, as a string: 10.50 is "1050" and 0.99 is "99".
+      $amount_in_cents = (string) (int) round(((float) $contribution->amount) * 100);
 
       $addresses = civicrm_api3('Address', 'get', ['contact_id' => $contribution->contact_id,]);
 
