@@ -272,8 +272,9 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
-   * The database stores amounts with exactly two decimals, so the regex that
-   * strips the decimal point (DEF-6) is only ever given two-decimal values.
+   * The amount is sent as whole cents. Amounts under a dollar used to be sent
+   * with a leading zero ("099"), because the decimal point was stripped from
+   * the string (DEF-6).
    *
    * @dataProvider amountProvider
    * @testPlan PU-F8
@@ -285,8 +286,7 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
     $this->runCron($processor);
 
     $sent = $this->http->lastArgs('postTransaction')[0];
-    // Compared as numbers: amounts under a dollar are sent with a leading zero ("099"), which eWAY reads as 99.
-    $this->assertSame((int) $expectedCents, (int) $sent['Payment']['TotalAmount']);
+    $this->assertSame($expectedCents, (string) $sent['Payment']['TotalAmount']);
     $this->assertSame('MOTO', $sent['TransactionType']);
   }
 
