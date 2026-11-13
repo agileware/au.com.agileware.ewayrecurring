@@ -207,7 +207,15 @@ class CRM_eWAYRecurring_PaymentToken {
     }
 
     $client = CRM_eWAYRecurring_Utils::getEWayClient($paymentProcessor);
-    $response = $client->queryTransaction($accessCode)->Transactions[0];
+    $transactions = $client->queryTransaction($accessCode)->Transactions ?? [];
+    $response = $transactions[0] ?? NULL;
+    if (!$response) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no transaction.',
+      ]);
+      die();
+    }
     $token = $response->TokenCustomerID;
     if (empty($token)) {
       CRM_Utils_JSON::output([
@@ -217,10 +225,31 @@ class CRM_eWAYRecurring_PaymentToken {
       // TODO handle error
       die();
     }
-    $response = $client->queryCustomer($token)->Customers[0];
-    // contact id from eWay reference field
-    preg_match('/civi-(.*)/m', $response->Reference, $matches);
-    $cid = $matches[1];
+    $customers = $client->queryCustomer($token)->Customers ?? [];
+    $response = $customers[0] ?? NULL;
+    if (!$response) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no customer.',
+      ]);
+      die();
+    }
+    // contact id from eWay reference field, which this extension sets to "civi-<contact id>"
+    $cid = preg_match('/^civi-(\d+)$/m', (string) $response->Reference, $matches) ? (int) $matches[1] : 0;
+    if (!$cid || !CRM_Core_DAO::singleValueQuery('SELECT COUNT(*) FROM civicrm_contact WHERE id = %1', [1 => [$cid, 'Integer']])) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no contact.',
+      ]);
+      die();
+    }
+    if (empty($response->CardDetails)) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no card details.',
+      ]);
+      die();
+    }
 
     $expiryDate = new DateTime();
     $expiryDate->setDate($response->CardDetails->ExpiryYear, $response->CardDetails->ExpiryMonth, 1);
