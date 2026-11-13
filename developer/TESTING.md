@@ -39,6 +39,13 @@ in a suitable environment:
 phpunit9 --group e2e
 ```
 
+## Test plan and coverage status
+
+[TEST_PLAN.md](TEST_PLAN.md) lists every planned test case with a stable ID and a status, and
+records what is covered today. When you add or change a test, tag it with its plan ID (PHPUnit:
+`@testPlan PU-F8` in the docblock; Playwright: start the test title with the ID), update the
+status in the plan in the same pull request, and refresh its counts.
+
 ## Writing New Tests
 
 New test classes should follow the pattern in `tests/phpunit/CRM/eWAYRecurring/SettlementSyncTest.php`:
