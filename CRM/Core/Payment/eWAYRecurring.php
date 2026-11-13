@@ -22,7 +22,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     [ 'domain_id' => $domain, 'id' => $id ] = $paymentProcessor;
 
     if(empty(self::$instances["$domain/$id"])) {
-      $mode = empty( $paymentProcessor['is_test'] ) ? 'test' : 'live';
+      $mode = empty( $paymentProcessor['is_test'] ) ? 'live' : 'test';
       self::$instances["$domain/$id"] = new self( $mode, $paymentProcessor );
     }
 
