@@ -110,7 +110,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
         $new_contribution_record['total_amount'] = ($contribution->amount - $mainContributions['tax_amount']);
         $new_contribution_record['contribution_recur_id'] = $contribution->id;
         $new_contribution_record['payment_instrument_id'] = $contribution->payment_instrument_id;
-        $new_contribution_record['address_id'] = $billing_address['id'];
+        $new_contribution_record['address_id'] = $billing_address['id'] ?? NULL;
         $new_contribution_record['invoice_id'] = $invoice_id;
         $new_contribution_record['campaign_id'] = $contribution->campaign_id;
         $new_contribution_record['financial_type_id'] = $contribution->financial_type_id;

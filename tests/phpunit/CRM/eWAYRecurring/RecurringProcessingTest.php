@@ -633,34 +633,22 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
-   * Characterisation (DEF-10): when the contact has no address at all the job
-   * reads $billing_address['id'] on null. PHP raises "Trying to access array
-   * offset on null" and carries on, so the payment is still taken. The test
-   * records the warning instead of letting PHPUnit turn it into an exception,
-   * which is what production does.
+   * A contact with no address at all is still charged, without PHP warnings.
+   * The job used to read `$billing_address['id']` on null (DEF-12).
    *
    * @testPlan PU-F24
    */
-  public function testContactWithoutAnAddressIsStillChargedButRaisesAWarning(): void {
+  public function testContactWithoutAnAddressIsChargedWithoutWarnings(): void {
     $processor = Fixture::processor();
     $contactId = Fixture::contact('No', 'Address', FALSE);
     $recur = Fixture::recurring($contactId, $processor);
     Fixture::completedContributionFor($recur);
     $transactionId = $this->approveNextCharge();
 
-    $warnings = [];
-    set_error_handler(function ($errno, $message) use (&$warnings) {
-      $warnings[] = $message;
-      return TRUE;
-    }, E_WARNING);
-    try {
-      $this->runCron($processor);
-    }
-    finally {
-      restore_error_handler();
-    }
+    // PHPUnit turns a PHP warning into an exception, which the job would catch and
+    // record as a failed charge, so a clean Completed contribution means no warning.
+    $this->runCron($processor);
 
-    $this->assertContains('Trying to access array offset on null', $warnings);
     $charge = Fixture::reloadContribution($this->charges($recur)[0]['id']);
     $this->assertSame('Completed', $this->contributionStatus($charge));
     $this->assertSame((string) $transactionId, (string) $charge['trxn_id']);
