@@ -427,6 +427,7 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
     $this->assertSame("eWay Recurring Donation:\nSpring appeal", $charge['contribution_source']);
     $reloaded = Fixture::reloadRecurring($recur['id']);
     $this->assertEquals(1, $reloaded['failure_count']);
+    $this->assertSame('In Progress', $this->recurStatus($reloaded), 'Retries remain, so it is not marked Failed yet.');
     $expectedRetry = (new DateTime('+4 days'))->setTime(0, 0, 0)->format('Y-m-d H:i:s');
     $this->assertSame($expectedRetry, date('Y-m-d H:i:s', strtotime($reloaded['failure_retry_date'])));
 
@@ -442,14 +443,52 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
-   * Characterisation (DEF-3): once retries run out nothing moves the recurring
-   * contribution to Failed or marks it for attention. It stays In Progress,
-   * is not selected again, and is never charged. If a status change is added,
-   * update this test.
+   * When the last permitted retry fails, the recurring contribution is marked
+   * Failed (DEF-3). Nothing charges it again, it appears in the Failed Recurring
+   * Contributions list and the system status check, and Reactivate resets it.
    *
    * @testPlan PU-F14
    */
-  public function testRecurringContributionStaysInProgressOnceRetriesAreExhausted(): void {
+  public function testRecurringContributionIsMarkedFailedWhenTheLastRetryFails(): void {
+    \Civi::settings()->set('eway_recurring_contribution_max_retry', 3);
+    [$processor, $recur] = $this->dueRecurring(['failure_count' => 2, 'failure_retry_date' => '-1 hour']);
+    $this->http->respond('postTransaction', Responses::paymentDeclined('D4401', self::nextTransactionId()));
+
+    $this->runCron($processor);
+
+    $reloaded = Fixture::reloadRecurring($recur['id']);
+    $this->assertEquals(3, $reloaded['failure_count']);
+    $this->assertSame('Failed', $this->recurStatus($reloaded));
+    $this->assertNotEmpty($reloaded['failure_retry_date'], 'The retry date stays, so the status check can tell how long it has been stuck.');
+    $this->assertNotContains((int) $recur['id'], $this->retryIds($processor));
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+  }
+
+  /**
+   * A failure that leaves retries available keeps the recurring contribution
+   * In Progress, which is what the retry list selects.
+   *
+   * @testPlan PU-F14
+   */
+  public function testFailureBeforeTheLastRetryKeepsTheRecurringContributionInProgress(): void {
+    \Civi::settings()->set('eway_recurring_contribution_max_retry', 3);
+    [$processor, $recur] = $this->dueRecurring(['failure_count' => 1, 'failure_retry_date' => '-1 hour']);
+    $this->http->respond('postTransaction', Responses::paymentDeclined('D4401', self::nextTransactionId()));
+
+    $this->runCron($processor);
+
+    $reloaded = Fixture::reloadRecurring($recur['id']);
+    $this->assertEquals(2, $reloaded['failure_count']);
+    $this->assertSame('In Progress', $this->recurStatus($reloaded));
+  }
+
+  /**
+   * A record already at the maximum (for example from before this was fixed) is
+   * not charged again.
+   *
+   * @testPlan PU-F14
+   */
+  public function testRecurringContributionAlreadyAtTheMaximumIsNotChargedAgain(): void {
     \Civi::settings()->set('eway_recurring_contribution_max_retry', 3);
     [$processor, $recur] = $this->dueRecurring(['failure_count' => 3, 'failure_retry_date' => '-1 hour']);
 
@@ -457,23 +496,19 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
 
     $this->assertSame([], $this->http->requests, 'It is not charged again.');
     $this->assertSame([], $this->charges($recur));
-    $reloaded = Fixture::reloadRecurring($recur['id']);
-    $this->assertSame('In Progress', $this->recurStatus($reloaded));
-    $this->assertEquals(3, $reloaded['failure_count']);
     $this->assertNotContains((int) $recur['id'], $this->retryIds($processor));
     $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
   }
 
   /**
-   * Characterisation (DEF-3): the code that restores a recurring
-   * contribution and records a "Transaction Succeeded after N retries" activity
-   * only runs for a recurring contribution whose status is Failed, but the
-   * retry list only selects ones that are In Progress. So after a successful
-   * retry the failure count is cleared, but no success activity is recorded.
+   * A successful retry clears the failures, leaves the recurring contribution
+   * In Progress and records the "Transaction Succeeded" activity. That code
+   * used to need the recurring contribution to be Failed, but a record that is
+   * being retried is In Progress, so it never ran (DEF-3).
    *
    * @testPlan PU-F15
    */
-  public function testSuccessfulRetryClearsTheFailuresButRecordsNoSuccessActivity(): void {
+  public function testSuccessfulRetryClearsTheFailuresAndRecordsASuccessActivity(): void {
     [$processor, $recur] = $this->dueRecurring(['failure_count' => 2, 'failure_retry_date' => '-1 hour']);
     $this->approveNextCharge();
 
@@ -485,10 +520,13 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
     $this->assertEquals(0, $reloaded['failure_count']);
     $this->assertEmpty($reloaded['failure_retry_date']);
     $this->assertSame('In Progress', $this->recurStatus($reloaded));
-    $this->assertCount(0, Activity::get(FALSE)
+    $activities = Activity::get(FALSE)
+      ->addSelect('details')
       ->addWhere('activity_type_id:label', '=', 'eWay Transaction Succeeded')
       ->addWhere('source_contact_id', '=', $recur['contact_id'])
-      ->execute());
+      ->execute();
+    $this->assertCount(1, $activities);
+    $this->assertSame('Transaction Succeeded after 2 retries', $activities->first()['details']);
   }
 
   /**
