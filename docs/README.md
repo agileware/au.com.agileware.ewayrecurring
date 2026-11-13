@@ -81,8 +81,8 @@ APIs, this extension exposes:
 
 ## Requirements
 
-* CiviCRM - `info.xml` declares compatibility up to version 5.82; no explicit
-  minimum version is declared.
+* CiviCRM - `info.xml` declares compatibility with version 6.16, the version the
+  automated tests run against.
 * PHP - no explicit minimum version is declared in `composer.json`.
 * [eway/eway-rapid-php](https://packagist.org/packages/eway/eway-rapid-php)
   `^2.0`, installed automatically as a dependency.
