@@ -404,11 +404,11 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
-   * The failure is recorded on the recurring contribution and the contribution
-   * gets a note. The "eWay Transaction Failed" activity is not created (DEF-10):
-   * the job asks for it by its label, but CiviCRM only accepts the option's
-   * name (eWay_Transaction_Failed), so Activity.create is rejected and the
-   * extension logs and carries on. If that is fixed, expect one activity.
+   * The failure is recorded on the recurring contribution, the contribution
+   * gets a note, and an "eWay Transaction Failed" activity is recorded on the
+   * contact. The activity used to be silently skipped because the job asked for
+   * it by its label, which CiviCRM rejects: it only accepts the option's name
+   * (eWay_Transaction_Failed) (DEF-10).
    *
    * @testPlan PU-F13
    */
@@ -438,7 +438,7 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
       ->addWhere('activity_type_id:label', '=', 'eWay Transaction Failed')
       ->addWhere('source_contact_id', '=', $recur['contact_id'])
       ->execute();
-    $this->assertCount(0, $activities, 'DEF-10: the activity is never created.');
+    $this->assertCount(1, $activities);
   }
 
   /**
@@ -465,12 +465,11 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
-   * Characterisation (DEF-3, DEF-10): the code that restores a recurring
+   * Characterisation (DEF-3): the code that restores a recurring
    * contribution and records a "Transaction Succeeded after N retries" activity
    * only runs for a recurring contribution whose status is Failed, but the
    * retry list only selects ones that are In Progress. So after a successful
-   * retry the failure count is cleared, but no success activity is recorded
-   * (and the activity could not be created anyway, see PU-F13).
+   * retry the failure count is cleared, but no success activity is recorded.
    *
    * @testPlan PU-F15
    */
