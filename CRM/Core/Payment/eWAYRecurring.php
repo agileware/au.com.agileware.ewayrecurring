@@ -48,11 +48,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    */
   protected function getEWayClient() {
     if (!$this->eWayClient) {
-      $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
-      $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
-      $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
-
-      $this->eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
+      $this->eWayClient = CRM_eWAYRecurring_Utils::getEWayClient($this->_paymentProcessor);
     }
 
     return $this->eWayClient;

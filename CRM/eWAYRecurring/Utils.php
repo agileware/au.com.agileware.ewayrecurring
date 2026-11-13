@@ -133,7 +133,32 @@ class CRM_eWAYRecurring_Utils {
   }
 
   /**
+   * Optional factory for the SDK's HTTP service, used by automated tests.
+   *
+   * @var callable|null
+   *   function (array $paymentProcessor): \Eway\Rapid\Contract\HttpService
+   */
+  private static $httpServiceFactory = NULL;
+
+  /**
+   * Replace the SDK's HTTP service for every client this extension builds.
+   *
+   * This is a test seam and is never set in normal operation: with no factory
+   * registered the client talks to eWAY exactly as before. Tests register a
+   * fake that answers from canned responses so no request leaves the server.
+   * Pass NULL to go back to the real service.
+   *
+   * @param callable|null $factory
+   *   Receives the payment processor array and returns an HttpService.
+   */
+  public static function setHttpServiceFactory(?callable $factory): void {
+    self::$httpServiceFactory = $factory;
+  }
+
+  /**
    * Create eWay client using credentials from payment processor.
+   *
+   * This is the only place an eWAY client is built.
    *
    * @return \Eway\Rapid\Contract\Client
    */
@@ -143,6 +168,10 @@ class CRM_eWAYRecurring_Utils {
     $eWayEndPoint = ($paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
 
     $eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
+
+    if (self::$httpServiceFactory !== NULL) {
+      $eWayClient->setHttpService(call_user_func(self::$httpServiceFactory, $paymentProcessor));
+    }
 
     return $eWayClient;
   }
