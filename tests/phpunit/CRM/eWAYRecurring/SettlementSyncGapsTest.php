@@ -276,6 +276,49 @@ class CRM_eWAYRecurring_SettlementSyncGapsTest extends \PHPUnit\Framework\TestCa
     $this->assertCount(0, $this->logged('info', 'eWAY Settlement Sync: contribution {id} not eligible'));
   }
 
+  /**
+   * A scoped call through the API that does reach eWAY, with the client the API builds replaced by a
+   * fake through the factory seam (DEF-32).
+   *
+   * @testPlan PU-M1
+   */
+  public function testTheApiReconcilesAnEligibleContributionThroughTheInjectedClient(): void {
+    $processor = Fixture::processor(FALSE, ['user_name' => 'm1-key', 'password' => 'm1-pass']);
+    $contributionId = $this->completedContribution($processor['id'], 'M1_ELIGIBLE', 100.00, 0.00, '-1 day');
+    $this->submitSettingsForm([
+      'eway_settlement_processors' => [(string) $processor['id']],
+      'eway_settlement_window_days' => '1',
+    ]);
+
+    $history = [];
+    $responses = [
+      $this->settlementResponse([['TransactionID' => 'M1_ELIGIBLE', 'FeePerTransaction' => 75, 'Amount' => 10000]]),
+      $this->settlementResponse([]),
+      $this->settlementResponse([]),
+      $this->settlementResponse([]),
+    ];
+    $stack = HandlerStack::create(new MockHandler($responses));
+    $stack->push(\GuzzleHttp\Middleware::history($history));
+    CRM_eWAYRecurring_SettlementSync::setHttpClientFactory(function () use ($stack) {
+      return new \GuzzleHttp\Client(['handler' => $stack]);
+    });
+
+    try {
+      $result = civicrm_api3('EwaySettlement', 'Sync', ['contribution_id' => $contributionId]);
+    }
+    finally {
+      CRM_eWAYRecurring_SettlementSync::setHttpClientFactory(NULL);
+    }
+
+    $this->assertEquals(0, $result['is_error']);
+    $this->assertNotEmpty($history, 'The API used the injected client, so nothing reached eWAY.');
+    foreach ($history as $entry) {
+      $this->assertSame('Basic ' . base64_encode('m1-key:m1-pass'), $entry['request']->getHeaderLine('Authorization'));
+    }
+    $this->assertSame(0.75, $this->feeOf($contributionId));
+    $this->assertSame(99.25, $this->netOf($contributionId));
+  }
+
   // ---------------------------------------------------------------------------
   // The settings form drives the sync (PU-M2)
   // ---------------------------------------------------------------------------

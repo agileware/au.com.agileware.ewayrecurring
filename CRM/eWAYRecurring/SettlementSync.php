@@ -23,8 +23,21 @@ class CRM_eWAYRecurring_SettlementSync {
    */
   private \GuzzleHttp\Client $httpClient;
 
+  /**
+   * @var callable|null
+   *   Builds the HTTP client when the caller does not pass one. Lets a test
+   *   control the client that code which builds its own sync (the API, the
+   *   scheduled job) ends up using. NULL in production.
+   */
+  private static $httpClientFactory = NULL;
+
+  public static function setHttpClientFactory(?callable $factory): void {
+    self::$httpClientFactory = $factory;
+  }
+
   public function __construct(?\GuzzleHttp\Client $httpClient = NULL) {
-    $this->httpClient = $httpClient ?? new \GuzzleHttp\Client();
+    $this->httpClient = $httpClient
+      ?? (self::$httpClientFactory !== NULL ? (self::$httpClientFactory)() : new \GuzzleHttp\Client());
   }
 
   /**

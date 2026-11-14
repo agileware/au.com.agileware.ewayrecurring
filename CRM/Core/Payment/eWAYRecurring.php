@@ -334,7 +334,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     // Prepare some composite data from _paymentProcessor fields, data that is shared across one off and recurring payments.
     //-------------------------------------------------------------
 
-    $amountInCents = round(((float) preg_replace('/[\s,]/', '', $params['amount'])) * 100);
+    // The property bag has already refused anything that is not a plain number.
+    $amountInCents = round(((float) $propertyBag->getAmount()) * 100);
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
 
     //----------------------------------------------------------------------------------------------------
@@ -391,6 +392,11 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       if (!empty($result['is_error'])) {
         $this->paymentFailed($params, 'Cannot find the payment token.');
       }
+      // The card id comes from the request: only charge a card that is this contact's, for this processor, unexpired.
+      $cardProblem = $this->getTokenProblem($result, (int) ($params['contactID'] ?? 0), (int) ($this->_paymentProcessor['id'] ?? 0));
+      if ($cardProblem !== NULL) {
+        $this->paymentFailed($params, $cardProblem);
+      }
       $token = $result['token'];
       $eWayTransaction = [
         'Customer' => [
@@ -409,10 +415,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
         'Customer' => $eWayCustomer,
         'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params, $component),
         'CancelUrl' => $this->getCancelPaymentReturnUrl($params, $component),
-        'TransactionType' => (($this->isBackOffice() && !Civi::settings()
-            ->get('cvv_backoffice_required'))
-          ? \Eway\Rapid\Enum\TransactionType::MOTO
-          : \Eway\Rapid\Enum\TransactionType::PURCHASE),
+        // Back-office payments use the saved card branch above (MOTO), so this is always a donor on the shared page.
+        'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
         'Payment' => [
           'TotalAmount' => substr($amountInCents,0,10),
           'InvoiceNumber' => substr($uniqueTrnxNum,0,64),
@@ -835,6 +839,25 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    * @return array The PaymentToken.
    * @throws \Exception When the card may not be used.
    */
+  /**
+   * Why a saved card may not be charged for a contact on this processor.
+   *
+   * @return string|null The reason, or NULL when the card can be used.
+   */
+  private function getTokenProblem(array $token, int $contactId, int $processorId): ?string {
+    if ($contactId === 0 || (int) $token['contact_id'] !== $contactId) {
+      return 'The selected card does not belong to this contact.';
+    }
+    if ((int) $token['payment_processor_id'] !== $processorId) {
+      return 'The selected card was saved for a different payment processor.';
+    }
+    // Cards saved by older versions can have no expiry date until the fill-metadata job runs.
+    if (!empty($token['expiry_date']) && strtotime($token['expiry_date']) < strtotime('today')) {
+      return 'The selected card has expired.';
+    }
+    return NULL;
+  }
+
   private function getChosenToken(int $tokenId, array $recur): array {
     $tokens = civicrm_api3('PaymentToken', 'get', ['id' => $tokenId, 'sequential' => 1]);
     if (empty($tokens['values'])) {

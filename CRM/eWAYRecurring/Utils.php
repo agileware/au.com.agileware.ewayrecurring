@@ -515,9 +515,11 @@ class CRM_eWAYRecurring_Utils {
    * @return string
    */
   public static function sanitizeToAscii($string) {
-    if (empty($string)) {
+    // empty() would also drop the string "0".
+    if ($string === NULL || $string === FALSE || $string === '') {
       return '';
     }
+    $string = (string) $string;
 
     if (function_exists('iconv')) {
       $string = iconv('UTF-8', 'ASCII//TRANSLIT', $string);

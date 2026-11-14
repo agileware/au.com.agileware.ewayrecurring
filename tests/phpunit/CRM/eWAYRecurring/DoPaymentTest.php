@@ -299,10 +299,9 @@ class CRM_eWAYRecurring_DoPaymentTest extends \PHPUnit\Framework\TestCase implem
   }
 
   /**
-   * doPayment() strips spaces and commas from the amount before it converts it, but CiviCRM's PropertyBag, which
-   * doPayment() builds first, rejects an amount that is not numeric. So an amount written "1,234.50" never reaches the
-   * conversion: the contribution page form hands over a plain number, and this pins that anything else is refused
-   * before eWAY is called.
+   * CiviCRM's PropertyBag, which doPayment() builds first, rejects an amount that is not numeric, and the cents are
+   * now taken from the bag (the comma and space stripping that could never run was removed, DEF-30). So an amount
+   * written "1,234.50" is refused before eWAY is called.
    *
    * @testPlan PU-B2
    */
@@ -349,9 +348,8 @@ class CRM_eWAYRecurring_DoPaymentTest extends \PHPUnit\Framework\TestCase implem
   }
 
   /**
-   * Back office payments are always MOTO and contribution page payments always Purchase. The cvv_backoffice_required
-   * setting that doPayment() consults is only read on the contribution page branch, where the payment is never a back
-   * office one, and the extension does not register the setting, so it has no effect either way.
+   * Back office payments are always MOTO and contribution page payments always Purchase. The unreachable
+   * cvv_backoffice_required branch, and its setting that the extension never registered, were removed (DEF-29).
    *
    * @testPlan PU-B4
    */
@@ -640,7 +638,7 @@ class CRM_eWAYRecurring_DoPaymentTest extends \PHPUnit\Framework\TestCase implem
   /**
    * With no card selected the lookup is PaymentToken.getsingle with id NULL, and the API ignores a NULL filter, so
    * when exactly one token exists on the whole site that token is found and charged. This asserts the payment is
-   * refused and no card is charged (it should fail until doPayment() checks the selection is not empty).
+   * refused and no card is charged (DEF-19).
    *
    * @testPlan PU-B14
    */
@@ -655,6 +653,70 @@ class CRM_eWAYRecurring_DoPaymentTest extends \PHPUnit\Framework\TestCase implem
 
     $this->assertStringContainsString('valid credit card token', $e->getMessage());
     $this->assertSame([], $this->http->callsTo('postTransaction'), 'No card is charged.');
+  }
+
+  /**
+   * A back office payment may only charge a card that is the contact's, saved for this processor and not expired
+   * (DEF-28). Each of these is refused with no charge.
+   *
+   * @return array[] Each is [what is wrong with the card, message fragment].
+   */
+  public function unusableCardProvider(): array {
+    return [
+      'another contact' => ['contact', 'does not belong to this contact'],
+      'another processor' => ['processor', 'different payment processor'],
+      'expired' => ['expired', 'has expired'],
+    ];
+  }
+
+  /**
+   * @dataProvider unusableCardProvider
+   * @testPlan PU-B14
+   */
+  public function testBackOfficePaymentRefusesACardThatCannotBeUsed(string $problem, string $message): void {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact();
+    $other = Fixture::contact('Someone', 'Else');
+    $otherProcessor = Fixture::processor(FALSE, ['user_name' => 'other-key', 'password' => 'other-pass']);
+    $values = [];
+    $tokenContact = $contactId;
+    $tokenProcessor = $processor['id'];
+    if ($problem === 'contact') {
+      $tokenContact = $other;
+    }
+    elseif ($problem === 'processor') {
+      $tokenProcessor = $otherProcessor['id'];
+    }
+    else {
+      $values['expiry_date'] = date('Y-m-d', strtotime('-1 month'));
+    }
+    $token = Fixture::token($tokenContact, $tokenProcessor, $values);
+    $contribution = Fixture::contribution($contactId);
+    $params = $this->backOfficeParams($contribution, $token['id']);
+
+    $e = $this->refused($this->newPayment($processor, TRUE), $params);
+
+    $this->assertStringContainsString($message, $e->getMessage());
+    $this->assertSame([], $this->http->callsTo('postTransaction'), 'No card is charged.');
+  }
+
+  /**
+   * Without a contact id the card cannot be checked, so it is refused.
+   *
+   * @testPlan PU-B14
+   */
+  public function testBackOfficePaymentWithNoContactIsRefused(): void {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact();
+    $token = Fixture::token($contactId, $processor['id']);
+    $contribution = Fixture::contribution($contactId);
+    $params = $this->backOfficeParams($contribution, $token['id']);
+    unset($params['contactID']);
+
+    $e = $this->refused($this->newPayment($processor, TRUE), $params);
+
+    $this->assertStringContainsString('does not belong to this contact', $e->getMessage());
+    $this->assertSame([], $this->http->callsTo('postTransaction'));
   }
 
   /**

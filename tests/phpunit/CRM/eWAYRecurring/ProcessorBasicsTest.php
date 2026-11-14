@@ -181,6 +181,8 @@ class CRM_eWAYRecurring_ProcessorBasicsTest extends \PHPUnit\Framework\TestCase 
     return [
       'empty string' => ['', ''],
       'null' => [NULL, ''],
+      'the string zero is kept (DEF-31)' => ['0', '0'],
+      'a description that is only 0 among text' => ['Donation 0', 'Donation 0'],
       'plain ASCII' => ['Plain text, 100% ASCII: ~!@#$%^&*()_+-=[]{};\':",./<>?', 'Plain text, 100% ASCII: ~!@#$%^&*()_+-=[]{};\':",./<>?'],
       'control characters are removed' => ["Line1\x00\x07\r\nLine2\t\x7F", 'Line1Line2'],
       'very long string' => [str_repeat('abcdefghij', 5000), str_repeat('abcdefghij', 5000)],
