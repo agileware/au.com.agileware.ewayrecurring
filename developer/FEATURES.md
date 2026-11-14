@@ -248,7 +248,7 @@ it, so there are probably few, but nothing ever picks them up.
 
 ### Behaviour
 
-Built on `release-3.0.0` (PU-L6 to PU-L10 are done and passing in CI; UP-10 and UP-11 are written in `tests/upgrade/` and passed a local rehearsal, and wait for a GitHub run).
+Built on `release-3.0.0` (PU-L6 to PU-L10 are done and passing in CI; UP-10 and UP-11 are in `tests/upgrade/` and pass on GitHub).
 
 - A new revision, `upgrade_30000`, in `CRM_eWAYRecurring_Upgrader`. It calls
   `markStuckRecurringContributionsFailed()`, which does the work and returns the ids changed.
