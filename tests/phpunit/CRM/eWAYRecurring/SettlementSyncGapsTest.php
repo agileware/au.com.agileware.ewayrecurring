@@ -195,8 +195,10 @@ class CRM_eWAYRecurring_SettlementSyncGapsTest extends \PHPUnit\Framework\TestCa
    */
   private function submitSettingsForm(array $submitted): void {
     $form = new CRM_eWAYRecurring_Form_Settings();
-    // The form keeps the posted values in a property it does not declare.
-    @$form->_submittedValues = $submitted;
+    // The form keeps the posted values in a protected property.
+    $property = new ReflectionProperty(CRM_eWAYRecurring_Form_Settings::class, '_submittedValues');
+    $property->setAccessible(TRUE);
+    $property->setValue($form, $submitted);
     $form->saveSettings();
   }
 
