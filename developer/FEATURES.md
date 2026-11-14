@@ -367,7 +367,7 @@ WHERE cr.payment_processor_id = <processor id>
 | Status | `idea` |
 | Raised | 2026-11-14 |
 | Target release | To be decided (after 3.0.0) |
-| Related | DEF-33 in [TEST_PLAN.md](TEST_PLAN.md), decision D4 of FR-1 |
+| Related | DEF-33 in [TEST_PLAN.md](TEST_PLAN.md) (recorded there as not a defect, this feature is the answer), decision D4 of FR-1 |
 
 ### Summary
 
@@ -381,7 +381,8 @@ Today the extension saves the card as an eWAY token and makes no authorisation c
 bank whether the card is live or can take payments. A mistyped, cancelled or blocked card is first found
 at the next scheduled charge. That charge fails, the retry logic runs, the record is marked Failed once
 the retries are used up, and staff have to notice and reactivate it. A card added in good faith can go
-a whole billing period before anyone knows it does not work. This is logged as DEF-33.
+a whole billing period before anyone knows it does not work. The extension has never checked a card when
+it is added, so this is a missing feature rather than a defect (recorded as DEF-33, reclassified).
 
 ### What eWAY's documentation says (read 2026-11-14, first pass)
 
@@ -519,7 +520,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
-| 2026-11-14 | FR-3 added as `idea`: check a new card with the issuer when it is added (DEF-33), with what eWAY's documentation says, three options and six open decisions (C1 to C6). Not scheduled. |
+| 2026-11-14 | FR-3 added as `idea`: check a new card with the issuer when it is added (recorded as DEF-33, reclassified as not a defect), with what eWAY's documentation says, three options and six open decisions (C1 to C6). Not scheduled. |
 | 2026-11-14 | FR-2 upgrade tests UP-10 and UP-11 written (`tests/upgrade/`) and passed a local rehearsal; waiting for a GitHub run. |
 | 2026-11-14 | FR-2 tests PU-L6 to PU-L10 passing in CI. UP-10 and UP-11 still to be written; FR-2 stays `in progress` until they are done. |
 | 2026-11-14 | FR-2 built on `release-3.0.0`: `upgrade_30000` and `markStuckRecurringContributionsFailed()` added to the upgrader, with tests PU-L6 to PU-L10 (`wip` until CI passes). UP-10 and UP-11 not written yet. Status `in progress`. |
