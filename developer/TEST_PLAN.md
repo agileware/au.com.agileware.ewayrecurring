@@ -68,16 +68,16 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **281**. Done: **75**. In progress: **14**. Blocked: **3**. To do: **184**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **281**. Done: **78**. In progress: **11**. Blocked: **3**. To do: **184**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 1 | 1 | 0 | 9 | 0 | none |
+| PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 2 | 0 | 0 | 9 | 0 | none |
 | PU-B | PHPUnit | `DoPaymentTest` | 17 | 1 | 0 | 0 | 16 | 0 | none (S1 done) |
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 0 | 0 | 0 | 3 | 0 | none |
 | PU-D | PHPUnit | `ValidateContributionTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 28 | 25 | 1 | 0 | 2 | 0 | none (S1 done) |
+| PU-F | PHPUnit | `RecurringProcessingTest` | 28 | 26 | 0 | 0 | 2 | 0 | none (S1 done) |
 | PU-G | PHPUnit | `PaymentTokenTest` | 12 | 2 | 0 | 0 | 10 | 0 | none (S1 done) |
 | PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 2 | 0 | 0 | 11 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
@@ -85,7 +85,7 @@ Cases defined: **281**. Done: **75**. In progress: **14**. Blocked: **3**. To do
 | PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 3 | 0 | 3 | page refactor (PU-K1 to K3); PU-K4 to K6 dropped with the deleted page |
 | PU-L | PHPUnit | `SchemaAndUpgradeTest` | 10 | 6 | 0 | 0 | 4 | 0 | none |
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 0 | 0 | 0 | 4 | 0 | none |
-| PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 4 | 1 | 0 | 4 | 0 | none |
+| PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 5 | 0 | 0 | 4 | 0 | none |
 | PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 0 | 0 | 0 | 5 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
 | PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
@@ -438,7 +438,7 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 | PU-A3 | todo | `getPaymentFormFieldsMetadata()` shape: select is required, class `eway_credit_card_field`, button `onclick` calls `CRM.eway.addCreditCard()` |
 | PU-A4 | todo | `getBillingAddressFields()` maps each field with the billing location id |
 | PU-A5 | done | `getInstance()` caches per `domain/id`, returns the same object twice, and sets `_mode` correctly for live and test processors (DEF-1, fixed: a live processor used to get mode `test`) |
-| PU-A6 | wip | The test-mode flag `_is_test` is a declared property of the payment class (DEF-16, fixed: PHP 8.2 printed a deprecation about creating it on the fly on the donor's thank you page) |
+| PU-A6 | done | The test-mode flag `_is_test` is a declared property of the payment class (DEF-16, fixed: PHP 8.2 printed a deprecation about creating it on the fly on the donor's thank you page) |
 | PU-A6 | todo | `supportsBackOffice()` true; `getEditableRecurringScheduleFields()` returns the six documented fields |
 | PU-A7 | todo | `__serialize()` omits `eWayClient` and `instances`, and the object survives `serialize()` after a client was created |
 | PU-A8 | todo | `Utils::sanitizeToAscii()` data provider: empty, null, plain ASCII, accented Latin (transliterated), emoji, CJK, control characters, very long string |
@@ -547,7 +547,7 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-F25 | todo | A recurring contribution whose payment token row was changed in place (new `token` value, `expiry_date` and `masked_account_number` cleared, which is how a website-built update-card page replaces a card) is charged with the new token value, and `payment_token_id` is unchanged |
 | PU-F26 | todo | A Failed recurring contribution reset the way such a page resets it (In Progress, `failure_count` 0, retry date cleared) is charged on the first run on or after its schedule date: not before when the schedule date was moved into the future, and on the next run when the schedule was restarted from today (the two schedule choices a site can make) |
 | PU-F27 | done | A recurring contribution cancelled while it is being retried (failures above 0, retry date due) is not retried, makes no gateway call and is left untouched, while one that is still being retried is charged in the same run (CIVIEWAY-125) |
-| PU-F28 | wip | A declined charge whose answer has no ResponseMessage raises no PHP deprecation (DEF-17, fixed: the message was split with explode() on null) |
+| PU-F28 | done | A declined charge whose answer has no ResponseMessage raises no PHP deprecation (DEF-17, fixed: the message was split with explode() on null) |
 
 ### PU-G `PaymentTokenTest`
 
@@ -664,7 +664,7 @@ version with seeded data are covered by the `UP` suite below.
 | PU-N6 | done | A card that belongs to a different contact, or that does not exist, is refused with a payment processor exception; the token, status, retry state and billing address are all left unchanged (DEF-14, fixed) |
 | PU-N7 | done | A card saved for a different payment processor is refused, changing nothing (DEF-14, fixed) |
 | PU-N8 | done | An expired card is refused, changing nothing (DEF-14, fixed) |
-| PU-N9 | wip | Updating billing for a donor with no state or no email address raises no PHP deprecation (DEF-18, fixed: the customer builder cut those values with substr() on null) |
+| PU-N9 | done | Updating billing for a donor with no state or no email address raises no PHP deprecation (DEF-18, fixed: the customer builder cut those values with substr() on null) |
 
 ### PU-O `FailedRecurringSearchTest`
 
@@ -1024,6 +1024,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | First GitHub run of the three workflows on `release-3.0.0` (started on demand): PHPUnit green (150 tests), upgrade green (57 checks, 0 failures), Playwright red for the new cases only. PU-A6, PU-F28 and PU-N9 are `done` (they ran in the green PHPUnit run). PW-F1-03 to 06 failed on GitHub because the fresh CI site has no default country, so the Country box stayed on "- select -" and the form refused to continue; the local site defaulted to Australia and hid it. `fillDonation()` now chooses the country and state explicitly. With the default country cleared locally all 11 Playwright cases pass; the fix is not yet pushed, so PW-F1 stays `wip` until a GitHub run is green. 281 cases. |
 | 2026-11-14 | PW-F1 started: `specs/frontend/contribution-once-off.spec.ts` with PW-F1-01, 03, 04, 05 and 06 (`wip`: all pass on the local WordPress site, not yet in CI). The seed now creates a once-off contribution page with an eWAY processor and a price set. The scaffold changed under it: the fake hosted page is served by a small local web server with the fake host mapped to this machine, because Playwright's page.route() does not see the redirect from the site to the hosted page; the tests run on one worker always, since the stub is shared. The collector, which fails a test on PHP output, found three real defects the first time it ran against the thank you page: DEF-16 (`_is_test` created on the fly, printed on the donor's thank you page), DEF-17 and DEF-18 (null passed to `explode()` and `substr()`), all fixed with tests PU-A6, PU-F28 and PU-N9. A fixed transaction id broke the second run (CiviCRM refuses a duplicate), so the specs use a fresh id each time. 281 cases. |
 | 2026-11-14 | Workflow triggers matched to the Elections and Event Locations repos: pushes to master, pull requests and on demand (they ran on every push before), for the PHPUnit, upgrade and frontend workflows. A branch gets CI when a pull request is open or when someone runs a workflow on demand, for example `gh workflow run upgrade-tests.yml --ref release-3.0.0` (tried and working: GitHub already knows the workflow from its earlier runs, and the run uses the file on that branch). Also prepared, on a local branch `playwright-writable-extensions-dir` of `ci-workflows` and not pushed, a one-step change that hands `wp-content/uploads/civicrm/ext` to www-data so a setup script can install a helper extension beside the one under test; once it is merged `setup-common.sh`'s fallback is no longer needed on GitHub (it stays for other hosts). |
 | 2026-11-14 | The Playwright workflow passes on GitHub: all six PW-INF checks green on a fresh WordPress site, through the extensions-folder fallback. Infrastructure is `full` for WordPress in the CMS table; PW-INF-01 to 06 stay `wip` because their CMS column is all and Drupal, Joomla and Standalone have not run them. |

@@ -16,6 +16,8 @@ export interface Donor {
   street: string;
   city: string;
   postcode: string;
+  country: string;
+  state: string;
 }
 
 export const DEFAULT_DONOR: Donor = {
@@ -25,6 +27,8 @@ export const DEFAULT_DONOR: Donor = {
   street: '1 Test Street',
   city: 'Canberra',
   postcode: '2600',
+  country: 'Australia',
+  state: 'Australian Capital Territory',
 };
 
 /** The id of the seeded once-off contribution page. */
@@ -57,6 +61,29 @@ export function newAccessCode(label: string): string {
   return `AC-${label}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
+/**
+ * Choose an option of a CiviCRM select box by its label. The visible control is a select2 widget over a hidden
+ * select, so the select is set directly and the change event is raised the way CiviCRM listens for it.
+ */
+async function chooseOption(page: Page, selector: string, label: string): Promise<void> {
+  const select = page.locator(selector);
+  await select.locator('option', { hasText: label }).first().waitFor({ state: 'attached' });
+  await select.evaluate((el, wanted) => {
+    const select = el as HTMLSelectElement;
+    const option = Array.from(select.options).find((o) => o.text.trim() === wanted);
+    if (!option) {
+      throw new Error(`No option "${wanted}" in ${select.id}`);
+    }
+    select.value = option.value;
+    const jq = (window as any).CRM?.$ ?? (window as any).jQuery;
+    if (jq) {
+      jq(select).trigger('change');
+    } else {
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }, label);
+}
+
 /** Choose a fixed amount and fill in the donor's details. Leaves the page ready to submit. */
 export async function fillDonation(page: Page, amount: number, donor: Donor = DEFAULT_DONOR): Promise<void> {
   await page.getByRole('radio', { name: new RegExp(`\\$${amount}\\b`) }).check();
@@ -65,6 +92,9 @@ export async function fillDonation(page: Page, amount: number, donor: Donor = DE
   await page.locator('#billing_last_name').fill(donor.lastName);
   await page.locator('#billing_street_address-5').fill(donor.street);
   await page.locator('#billing_city-5').fill(donor.city);
+  // The country is chosen explicitly: a site may have no default, and the state list depends on it.
+  await chooseOption(page, '#billing_country_id-5', donor.country);
+  await chooseOption(page, '#billing_state_province_id-5', donor.state);
   await page.locator('#billing_postal_code-5').fill(donor.postcode);
 }
 
