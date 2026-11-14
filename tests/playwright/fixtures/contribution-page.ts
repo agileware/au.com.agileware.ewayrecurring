@@ -219,6 +219,20 @@ export async function horizontalOverflowReport(page: Page): Promise<string> {
         found.push({ text: `${el.tagName.toLowerCase()}${id}${classes}`, right: Math.round(box.right) });
       }
     }
+    // Keep the innermost ones: a container is only wide because something inside it is.
+    const stickingOut = new Set(Array.from(document.body.querySelectorAll('*')).filter((el) => {
+      const box = el.getBoundingClientRect();
+      return box.width > 0 && box.right > width + 1;
+    }));
+    const leaves = Array.from(stickingOut).filter((el) => !Array.from(el.children).some((child) => stickingOut.has(child)));
+    found.length = 0;
+    for (const el of leaves) {
+      const box = el.getBoundingClientRect();
+      const id = el.id ? `#${el.id}` : '';
+      const classes = typeof el.className === 'string' && el.className ? `.${el.className.trim().split(/\s+/).slice(0, 3).join('.')}` : '';
+      const style = getComputedStyle(el);
+      found.push({ text: `${el.tagName.toLowerCase()}${id}${classes} (width ${Math.round(box.width)}px, ${style.display}, ${style.position})`, right: Math.round(box.right) });
+    }
     found.sort((a, b) => b.right - a.right);
     return `page is ${document.documentElement.scrollWidth}px wide in a ${width}px window; sticking out: ` +
       found.slice(0, 8).map((item) => `${item.text} (right edge ${item.right}px)`).join('; ');
