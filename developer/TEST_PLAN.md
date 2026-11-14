@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **281**. Done: **160**. In progress: **19**. Blocked: **0**. To do: **97**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **281**. Done: **160**. In progress: **31**. Blocked: **0**. To do: **85**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -90,8 +90,8 @@ Cases defined: **281**. Done: **160**. In progress: **19**. Blocked: **0**. To d
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
 | PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 13 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
-| PW-F2 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
-| PW-F3 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
+| PW-F2 | Playwright | `specs/frontend/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them |
+| PW-F3 | Playwright | `specs/frontend/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F4 | Playwright | `specs/frontend/` | 7 | 0 | 0 | 0 | 7 | 0 | Phase 0 infra, S1 stub |
 | PW-F5 | Playwright | `specs/frontend/` | 4 | 0 | 0 | 0 | 4 | 0 | Phase 0 infra, S1 stub |
 | PW-F6 | Playwright | `specs/frontend/` | 7 | 0 | 0 | 0 | 6 | 1 | Phase 0 infra, S1 stub; PW-F6-02 dropped with the deleted page |
@@ -117,7 +117,7 @@ run date in the change log.
 | Playwright group | WordPress | Drupal | Joomla | Standalone |
 | --- | --- | --- | --- | --- |
 | Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | full (GitHub and local) | none | none | none |
-| Frontend (PW-F1 to PW-F6) | partial (all 13 PW-F1 cases green on GitHub) | none | none | none |
+| Frontend (PW-F1 to PW-F6) | partial (PW-F1 to PW-F3 green on GitHub) | none | none | none |
 | Backend (PW-B-*) | none | none | none | none |
 | Security (PW-S) | none | none | none | none |
 | Sandbox (PW-X) | none | n/a | n/a | n/a |
@@ -140,7 +140,7 @@ Tests that already existed before this plan (not part of the case counts above):
 | Update billing, retry and recovery of Failed records | Covered by PHPUnit | PU-N5 to PU-N9, with the donor-path fixes DEF-13 and DEF-14. |
 | Upgrade from 2.8.1 | Covered in CI | `tests/upgrade/` and PU-L, 57 checks green on GitHub. |
 | Hooks, settings form, permissions, Search Kit action | Covered by PHPUnit | PU-H, PU-I, PU-J and PU-O are done. The browser side (`js/eway.js`, the Search Kit screens) is only reachable with Playwright. |
-| Front end | Started | Playwright PW-F1 (once-off contribution page) has all 13 cases green on WordPress, on GitHub. The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
+| Front end | Started | Playwright PW-F1 (once-off contribution page), PW-F2 (recurring set-up) and PW-F3 (events) have all 25 cases green on WordPress, on GitHub. The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
 | CI | PHPUnit, upgrade and Playwright | `phpunit-tests.yml`, `upgrade-tests.yml` and `frontend-tests.yml` call the shared workflows in `agileware/ci-workflows`. They run on pushes to master, on pull requests and on demand. Playwright runs on WordPress only. |
 | Coverage config | Restricted | `phpunit.xml.dist` includes only `CRM/` and `api/` (the generated DAO files are excluded). |
 
@@ -154,7 +154,7 @@ log in section 8. This section is a summary and goes stale: when you finish a su
 | # | Feature (from [user docs](../docs/README.md)) | Main code | Headless suites | Playwright suites | Coverage now |
 | --- | --- | --- | --- | --- | --- |
 | FEAT-1 | Once-off payment via Responsive Shared Page | `CRM_Core_Payment_eWAYRecurring::doPayment`, `VerifyPayment`, `Utils::validateContribution` | PU-B, PU-C, PU-D | PW-F1 | Headless: good (PU-B, PU-C, PU-D done). Front end: PW-F1 all thirteen cases green on WordPress (`wip` until the other CMSs run) |
-| FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | Headless: good (PU-D done). Front end: none |
+| FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | Headless: good (PU-D done). Front end: PW-F2 all six cases green on WordPress (`wip` until the other CMSs run) |
 | FEAT-3 | Recurring processing by cron, with retry of failures | `ProcessTrait::process_recurring_payments` and helpers | PU-F | PW-B-cron | Headless: good (PU-F, 26 of 28). Front end: none |
 | FEAT-4 | Saved-card ("stored credit card") back-office payments | `doPayment` back-office branch, `js/eway.js`, `PaymentToken::createToken/saveToken` | PU-B, PU-G | PW-B-backoffice | Headless: good (PU-B and PU-G done). Front end: none |
 | FEAT-5 | Update billing details for a recurring contribution (staff form) | `updateSubscriptionBillingInfo` (`VerifyUpdateToken` was unreachable and has been deleted, DEF-13) | PU-N, PU-K | PW-F4 | Headless: good (PU-N, PU-C done; PU-K blocked). Front end: none |
@@ -445,6 +445,7 @@ branch the status reads `Fixed on `release-3.0.0``; change it to the release num
 | DEF-33 | Intended (not a defect) | `updateSubscriptionBillingInfo()`, `PaymentToken::createToken()` | Adding a card makes no authorisation call with the card issuer, so a bad card is only found at the next charge (which then goes through the retry and Failed path). The extension was never meant to check a card when it is added, so this is a missing feature, not a defect. It is planned as feature FR-3 in [FEATURES.md](FEATURES.md), with what eWAY's documentation offers (an `Authorise` pre-authorisation on a token) and the research notes. Kept as a record so the ID is not reused. | PW-X-05 |
 | DEF-34 | Intended (not a defect) | `js/eway.js`, `PaymentToken` API permissions | The donor update-billing page loads the stored card list through the PaymentToken API, which needs a staff permission, so a donor with only "make online contributions" would see "No cards found." The function is not offered to donors today: a donor-facing update-card page is the planned feature FR-1 (see [FEATURES.md](FEATURES.md)), which will give donors a way to read only their own cards. Kept as a record so the ID is not reused, and so FR-1 starts from it. | PW-F4-07 |
 | DEF-35 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_validateForm()` | The hook read the `entity_id` of the managed record for the processor type with `->first()['entity_id']`, on every form on the site. Where that record is missing (a site whose processor type pre-dates managed entities) the read is on null and prints "Warning: Trying to access array offset on null" to the donor, on any form that re-displays after a validation error. Found by the first PW-F1-02 server-side run on a local site. The hook now looks the processor type up by name and only on the processor admin form. | PU-H5, PW-F1-02 |
+| DEF-36 | Fixed on `release-3.0.0` | `Utils::updateCustomerDetails()` | The dedupe rule for saved cards (same contact and payment processor with the same token or the same masked card number is the same card) was only applied by the browser-side `saveToken()`. On the contribution page path a new recurring record has no card, so a token row was always created: a returning donor with a saved card got a second identical row each time they set up a recurring payment, and staff saw duplicate cards. The function now applies the same rule before creating a row. Found by PW-F2-06, whose plan row expected one row. | PU-D10, PW-F2-06 |
 
 ---
 
@@ -780,23 +781,23 @@ stay `wip` until Drupal, Joomla and Standalone have run them too (section 0.1 re
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
-| PW-F2-01 | todo | all | Recurring option and interval controls shown; unticked behaves as once-off |
-| PW-F2-02 | todo | all | Approve: recurring record is In Progress, `processor_id` and `payment_token_id` set, `next_sched_contribution_date` is today plus the interval at 00:00, token row has masked number and expiry end of month |
-| PW-F2-03 | todo | all | Each interval unit (week, month, year) and interval greater than 1 give the right next date |
-| PW-F2-04 | todo | all | Installments limit stored on the recurring record |
-| PW-F2-05 | todo | all | Decline on the first payment: recurring record does not become In Progress; no token saved |
-| PW-F2-06 | todo | all | Returning donor with an existing token on the same contact does not create a duplicate token row (dedupe rule) |
+| PW-F2-01 | wip | all | Recurring option and interval controls shown; unticked behaves as once-off |
+| PW-F2-02 | wip | all | Approve: recurring record is In Progress, `processor_id` and `payment_token_id` set, `next_sched_contribution_date` is today plus the interval at 00:00, token row has masked number and expiry end of month |
+| PW-F2-03 | wip | all | Each interval unit (week, month, year) and interval greater than 1 give the right next date |
+| PW-F2-04 | wip | all | Installments limit stored on the recurring record |
+| PW-F2-05 | wip | all | Decline on the first payment: recurring record does not become In Progress; no token saved **Found:** a declined first payment leaves the recurring record Pending (not deleted, not In Progress), with the placeholder `processor_id` and no `payment_token_id`; the cron ignores it. `Utils::deleteRecurringContribution()` is private and never called (dead code) |
+| PW-F2-06 | wip | all | Returning donor with an existing token on the same contact does not create a duplicate token row (dedupe rule) **Found (DEF-36, fixed):** the dedupe rule lived only in the browser-side `saveToken`, so the contribution page path added a second identical token row for a returning donor; `updateCustomerDetails()` now applies the same rule |
 
 **PW-F3 event registration** (`event-registration.spec.ts`)
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
-| PW-F3-01 | todo | all | Paid event registration to hosted page to Thank You: participant Registered, contribution Completed |
-| PW-F3-02 | todo | all | Decline: participant not registered, message shown, can retry |
-| PW-F3-03 | todo | all | Hosted page cancel returns to the Confirm step with qfKey intact |
-| PW-F3-04 | todo | all | Returning to Confirm after payment shows "Payment already completed for this Registration" |
-| PW-F3-05 | todo | all | Multiple participants, correct total sent |
-| PW-F3-06 | todo | all | Free event (no payment) does not use eWAY |
+| PW-F3-01 | wip | all | Paid event registration to hosted page to Thank You: participant Registered, contribution Completed |
+| PW-F3-02 | wip | all | Decline: participant not registered, message shown, can retry **Found:** the declined participant stays "Pending from incomplete transaction", and a retry creates a new participant |
+| PW-F3-03 | wip | all | Hosted page cancel returns to the Confirm step with qfKey intact **Found:** Continue after cancelling reuses the same hosted page (one setup call); on the contribution page the equivalent case gives core's "Duplicate error" (PW-F1-07) |
+| PW-F3-04 | wip | all | Returning to Confirm after payment shows "Payment already completed for this Registration" **Found:** like the contribution page, CiviCRM answers with an HTTP 500 error page, which the test expects |
+| PW-F3-05 | wip | all | Multiple participants, correct total sent Core's own `DisplayProfile.tpl` prints a PHP warning on the Thank You step of a multi-person registration (core 6.16.5, not this extension), which the test allows |
+| PW-F3-06 | wip | all | Free event (no payment) does not use eWAY |
 
 **PW-F4 update billing details, staff form** (`update-billing.spec.ts`)
 
@@ -1047,6 +1048,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PW-F2 (recurring set-up) and PW-F3 (event registration) written for WordPress by a Playwright agent on the local site (snapshot, run, restore, all checked) and green on GitHub with PHPUnit (Playwright 45 tests passed, PHPUnit 434 tests, workflow runs on `a9308e6`). All twelve are `wip` (CMS column is all). PW-F2-06 found DEF-36 (a returning donor got a duplicate saved-card row because the dedupe rule only ran in `saveToken()`); fixed in `updateCustomerDetails()` with three PU-D10 tests, and PW-F2-06 now asserts one row. Plan rows corrected from real behaviour: PW-F2-05, PW-F3-02 to PW-F3-05. Local note: the db container's `/var/tmp` keeps a `pw-run-mariadb_10.11.gz` directory after every `ddev snapshot restore`, which blocks the next snapshot until it is deleted (`LOCAL_DEV.md` step 6 now needs to say so). 85 cases to do, all Playwright. |
 | 2026-11-14 | PW-F1 completed for WordPress: PW-F1-02 and 07 to 13 written by a Playwright agent on the local site (snapshot, run, restore, all checked) and green on GitHub (28 tests passed, workflow run on `17b4f72`). All 13 PW-F1 cases are `wip` (CMS column is all). Three CI-only differences were handled: the first click on the amount radio could be dropped at phone width (the helper now retries until it sticks); CiviCRM answers the "payment already completed" refusal with an HTTP 500 page, which PW-F1-07 now expects; and on a fresh CI site core's billing fieldset inside Astra is about 450px wide on a 375px screen, so PW-F1-12 is split into the journey (passes) and a form-width test marked `test.fail()` until that is fixed (not an extension defect). DEF-35 found and fixed (the validate hook's null read, covered by PU-H5). PHPUnit green at 431 tests. 97 cases to do, all Playwright. |
 | 2026-11-14 | Known gaps logged and fixed: DEF-28 (back-office card ownership, processor and expiry check), DEF-29 and DEF-30 (two unreachable branches in `doPayment()` removed), DEF-31 (`sanitizeToAscii("0")` kept), DEF-32 (settlement sync client injectable, with a new PU-M1 test of a scoped call through the API). DEF-33 (no issuer authorisation when a card is added) was logged and then reclassified as intended, because it is a new feature (FR-3) and not a defect. DEF-34 (a donor cannot list their own cards) was logged and then reclassified as intended, because the function is not offered to donors and FR-1 is the feature that adds it. PHPUnit green on GitHub at `fcf5227` (430 tests). |
 | 2026-11-14 | PU-K1 to K3 done. `VerifyPayment::run()` now reads the request and calls a new `resolve()`, which returns `['redirect' => URL]` or `['status' => 400]`; `run()` sends the 400 header and `die()` or the redirect. No second seam was needed: the failure redirect inside `validateEwayContribution()` is the framework's exit exception in tests, which `PagesTest` catches. PHPUnit green on GitHub at `b0696f7` (423 tests). 160 cases done, none blocked. |

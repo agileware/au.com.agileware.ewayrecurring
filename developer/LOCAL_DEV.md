@@ -148,6 +148,13 @@ restoring the database and your folder does not remove it. The `find` line lists
 sites where the web server cannot write to the usual extensions folder, so it rarely appears on a development
 site). Look at each path it prints, then remove it with `rm -rf`.
 
+After a restore, look in the database container for a leftover `pw-run-mariadb_10.11.gz` **directory** (the restore unpacks the snapshot there). It is not the snapshot and not the live data, and the next `ddev snapshot --name pw-run` fails with "Is a directory" until it is deleted. Look at it, then remove exactly that path:
+
+```bash
+ddev exec -s db "ls /var/tmp"
+ddev exec -s db "rm -rf /var/tmp/pw-run-mariadb_10.11.gz"
+```
+
 Then check the site: the contact, contribution page and processor counts should be what they were, and the test
 users should be gone. If `ddev snapshot --list` still shows `pw-run`, or its file is left under `/var/tmp` in the
 database container, delete that too.
