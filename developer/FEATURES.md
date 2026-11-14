@@ -325,7 +325,7 @@ WHERE cr.payment_processor_id = <processor id>
 | U2 | Decided | Include test-mode records? | 2026-11-14: **no**, leave them alone. The System Status check ignores them too |
 | U3 | Decided | Include records still Pending? | 2026-11-14: **no**, leave them alone. The retry list only selects In Progress, so a Pending record that failed is stuck in the same way, but such records are rare (the cron only charges a recurring contribution that already has a Completed contribution) |
 | U4 | Decided | Also repair the other stuck state: In Progress, retry date set, `failure_count` 0? | 2026-11-14: **yes, mark these Failed too (Rule 2), option C.** Nobody is charged by the upgrade, and the records become visible in the Failed list and System Status so staff or a donor's card update can recover them. Clearing the retry date instead (option B) would have charged the donor on the next cron run; it was chosen first and then changed |
-| U5 | Open | Offer a preview (an API action that lists what would change) so staff can check before upgrading? | The SQL above is the minimum |
+| U5 | Decided | Offer a preview (an API action that lists what would change) so staff can check before upgrading? | 2026-11-14: **no new preview feature for 3.0.0.** Staff check before upgrading with the two SQL queries above (the only preview that works before the new code is installed), and the step itself logs the number of records changed by each rule and their ids, and shows the numbers in the upgrade output. A read-only API action or a saved search for ongoing monitoring can be added later if it is wanted |
 | U6 | Decided | Use the retry limit saved at upgrade time, or treat any record with failures and a retry date as exhausted? | 2026-11-14: **the saved limit at the time the step runs**. A site that lowered the limit before upgrading will see more records marked |
 
 ### Acceptance criteria
@@ -339,7 +339,8 @@ WHERE cr.payment_processor_id = <processor id>
       charges nobody (PU-L9).
 - [ ] No email is sent and no activity is created by the step (PU-L8).
 - [ ] The count appears in the upgrade output and the log.
-- [ ] The release notes describe the new System Status message and the Failed list entries.
+- [ ] The release notes describe the new System Status message and the Failed list entries, and
+      include the two SQL checks so staff can see what will change before they upgrade (decision U5).
 
 ### Test coverage
 
@@ -361,6 +362,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 decision U5 settled: no new preview feature for 3.0.0. The two SQL checks (before upgrading) plus the step's log and upgrade output are the preview. All FR-2 decisions U1 to U6 are now decided; status stays `planned` until the step is built. |
 | 2026-11-14 | FR-2 decision U4 changed from option B to option C: Rule 2 marks records with a retry date and no failures Failed (no charge) instead of clearing the retry date. FR-2 text, risks, SQL check and acceptance criteria updated. Added the catch-up charge test result to FR-1 decision D3. |
 | 2026-11-14 | FR-2 decision U4 settled: the step also repairs records with a retry date and no failures (Rule 2) by clearing the retry date, so the next cron run charges them once. FR-2 renamed and reworked into two rules; added the Rule 2 risk (donors are charged), a second SQL check, and a guard that Rule 1 needs `failure_count` above 0. |
 | 2026-11-14 | FR-2 decisions U2, U3 and U6 settled: test-mode and Pending records are left alone, and the retry limit saved when the step runs is used. Selection text updated. |
