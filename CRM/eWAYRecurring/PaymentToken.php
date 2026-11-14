@@ -80,26 +80,29 @@ class CRM_eWAYRecurring_PaymentToken {
     }
 
     // get contact info
-    $contact = civicrm_api3('Contact', 'getsingle', [
-      'return' => [
-        "formal_title",
-        "first_name",
-        "last_name",
-        "country",
-        "street_address",
-        "city",
-        "state_province",
-        "postal_code",
-        "email",
-        'phone',
-      ],
-      'id' => $contact_id,
-      'api.Country.getsingle' => [
-        'id' => "\$value.country_id",
-        'return' => ["iso_code"],
-      ],
-    ]);
-    if ($contact['is_error']) {
+    // getsingle throws for an unknown contact, it never returns an error array.
+    try {
+      $contact = civicrm_api3('Contact', 'getsingle', [
+        'return' => [
+          "formal_title",
+          "first_name",
+          "last_name",
+          "country",
+          "street_address",
+          "city",
+          "state_province",
+          "postal_code",
+          "email",
+          'phone',
+        ],
+        'id' => $contact_id,
+        'api.Country.getsingle' => [
+          'id' => "\$value.country_id",
+          'return' => ["iso_code"],
+        ],
+      ]);
+    }
+    catch (CRM_Core_Exception $e) {
       // TODO add error header
       CRM_Utils_JSON::output([
         'is_error' => 1,
@@ -375,8 +378,8 @@ class CRM_eWAYRecurring_PaymentToken {
           $error = E::ts('Error retrieving data for token id %1: %2', [1 => $token['id'], 2 => $error]);
         }
 
-        $result['errors'] = array_merge($result['errors'] ?? [], $errors);
-        $result['is_error'] = TRUE;
+        $results['errors'] = array_merge($results['errors'] ?? [], $errors);
+        $results['is_error'] = TRUE;
         continue;
       }
 
