@@ -18,12 +18,13 @@ if (!$state) {
   exit(2);
 }
 
-$failures = 0;
+// cv runs this file from inside a function, so a plain top-level variable is local to that function and
+// a `global` in check() would not see it. Count failures in $GLOBALS so the exit code is right.
+$GLOBALS['ewayrecurring_upgrade_failures'] = 0;
 function check(string $id, string $what, bool $ok, string $detail = ''): void {
-  global $failures;
   fwrite(STDERR, sprintf("%s %s %s%s\n", $ok ? 'PASS' : 'FAIL', $id, $what, ($ok || $detail === '') ? '' : "\n       $detail"));
   if (!$ok) {
-    $failures++;
+    $GLOBALS['ewayrecurring_upgrade_failures']++;
   }
 }
 
@@ -172,16 +173,18 @@ foreach ($state['recurring'] as $label => $recur) {
 }
 
 // testPlan UP-09
-// Core keeps a menu item's is_ajax flag in module_data, as the strings "true" and "false".
+// Core keeps a menu item's is_ajax flag in module_data, as the strings "true" and "false" in some versions and
+// as 1 and 0 in others, so compare it as a boolean.
 $menu = [];
 $dao = CRM_Core_DAO::executeQuery("SELECT path, module_data FROM civicrm_menu WHERE path LIKE 'civicrm/ewayrecurring/%'");
 while ($dao->fetch()) {
   $data = $dao->module_data ? unserialize($dao->module_data) : [];
-  $menu[$dao->path] = $data['is_ajax'] ?? NULL;
+  $menu[$dao->path] = array_key_exists('is_ajax', $data) ? filter_var($data['is_ajax'], FILTER_VALIDATE_BOOLEAN) : NULL;
 }
-check('UP-09', 'createtoken is flagged is_ajax (a plain GET is refused)', ($menu['civicrm/ewayrecurring/createtoken'] ?? NULL) === 'true', json_encode($menu));
-check('UP-09', 'savetoken is flagged not is_ajax', ($menu['civicrm/ewayrecurring/savetoken'] ?? NULL) === 'false', json_encode($menu));
+check('UP-09', 'createtoken is flagged is_ajax (a plain GET is refused)', ($menu['civicrm/ewayrecurring/createtoken'] ?? NULL) === TRUE, json_encode($menu));
+check('UP-09', 'savetoken is flagged not is_ajax', ($menu['civicrm/ewayrecurring/savetoken'] ?? NULL) === FALSE, json_encode($menu));
 check('UP-09', 'the removed verifyupdatetoken route is gone', !array_key_exists('civicrm/ewayrecurring/verifyupdatetoken', $menu), json_encode($menu));
 
+$failures = $GLOBALS['ewayrecurring_upgrade_failures'];
 fwrite(STDERR, $failures ? "\n$failures check(s) failed\n" : "\nAll checks passed\n");
 exit($failures ? 1 : 0);

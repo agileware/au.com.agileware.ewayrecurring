@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **272**. Done: **62**. In progress: **13**. Blocked: **3**. To do: **189**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **272**. Done: **64**. In progress: **11**. Blocked: **3**. To do: **189**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -79,7 +79,7 @@ Cases defined: **272**. Done: **62**. In progress: **13**. Blocked: **3**. To do
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-F | PHPUnit | `RecurringProcessingTest` | 27 | 25 | 0 | 0 | 2 | 0 | none (S1 done) |
 | PU-G | PHPUnit | `PaymentTokenTest` | 12 | 1 | 1 | 0 | 10 | 0 | none (S1 done) |
-| PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 0 | 2 | 0 | 11 | 0 | none |
+| PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 2 | 0 | 0 | 11 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
 | PU-J | PHPUnit | `SettingsFormTest` | 7 | 0 | 0 | 0 | 7 | 0 | none |
 | PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 3 | 0 | 3 | page refactor (PU-K1 to K3); PU-K4 to K6 dropped with the deleted page |
@@ -567,7 +567,7 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | --- | --- | --- |
 | PU-H1 | todo | Managed entities exist after install: processor type `eWay_Recurring` (class `Payment_eWAYRecurring`, labels API Key / API Password, `is_recur`), activity types "eWay Transaction Failed" and "eWay Transaction Succeeded", four scheduled jobs with documented frequencies and active flags |
 | PU-H2 | todo | Settlement Sync job exists and is **disabled** by default (`Sync.mgd.php`) |
-| PU-H3 | wip | `hook_enable` reactivates the processor type if it had been deactivated |
+| PU-H3 | done | `hook_enable` reactivates the processor type if it had been deactivated |
 | PU-H4 | todo | `buildForm`: `send_cancel_request` removed for eWAY processors on `CancelSubscription`, kept for others |
 | PU-H5 | todo | `validateForm`: API Key and API Password required on the processor admin form for eWAY type, not required for other types |
 | PU-H6 | todo | `hook_permission` declares both token permissions with labels |
@@ -577,7 +577,7 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | PU-H10 | todo | `preProcess` Thank You: validates once per invoice, hides line items for quick-config price sets |
 | PU-H11 | todo | `preProcess` Confirm (contribution and event): already-paid access code throws the right message per component, failed prior transaction shows the warning and clears the session response, not-processed-yet continues |
 | PU-H12 | todo | `hook_check`: no message at zero failures, message with count and link when failures exist past the 4-hour threshold, ignores test recurring records, honours a disabled `StatusPreference`, honours the `statusNames` filter (DEF-3: only recurring contributions marked Failed are counted) |
-| PU-H13 | wip | `hook_enable` works when nobody is logged in (no permissions): the processor type is reactivated and nothing throws "Authorization failed" (DEF-15, fixed) |
+| PU-H13 | done | `hook_enable` works when nobody is logged in (no permissions): the processor type is reactivated and nothing throws "Authorization failed" (DEF-15, fixed) |
 
 ### PU-I `PermissionsTest` (`APIWrapper`)
 
@@ -998,6 +998,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PU-H3 and PU-H13 are `done` (CI passed). The first green GitHub run of the upgrade test was a false pass: the verifier counted failures in a variable that was local to the function cv runs the script in, so it printed FAIL lines yet exited 0 (two UP-09 checks failed because that core version stores the menu flag as 1 and 0, not "true" and "false"). Both fixed; a broken record now makes the verifier exit 1, checked locally. The UP cases stay `wip` until a corrected run passes on GitHub. |
 | 2026-11-14 | DEF-15 found by the first GitHub run of the upgrade test and fixed: the enable hook failed with "Authorization failed" when the extension was enabled with nobody logged in (cv). New case PU-H13 and first tests for PU-H3 (both `wip`). The upgrade script now installs release 2.8.1 as a CMS user, since that release has the same bug. 272 cases. |
 | 2026-11-14 | UP suite started: `tests/upgrade/` (script, seed for 2.8.1, verifier) and `.github/workflows/upgrade-tests.yml` added, covering UP-01 to UP-06 and UP-08 to UP-11, `wip` until a GitHub run passes. A rehearsal against a local site passed every check. UP-04, UP-08 and UP-09 reworded to what the checks do (the Settlement Sync job already exists in 2.8.1; the `update: always` job is not asserted; jobs run through `Job.execute`; the menu flag lives in `module_data`). |
 | 2026-11-14 | PU-F27 is `done`: CI passed on `release-3.0.0`. |
