@@ -47,6 +47,7 @@ that folder as root and the web user cannot add a second extension beside it. `s
 `PLAYWRIGHT_FORCE_EXT_FALLBACK=1`) and, using `fixtures/extension-dir.php`, points CiviCRM's `extensionsDir` and
 `extensionsURL` at a writable sibling, `ext-playwright`, holding links to the extensions already there plus the stub.
 The two settings can be absolute values or `[civicrm.files]/ext` placeholders; either way they must end in `/ext`.
+A change to the shared workflow (a branch of `ci-workflows`, not yet merged) would hand that folder to the web user, so the fallback would not be needed on GitHub; it stays for other hosts.
 
 On GitHub the WordPress site is built by the shared `playwright-tests` workflow in `agileware/ci-workflows`, which
 calls `setup-environment.sh` (see `.github/workflows/frontend-tests.yml`).

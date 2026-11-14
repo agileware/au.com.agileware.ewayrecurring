@@ -4,10 +4,14 @@ name: Upgrade tests
 # and checks nothing was lost or changed. See tests/upgrade/ and the UP suite in
 # developer/TEST_PLAN.md.
 #
-# It starts a full WordPress and CiviCRM site, so it takes a few minutes. It runs
-# on push, like the PHPUnit workflow, and on demand.
+# It starts a full WordPress and CiviCRM site, so it takes a few minutes. It runs on pushes to master, on pull
+# requests and on demand, like the other extensions' workflows. To run it on a branch on demand:
+#   gh workflow run upgrade-tests.yml --ref <branch>
+# The run uses this file as it is on that branch.
 on:
-  push: {}
+  push:
+    branches: [master]
+  pull_request:
   workflow_dispatch: {}
 
 jobs:

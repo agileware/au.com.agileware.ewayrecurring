@@ -241,7 +241,9 @@ tests/playwright/
     sandbox/                    @sandbox, real eWAY sandbox, nightly only
 ```
 
-CI: add `.github/workflows/frontend-tests.yml` identical in shape to the sibling repos, calling
+CI: `.github/workflows/frontend-tests.yml` is identical in shape to the sibling repos (and so are its triggers: pushes to
+master, pull requests and on demand, as in the Elections and Event Locations repos; the PHPUnit and upgrade workflows
+use the same triggers), calling
 `agileware/ci-workflows/.github/workflows/playwright-tests.yml@main` with
 `EXTENSION_NAME: au.com.agileware.ewayrecurring` and
 `SETUP_SCRIPT: tests/playwright/fixtures/setup-environment.sh`. The reusable workflow already
@@ -674,7 +676,7 @@ installs an older release (`FROM_REF`) on a WordPress + CiviCRM site, then runs
 the commit under test (`NEW_VERSION_DIR`), run `cv ext:upgrade-db`, check the result, and exit
 non-zero on any problem. The elections extension is the reference implementation
 (`tests/upgrade/ci-upgrade-test.sh`, `seed-v1.php`, `verify-v2.php`, `upgrade-from-v1.sh`, and an
-`upgrade-tests.yml` that passes `FROM_REF`). It is implemented here as `tests/upgrade/ci-upgrade-test.sh`, `seed-v2.8.1.php` and `verify-v3.php`, and `.github/workflows/upgrade-tests.yml` (on push and on demand). The script installs the old release as a CMS user, because release 2.8.1's enable hook fails when nobody is logged in (DEF-15). The workflow passes on GitHub (57 checks, none failing) and a rehearsal against a local site passes too. The database upgrade is independent of the CMS, so
+`upgrade-tests.yml` that passes `FROM_REF`). It is implemented here as `tests/upgrade/ci-upgrade-test.sh`, `seed-v2.8.1.php` and `verify-v3.php`, and `.github/workflows/upgrade-tests.yml` (on pull requests, pushes to master and on demand). The script installs the old release as a CMS user, because release 2.8.1's enable hook fails when nobody is logged in (DEF-15). The workflow passes on GitHub (57 checks, none failing) and a rehearsal against a local site passes too. The database upgrade is independent of the CMS, so
 this suite runs on WordPress only. Pick `FROM_REF` as the last release the upgrade must support
 (decision 9: tag `2.8.1`); each `FROM_REF` is one workflow job. Note that between 2.8.1 and 2.8.2 the extension changed only the menu XML (`is_ajax` flags on `createtoken` and `savetoken`), and the upgrader has no step after `upgrade_20601` until `upgrade_30000` is added (FR-2; UP-10). From the 2.8.1 baseline the suite is therefore chiefly a guard that an in-place upgrade keeps data, settings and managed entities and rebuilds the menu, and it will exercise real upgrade steps only once a release adds one. A second, older baseline (2.6.1) would exercise real upgrade steps (`upgrade_20300` and `upgrade_20601`) and the switch of upgrader class; that case, UP-07, was dropped as not needed.
 
@@ -1014,6 +1016,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Workflow triggers matched to the Elections and Event Locations repos: pushes to master, pull requests and on demand (they ran on every push before), for the PHPUnit, upgrade and frontend workflows. A branch gets CI when a pull request is open or when someone runs a workflow on demand, for example `gh workflow run upgrade-tests.yml --ref release-3.0.0` (tried and working: GitHub already knows the workflow from its earlier runs, and the run uses the file on that branch). Also prepared, on a local branch `playwright-writable-extensions-dir` of `ci-workflows` and not pushed, a one-step change that hands `wp-content/uploads/civicrm/ext` to www-data so a setup script can install a helper extension beside the one under test; once it is merged `setup-common.sh`'s fallback is no longer needed on GitHub (it stays for other hosts). |
 | 2026-11-14 | The Playwright workflow passes on GitHub: all six PW-INF checks green on a fresh WordPress site, through the extensions-folder fallback. Infrastructure is `full` for WordPress in the CMS table; PW-INF-01 to 06 stay `wip` because their CMS column is all and Drupal, Joomla and Standalone have not run them. |
 | 2026-11-14 | The fallback's first version failed on GitHub too: the CI site's `extensionsDir` is an absolute path, not the `[civicrm.files]/ext` placeholder the script assumed. `fixtures/extension-dir.php` now swaps a trailing `/ext` for `/ext-playwright` in either form (and in the URL setting), and stops with the raw values if they do not fit. Tried locally with absolute settings like CI's and the fallback forced: all six PW-INF checks pass. |
 | 2026-11-14 | First GitHub run of the Playwright workflow failed in the setup script: the extensions folder is created as root by the bind mount, so the stub extension could not be copied beside the extension under test ("Permission denied"). `setup-common.sh` now falls back to a writable sibling folder, holding links to the existing extensions plus the stub, and points `extensionsDir` and `extensionsURL` at it. Tried on the local site with the fallback forced: all six PW-INF checks pass. PW-INF stays `wip` until a GitHub run passes. |

@@ -45,6 +45,21 @@ phpunit9 --group e2e
 [README](../tests/playwright/README.md) for how to run them. On GitHub they run through
 `.github/workflows/frontend-tests.yml`.
 
+## Running the workflows on GitHub
+
+The PHPUnit, upgrade and Playwright workflows run on pushes to `master`, on pull requests and on demand. To run one
+on a branch without opening a pull request:
+
+```bash
+gh workflow run phpunit-tests.yml --ref release-3.0.0
+gh workflow run upgrade-tests.yml --ref release-3.0.0
+gh workflow run frontend-tests.yml --ref release-3.0.0
+```
+
+The run uses the workflow file as it is on that branch, so push the branch first if the file changed. A workflow
+that GitHub has never seen run is only listed once its file is on the default branch, so a brand new workflow file
+needs one run (a pull request, or a push while it still has a push trigger) before it can be started this way.
+
 ## Upgrade tests
 
 `tests/upgrade/` checks that a site can upgrade from an older release without losing or changing data.

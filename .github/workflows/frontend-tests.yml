@@ -6,7 +6,9 @@ name: Playwright tests
 # The shared workflow builds WordPress only. Drupal, Joomla and Standalone are run against local sites until their
 # own workflows exist (developer/TEST_PLAN.md section 2.5).
 on:
-  push: {}
+  push:
+    branches: [master]
+  pull_request:
   workflow_dispatch: {}
 
 jobs:
