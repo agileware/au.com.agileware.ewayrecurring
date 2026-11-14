@@ -203,7 +203,7 @@ class CRM_eWAYRecurring_ProcessorBasicsTest extends \PHPUnit\Framework\TestCase 
   public function sanitizeTransliteratedProvider(): array {
     return [
       'accented Latin' => ["Caf\u{e9} cr\u{e8}me", '/^Caf.{1,2} cr.{1,2}me$/'],
-      'emoji' => ["Thank you \u{1F600}", '/^Thank you \?*$/'],
+      'emoji' => ["Thank you \u{1F600}", '/^Thank you [\x20-\x7E]*$/'],
       'CJK' => ["\u{6771}\u{4EAC} Tokyo", '/^[\x20-\x7E]* Tokyo$/'],
       'mixed' => ["Jos\u{e9} \u{2013} appeal \u{1F600}\n", '/^Jos.{1,2} .*appeal.*$/'],
     ];
