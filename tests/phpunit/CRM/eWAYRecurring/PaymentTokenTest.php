@@ -145,7 +145,7 @@ class CRM_eWAYRecurring_PaymentTokenTest extends \PHPUnit\Framework\TestCase imp
   /**
    * The guards do not get in the way of a good card.
    *
-   * @testPlan PU-G8
+   * @testPlan PU-G12
    */
   public function testASavedCardIsStoredForTheContactInTheReference(): void {
     $processor = Fixture::processor();
