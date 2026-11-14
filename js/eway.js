@@ -25,6 +25,12 @@ CRM.eway.setPaymentTokenOptions = async function () {
  * @param result
  */
 CRM.eway.updateOptions = function (values) {
+    // The save-token answer can carry the API result object instead of the card list. The list is reloaded
+    // separately straight after, so only a list is used here.
+    if (!Array.isArray(values)) {
+        return;
+    }
+
     if (JSON.stringify(CRM.eway.paymentTokens) === JSON.stringify(values)) {
         return;
     }

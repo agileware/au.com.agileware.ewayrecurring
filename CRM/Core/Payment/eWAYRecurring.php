@@ -177,6 +177,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       'add_credit_card' => [
         'htmlType' => 'button',
         'name' => 'add_credit_card',
+        'is_required' => FALSE,
         'class' => 'eway_credit_card_field',
         'title' => ts('Add Credit Card'),
         'attributes' => [
@@ -751,6 +752,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
     $crid = CRM_Utils_Request::retrieve('crid',
       CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
+    // When the form is opened as a full page its address (and so crid) is not in the POST, but core passes the id.
+    if (empty($crid) && !empty($params['contributionRecurID'])) {
+      $crid = (int) $params['contributionRecurID'];
+    }
     $tokenid = CRM_Utils_Request::retrieve('contact_payment_token',
       CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
     if (empty($crid) || empty($tokenid)) {

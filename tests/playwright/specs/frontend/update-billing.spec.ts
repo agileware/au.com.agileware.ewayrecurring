@@ -28,10 +28,9 @@ import { mailSubjectsFor } from '../../fixtures/queue-records';
  * developer/TEST_PLAN.md section 5.1.
  *
  * Staff normally reach the form through CiviCRM's popup (the link on the contact's tab opens it in a dialog), and
- * that is how most cases here open it. KNOWN DEFECT: opened as a full page (the same address typed or linked
- * directly), pressing Save fails with "Missing contribution id and token id.", because updateSubscriptionBillingInfo()
- * reads crid from the request and a full-page POST does not carry it (the popup posts to the address it was loaded
- * from, which does). One test pins that with test.fail().
+ * that is how most cases here open it. The form also works opened as a full page (the same address typed or linked directly); before DEF-41 was
+ * fixed, Save failed there with "Missing contribution id and token id." because the method read crid from a request that
+ * a full-page POST does not carry. One test covers that route.
  */
 
 /** CiviCRM core reads a key the extension's Add Credit Card field metadata does not set (see the pinned test). */
@@ -285,13 +284,12 @@ test.describe('update billing details: the staff form', () => {
   //   CRM/Core/Payment/eWAYRecurring.php, updateSubscriptionBillingInfo(), CRM_Utils_Request::retrieve('crid', ...)
   // so every Save ends on an error page reading "Missing contribution id and token id." and changes nothing. Core
   // already hands the id to the method as $params['contributionRecurID'] (CRM_Contribute_Form_UpdateBilling::postProcess).
-  // PHPUnit never sees it because those tests set $_REQUEST['crid']. test.fail() keeps this passing while the defect
-  // exists and makes the run fail on the day it is fixed, so the annotation is removed then.
+  // PHPUnit never sees it because those tests set $_REQUEST['crid']. This was DEF-41; it is fixed and
+  // this test now asserts the save works.
   test.describe('as CiviCRM renders the form', () => {
     test.use({ allowedProblems: [CORE_NOISE] });
 
     test('PW-F4-02 saving the form as CiviCRM renders it updates the recurring record', async ({ adminPage }) => {
-      test.fail(true, 'Save fails with "Missing contribution id and token id.": updateSubscriptionBillingInfo() reads crid from a request that does not carry it.');
       const record = createRecurring({ label: 'f402real', extraCards: [{}] });
       await adminPage.goto(billingUrl(record));
       await expect(adminPage.locator('#contact_payment_token option')).toHaveCount(2);
@@ -645,13 +643,12 @@ test.describe('update billing details: who can open the form', () => {
  * The form prints a PHP warning on every page that shows it. Core's payment form reads is_required from each field the
  * extension lists (CRM/Core/Payment/Form.php, addCommonFields()), and the Add Credit Card field has none:
  *   CRM/Core/Payment/eWAYRecurring.php, getPaymentFormFieldsMetadata(), the 'add_credit_card' entry.
- * It is the same on the back-office credit card form. test.fail() keeps this passing while the defect exists.
+ * It was the same on the back-office credit card form (DEF-42, fixed).
  */
 test.describe('update billing details: known defects in the page and its script', () => {
   test.use({ allowedProblems: [new RegExp(`${IS_REQUIRED_WARNING.source}|${CARD_LIST_SCRIPT_ERROR.source}`)] });
 
   test('PW-F4-01 the form prints no PHP warning', async ({ adminPage }) => {
-    test.fail(true, 'Undefined array key "is_required": the Add Credit Card field metadata has no is_required (core 6.16.5 reads it unguarded).');
     const record = createRecurring({ label: 'f401warn' });
     await adminPage.goto(billingUrl(record));
     await expect(adminPage.locator('#add_credit_card')).toBeVisible();
@@ -662,10 +659,8 @@ test.describe('update billing details: known defects in the page and its script'
   // "values is not iterable". After the hosted window,
   // CRM.eway.addCreditCard() calls savetoken without an access code, which answers with the API result object in
   // data.message, and passes it to CRM.eway.updateOptions(), which loops over it as if it were the list of cards. The
-  // list is still refreshed by the setPaymentTokenOptions() call that follows, so staff do not see a fault. test.fail()
-  // keeps this passing while the defect exists.
+  // list is still refreshed by the setPaymentTokenOptions() call that follows, so staff do not see a fault. This was DEF-43 and is fixed.
   test('PW-F4-02 adding a card raises no script error', async ({ adminPage, stub }) => {
-    test.fail(true, 'js/eway.js: updateOptions(data.message) is given the API result object, not its values ("values is not iterable").');
     const record = createRecurring({ label: 'f402script' });
     const card = newCard();
     scriptAddCard(stub, record, card);
