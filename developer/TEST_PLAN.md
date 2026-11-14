@@ -68,25 +68,25 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **281**. Done: **78**. In progress: **11**. Blocked: **3**. To do: **184**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **281**. Done: **157**. In progress: **11**. Blocked: **3**. To do: **105**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 2 | 0 | 0 | 9 | 0 | none |
-| PU-B | PHPUnit | `DoPaymentTest` | 17 | 1 | 0 | 0 | 16 | 0 | none (S1 done) |
-| PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 0 | 0 | 0 | 3 | 0 | none |
+| PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 11 | 0 | 0 | 0 | 0 | none |
+| PU-B | PHPUnit | `DoPaymentTest` | 17 | 17 | 0 | 0 | 0 | 0 | none (S1 done) |
+| PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 3 | 0 | 0 | 0 | 0 | none |
 | PU-D | PHPUnit | `ValidateContributionTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 28 | 26 | 0 | 0 | 2 | 0 | none (S1 done) |
-| PU-G | PHPUnit | `PaymentTokenTest` | 12 | 2 | 0 | 0 | 10 | 0 | none (S1 done) |
-| PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 2 | 0 | 0 | 11 | 0 | none |
-| PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
-| PU-J | PHPUnit | `SettingsFormTest` | 7 | 0 | 0 | 0 | 7 | 0 | none |
+| PU-F | PHPUnit | `RecurringProcessingTest` | 28 | 28 | 0 | 0 | 0 | 0 | none (S1 done) |
+| PU-G | PHPUnit | `PaymentTokenTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
+| PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 13 | 0 | 0 | 0 | 0 | none |
+| PU-I | PHPUnit | `PermissionsTest` | 4 | 4 | 0 | 0 | 0 | 0 | none |
+| PU-J | PHPUnit | `SettingsFormTest` | 7 | 7 | 0 | 0 | 0 | 0 | none |
 | PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 3 | 0 | 3 | page refactor (PU-K1 to K3); PU-K4 to K6 dropped with the deleted page |
-| PU-L | PHPUnit | `SchemaAndUpgradeTest` | 10 | 6 | 0 | 0 | 4 | 0 | none |
-| PU-M | PHPUnit | `SettlementSync gaps` | 4 | 0 | 0 | 0 | 4 | 0 | none |
-| PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 5 | 0 | 0 | 4 | 0 | none |
-| PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 0 | 0 | 0 | 5 | 0 | none |
+| PU-L | PHPUnit | `SchemaAndUpgradeTest` | 10 | 10 | 0 | 0 | 0 | 0 | none |
+| PU-M | PHPUnit | `SettlementSync gaps` | 4 | 4 | 0 | 0 | 0 | 0 | none |
+| PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 9 | 0 | 0 | 0 | 0 | none |
+| PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 5 | 0 | 0 | 0 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
 | PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 5 | 0 | 8 | 0 | Phase 0 infra, S1 stub |
@@ -136,10 +136,10 @@ Tests that already existed before this plan (not part of the case counts above):
 | Area | State | Notes |
 | --- | --- | --- |
 | Settlement Sync (`SettlementSync.php`, `EwaySettlement.Sync`) | Covered | See the table above. Gaps are PU-M. |
-| Payment processor class, recurring cron, verification queue, upgrade steps | Largely covered by PHPUnit | PU-D, PU-E and PU-F are nearly all done. PU-B (`doPayment`), PU-C (return URLs) and most of PU-G (tokens) are still to do. |
+| Payment processor class, recurring cron, verification queue, upgrade steps | Covered by PHPUnit | PU-A to PU-J, PU-L to PU-O are done (green on GitHub, 412 tests). Only PU-K (the page refactor) is blocked. |
 | Update billing, retry and recovery of Failed records | Covered by PHPUnit | PU-N5 to PU-N9, with the donor-path fixes DEF-13 and DEF-14. |
 | Upgrade from 2.8.1 | Covered in CI | `tests/upgrade/` and PU-L, 57 checks green on GitHub. |
-| Hooks, settings form, permissions, Search Kit action, JS | Mostly **not yet tested** | PU-H (two of thirteen done), PU-I, PU-J and PU-O are still to do. |
+| Hooks, settings form, permissions, Search Kit action | Covered by PHPUnit | PU-H, PU-I, PU-J and PU-O are done. The browser side (`js/eway.js`, the Search Kit screens) is only reachable with Playwright. |
 | Front end | Started | Playwright PW-F1 (once-off contribution page) has five cases green on WordPress, on GitHub and locally. The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
 | CI | PHPUnit, upgrade and Playwright | `phpunit-tests.yml`, `upgrade-tests.yml` and `frontend-tests.yml` call the shared workflows in `agileware/ci-workflows`. They run on pushes to master, on pull requests and on demand. Playwright runs on WordPress only. |
 | Coverage config | Restricted | `phpunit.xml.dist` includes only `CRM/` and `api/` (the generated DAO files are excluded). |
@@ -153,21 +153,21 @@ log in section 8. This section is a summary and goes stale: when you finish a su
 
 | # | Feature (from [user docs](../docs/README.md)) | Main code | Headless suites | Playwright suites | Coverage now |
 | --- | --- | --- | --- | --- | --- |
-| FEAT-1 | Once-off payment via Responsive Shared Page | `CRM_Core_Payment_eWAYRecurring::doPayment`, `VerifyPayment`, `Utils::validateContribution` | PU-B, PU-C, PU-D | PW-F1 | Headless: partial (PU-D done, PU-B and PU-C to do). Front end: PW-F1 five of thirteen cases, WordPress |
-| FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | Headless: partial (PU-D done). Front end: none |
+| FEAT-1 | Once-off payment via Responsive Shared Page | `CRM_Core_Payment_eWAYRecurring::doPayment`, `VerifyPayment`, `Utils::validateContribution` | PU-B, PU-C, PU-D | PW-F1 | Headless: good (PU-B, PU-C, PU-D done). Front end: PW-F1 five of thirteen cases, WordPress |
+| FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | Headless: good (PU-D done). Front end: none |
 | FEAT-3 | Recurring processing by cron, with retry of failures | `ProcessTrait::process_recurring_payments` and helpers | PU-F | PW-B-cron | Headless: good (PU-F, 26 of 28). Front end: none |
-| FEAT-4 | Saved-card ("stored credit card") back-office payments | `doPayment` back-office branch, `js/eway.js`, `PaymentToken::createToken/saveToken` | PU-B, PU-G | PW-B-backoffice | Headless: partial (PU-G9, PU-G12 done; PU-B and the rest of PU-G to do). Front end: none |
-| FEAT-5 | Update billing details for a recurring contribution (staff form) | `updateSubscriptionBillingInfo` (`VerifyUpdateToken` was unreachable and has been deleted, DEF-13) | PU-N, PU-K | PW-F4 | Headless: good for the staff form (PU-N5 to PU-N9); PU-N1 to PU-N4 and PU-K to do. Front end: none |
+| FEAT-4 | Saved-card ("stored credit card") back-office payments | `doPayment` back-office branch, `js/eway.js`, `PaymentToken::createToken/saveToken` | PU-B, PU-G | PW-B-backoffice | Headless: good (PU-B and PU-G done). Front end: none |
+| FEAT-5 | Update billing details for a recurring contribution (staff form) | `updateSubscriptionBillingInfo` (`VerifyUpdateToken` was unreachable and has been deleted, DEF-13) | PU-N, PU-K | PW-F4 | Headless: good (PU-N, PU-C done; PU-K blocked). Front end: none |
 | FEAT-6 | Pending transaction verification queue and job | `EwayContributionTransactions` API, `Utils::validatePendingTransactions` | PU-E | PW-F5 | Headless: good (PU-E, 12 of 12). Front end: none |
-| FEAT-7 | Token metadata backfill | `PaymentToken::fillTokensMeta`, `EwayRecurring.fillTokensMeta` | PU-G | PW-B-jobs | None yet (the token cases PU-G9 and PU-G12 cover `saveToken`, not the backfill) |
+| FEAT-7 | Token metadata backfill | `PaymentToken::fillTokensMeta`, `EwayRecurring.fillTokensMeta` | PU-G | PW-B-jobs | Headless: good (PU-G done, including the backfill errors). Front end: none |
 | FEAT-8 | Settlement Sync | `SettlementSync`, `EwaySettlement.Sync` | existing `SettlementSyncTest`, PU-M | PW-B-settings | Headless: good. Front end: none |
-| FEAT-9 | Settings form | `Form/Settings.php`, `settings/eWAYRecurring.setting.php` | PU-J | PW-B-settings | Partial (settings round trip only, via Settlement Sync tests) |
-| FEAT-10 | Failed Recurring Contributions listing and Reactivate action | `ang/`, `managed/`, `searchKitTasks` hook | PU-O | PW-B-failed | None |
-| FEAT-11 | System status check for stuck failures | `ewayrecurring_civicrm_check` | PU-H | PW-B-status | None yet (PU-H to do; DEF-3 is fixed in code) |
-| FEAT-12 | Cancel / Update Subscription form behaviour | `buildForm` hook, `getEditableRecurringScheduleFields`, `eway.js` | PU-H, PU-N | PW-B-recurforms | None yet (PU-H and PU-N1 to PU-N4 to do) |
-| FEAT-13 | Permissions (`view/edit payment tokens`) | `APIWrapper::authorize` | PU-I | PW-B-permissions | None |
-| FEAT-14 | Managed entities, install, enable, upgrade | `ewayrecurring_civicrm_managed`, `Upgrader`, civix schema | PU-H, PU-L, UP | PW-B-jobs, PW-B-processor | Headless: good for install and upgrade (PU-L6 to PU-L10, PU-H13) and the upgrade workflow (UP, 10 of 11). Front end: none |
-| FEAT-15 | Payment processor admin validation | `ewayrecurring_civicrm_validateForm` | PU-H | PW-B-processor | None |
+| FEAT-9 | Settings form | `Form/Settings.php`, `settings/eWAYRecurring.setting.php` | PU-J | PW-B-settings | Headless: good (PU-J done). Front end: none |
+| FEAT-10 | Failed Recurring Contributions listing and Reactivate action | `ang/`, `managed/`, `searchKitTasks` hook | PU-O | PW-B-failed | Headless: good (PU-O done). Front end: none |
+| FEAT-11 | System status check for stuck failures | `ewayrecurring_civicrm_check` | PU-H | PW-B-status | Headless: good (PU-H11, H12 done). Front end: none |
+| FEAT-12 | Cancel / Update Subscription form behaviour | `buildForm` hook, `getEditableRecurringScheduleFields`, `eway.js` | PU-H, PU-N | PW-B-recurforms | Headless: good (PU-H, PU-N done). Front end: none |
+| FEAT-13 | Permissions (`view/edit payment tokens`) | `APIWrapper::authorize` | PU-I | PW-B-permissions | Headless: good (PU-I done). Front end: none |
+| FEAT-14 | Managed entities, install, enable, upgrade | `ewayrecurring_civicrm_managed`, `Upgrader`, civix schema | PU-H, PU-L, UP | PW-B-jobs, PW-B-processor | Headless: good (PU-H, PU-L done and the upgrade workflow, UP 10 of 11). Front end: none |
+| FEAT-15 | Payment processor admin validation | `ewayrecurring_civicrm_validateForm` | PU-H | PW-B-processor | Headless: good (PU-H done). Front end: none |
 
 ---
 
@@ -428,6 +428,15 @@ branch the status reads `Fixed on `release-3.0.0``; change it to the release num
 | DEF-16 | Fixed on `release-3.0.0` | `CRM_Core_Payment_eWAYRecurring::validateContribution()` | The method sets `$this->_is_test`, which the class never declared. PHP 8.2 deprecates creating a property on the fly, and the notice printed on the donor's thank you page wherever PHP errors are displayed. Core also reads the property in some return-address code, where it could be undefined. Found by the first PW-F1 run, which fails a test on PHP output. The class now declares it, defaulting to false. | PU-A6, PW-F1-05 |
 | DEF-17 | Fixed on `release-3.0.0` | `ProcessTrait::process_recurring_payments()`, `Utils::validateEwayAccessCode()`, `CRM_Core_Payment_eWAYRecurring::doPayment()` | A declined answer without a ResponseMessage is split with `explode(', ', null)`, which PHP 8.1 deprecates. Seen in the PHPUnit output. The three calls now cast the message to a string, which is what older PHP did. | PU-F28 |
 | DEF-18 | Fixed on `release-3.0.0` | `CRM_Core_Payment_eWAYRecurring::getEWayClientDetailsArray()` | The customer sent to eWAY is built with `substr()` on the billing street, city, state, postcode and email, any of which can be null (a donor with no state or email is common); PHP 8.1 deprecates that. Seen in the PHPUnit output of the update billing tests. The values are cast to strings. | PU-N9 |
+| DEF-19 | Fixed on `release-3.0.0` | `doPayment()`, back-office branch | With no card selected the token id is empty, and APIv3 ignores a NULL filter, so `PaymentToken.getsingle` returns the only token on the site when there is exactly one, and that token is charged whoever owns it. The branch now refuses an empty id. Not fixed: the branch still does not check that the token belongs to the contact or the processor (staff only, the same gap as DEF-14). | PU-B14 |
+| DEF-20 | Fixed on `release-3.0.0` | `doPayment()`, back-office branch | `$result['is_error']` was read from a `getsingle` result, which never carries that key: an undefined key warning on every back-office payment. Found by the first GitHub run of the PU-B back-office tests. | PU-B13, PU-B15 to B17 |
+| DEF-21 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_check()` | The check built `CRM_Utils_Check_message` (lower case `m`). On a case-sensitive file system the class is not found, so the system status check crashed whenever there were stuck failed recurring contributions. Found by the first GitHub run of the PU-H tests. | PU-H11, PU-H12 |
+| DEF-22 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_preProcess()` (Thank You page) | `$validated[$invoiceID]` was read but never set, so eWAY was asked on every build of the page instead of once per invoice. | PU-H10 |
+| DEF-23 | Fixed on `release-3.0.0` | `CRM_eWAYRecurring_PaymentToken::fillTokensMeta()` | Per-token errors were collected into `$result` but the function returns `$results`, so `errors` and `is_error` never came back to the caller. | PU-G5 |
+| DEF-24 | Fixed on `release-3.0.0` | `CRM_eWAYRecurring_PaymentToken::createToken()` | `Contact.getsingle` throws for an unknown contact, so the "no contact found" answer was unreachable. The lookup now catches the exception and answers with the JSON error. | PU-G10 |
+| DEF-25 | Fixed on `release-3.0.0` | `CRM_eWAYRecurring_Upgrader::upgrade_7()` | The step ran `ALTER TABLE ... ADD is_email_receipt` unconditionally, so it throws if run twice and on a site whose table already has the column. It now checks for the column first. | PU-L3 |
+| DEF-26 | Fixed on `release-3.0.0` | `changeSubscriptionAmount()` | Read `next_scheduled_date` and `next_scheduled_date_time` without checking they exist: an undefined key warning on PHP 8 when the form is saved without the schedule fields. | PU-N1 |
+| DEF-27 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_config()`, `APIWrapper::authorize()` | The token permission listener ran at the same priority as core's own check, after it. Core's APIv3 check throws as soon as it fails (for PaymentToken it asks for `administer CiviCRM`), so a user with only `view payment tokens`, `edit payment tokens` or `access CiviContribute` was denied on APIv3 (APIv4 worked). The listener now runs just ahead of core and stops the event once it has authorised. Denials are unchanged. Found by the first GitHub run (six APIv3 allowed cases failed before the fix). | PU-I4 |
 
 ---
 
@@ -439,47 +448,47 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-A1 | todo | `checkConfig()` returns null with key and password, one message each when either is missing, both joined when both missing |
-| PU-A2 | todo | `getPaymentFormFields()` is empty on the front end, `contact_payment_token` and `add_credit_card` in back office |
-| PU-A3 | todo | `getPaymentFormFieldsMetadata()` shape: select is required, class `eway_credit_card_field`, button `onclick` calls `CRM.eway.addCreditCard()` |
-| PU-A4 | todo | `getBillingAddressFields()` maps each field with the billing location id |
+| PU-A1 | done | `checkConfig()` returns null with key and password, one message each when either is missing, both joined when both missing |
+| PU-A2 | done | `getPaymentFormFields()` is empty on the front end, `contact_payment_token` and `add_credit_card` in back office |
+| PU-A3 | done | `getPaymentFormFieldsMetadata()` shape: select is required, class `eway_credit_card_field`, button `onclick` calls `CRM.eway.addCreditCard()` |
+| PU-A4 | done | `getBillingAddressFields()` maps each field with the billing location id |
 | PU-A5 | done | `getInstance()` caches per `domain/id`, returns the same object twice, and sets `_mode` correctly for live and test processors (DEF-1, fixed: a live processor used to get mode `test`) |
-| PU-A6 | todo | `supportsBackOffice()` true; `getEditableRecurringScheduleFields()` returns the six documented fields |
-| PU-A7 | todo | `__serialize()` omits `eWayClient` and `instances`, and the object survives `serialize()` after a client was created |
-| PU-A8 | todo | `Utils::sanitizeToAscii()` data provider: empty, null, plain ASCII, accented Latin (transliterated), emoji, CJK, control characters, very long string |
-| PU-A9 | todo | `Utils::contribution_status_id()` for contribution and recurring variants |
-| PU-A10 | todo | `getEWayClientDetailsArray()`: field truncation (Reference 16, names 50, postcode 30), country given as ISO code, as name, as `country_id`, as billing location key, missing country throws 9007, `TokenCustomerID` included only when `subscriptionId` is set |
+| PU-A6 | done | `supportsBackOffice()` true; `getEditableRecurringScheduleFields()` returns the six documented fields |
+| PU-A7 | done | `__serialize()` omits `eWayClient` and `instances`, and the object survives `serialize()` after a client was created |
+| PU-A8 | done | `Utils::sanitizeToAscii()` data provider: empty, null, plain ASCII, accented Latin (transliterated), emoji, CJK, control characters, very long string |
+| PU-A9 | done | `Utils::contribution_status_id()` for contribution and recurring variants |
+| PU-A10 | done | `getEWayClientDetailsArray()`: field truncation (Reference 16, names 50, postcode 30), country given as ISO code, as name, as `country_id`, as billing location key, missing country throws 9007, `TokenCustomerID` included only when `subscriptionId` is set |
 | PU-A11 | done | The test-mode flag `_is_test` is a declared property of the payment class (DEF-16, fixed: PHP 8.2 printed a deprecation about creating it on the fly on the donor's thank you page) |
 
 ### PU-B `DoPaymentTest` (needs S1)
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-B1 | todo | Zero amount returns Completed without calling eWAY |
-| PU-B2 | todo | Amount parsing: `"1,234.50"`, `"10"`, `"0.05"` become the right cents |
-| PU-B3 | todo | Front-end payload: `RESPONSIVE_SHARED`, `SaveCustomer`, `Capture`, `CustomerReadOnly`, `Options.ContributionID`, `TransactionType` PURCHASE |
-| PU-B4 | todo | Back-office without CVV setting uses MOTO; with `cvv_backoffice_required` uses PURCHASE |
-| PU-B5 | todo | Invoice number is the first 12 characters of the invoice id; reference 50, description 64; blank description falls back to `Invoice ID: ...`; non-ASCII stripped |
-| PU-B6 | todo | `alterPaymentProcessorParams` hook runs and can change the payload |
-| PU-B7 | todo | Duplicate invoice (`checkDupe`) fails with the documented message and sets status Failed |
-| PU-B8 | todo | Gateway returns errors: `PaymentProcessorException` containing each translated message, params status Failed |
-| PU-B9 | todo | Null client response: failure message, no queue row |
-| PU-B10 | todo | Success creates one `EwayContributionTransactions` row (access code, contribution, processor, `is_email_receipt` defaulting to 1) and redirects to `SharedPaymentUrl` |
-| PU-B11 | todo | Session stores the serialised response under the `qfKey` |
+| PU-B1 | done | Zero amount returns Completed without calling eWAY |
+| PU-B2 | done | Amount parsing: `"10"`, `"0.05"`, `1234.50` become the right cents. Reworded: `"1,234.50"` never reaches the conversion, because core's `PropertyBag` refuses a non-numeric amount first (a separate test pins that), so the comma stripping in `doPayment()` is dead code |
+| PU-B3 | done | Front-end payload: `RESPONSIVE_SHARED`, `SaveCustomer`, `Capture`, `CustomerReadOnly`, `Options.ContributionID`, `TransactionType` PURCHASE |
+| PU-B4 | done | Back office is always MOTO and the contribution page is always PURCHASE. Reworded: the `cvv_backoffice_required` branch is unreachable (it sits in the contribution page branch, where the call is never back office), so "with the setting uses PURCHASE" cannot be written. Dead code worth removing or implementing |
+| PU-B5 | done | Invoice number is the first 12 characters of the invoice id; reference 50, description 64; blank description falls back to `Invoice ID: ...`; non-ASCII stripped |
+| PU-B6 | done | `alterPaymentProcessorParams` hook runs and can change the payload |
+| PU-B7 | done | Duplicate invoice (`checkDupe`) fails with the documented message and sets status Failed |
+| PU-B8 | done | Gateway returns errors: `PaymentProcessorException` containing each translated message, params status Failed |
+| PU-B9 | done | Null client response: failure message, no queue row |
+| PU-B10 | done | Success creates one `EwayContributionTransactions` row (access code, contribution, processor, `is_email_receipt` defaulting to 1) and redirects to `SharedPaymentUrl` |
+| PU-B11 | done | Session stores the serialised response under the `qfKey` |
 | PU-B12 | done | Repeat submit: while the transaction is still open the hosted page is reused with no new eWAY call; an already successful payment is not charged again; an already failed one explains why; an existing transaction from another session is refused (DEF-2, fixed: this used to throw a TypeError) |
-| PU-B13 | todo | Back office: valid token sends `TokenCustomerID` (first 16 characters) and MOTO |
-| PU-B14 | todo | Back office: missing or unknown token fails with "valid credit card token" |
-| PU-B15 | todo | Back office with `contributionRecurID`: `processor_id` and `payment_token_id` written to the recurring record |
-| PU-B16 | todo | Back office with `is_recur` but no recurring id: the "update the credit card manually" status message |
-| PU-B17 | todo | Back office success sets `payment_status_id` Completed and `trxn_id`; declined transaction fails with the translated message |
+| PU-B13 | done | Back office: valid token sends `TokenCustomerID` (first 16 characters) and MOTO |
+| PU-B14 | done | Back office: missing or unknown token fails with "valid credit card token" (DEF-19: a missing token used to charge the only token on the site) |
+| PU-B15 | done | Back office with `contributionRecurID`: `processor_id` and `payment_token_id` written to the recurring record |
+| PU-B16 | done | Back office with `is_recur` but no recurring id: the "update the credit card manually" status message |
+| PU-B17 | done | Back office success sets `payment_status_id` Completed and `trxn_id`; declined transaction fails with the translated message |
 
 ### PU-C `ReturnUrlsTest`
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-C1 | todo | Success URL: custom `successUrl`, contribution page, UpdateBilling form with recurring record, default verify-payment URL carrying invoice id, qfKey, processor id, component |
-| PU-C2 | todo | Cancel URL: custom, contribution page, UpdateBilling, event register, back-office default |
-| PU-C3 | todo | `isFromContributionPage()` true and false |
+| PU-C1 | done | Success URL: custom `successUrl`, contribution page, default verify-payment URL carrying invoice id, qfKey, processor id, component |
+| PU-C2 | done | Cancel URL: custom, contribution page, event register, back-office default |
+| PU-C3 | done | `isFromContributionPage()` true and false |
 
 ### PU-D `ValidateContributionTest` (`Utils::validate*`, `completeEWayTransaction`)
 
@@ -550,8 +559,8 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-F22 | done | `handlePaymentCron` and the `Job.run_payment_cron` API reach `process_recurring_payments` for processor `eWay_Recurring` **Note:** core runs the live and then the test instance of the processor type and fails if either is missing, so the test creates both. |
 | PU-F23 | done | `mark_recurring_contribution_failed` still updates the recurring record when the activity create fails |
 | PU-F24 | done | A contact with no address at all is charged without a PHP warning (DEF-12, fixed) |
-| PU-F25 | todo | A recurring contribution whose payment token row was changed in place (new `token` value, `expiry_date` and `masked_account_number` cleared, which is how a website-built update-card page replaces a card) is charged with the new token value, and `payment_token_id` is unchanged |
-| PU-F26 | todo | A Failed recurring contribution reset the way such a page resets it (In Progress, `failure_count` 0, retry date cleared) is charged on the first run on or after its schedule date: not before when the schedule date was moved into the future, and on the next run when the schedule was restarted from today (the two schedule choices a site can make) |
+| PU-F25 | done | A recurring contribution whose payment token row was changed in place (new `token` value, `expiry_date` and `masked_account_number` cleared, which is how a website-built update-card page replaces a card) is charged with the new token value, and `payment_token_id` is unchanged |
+| PU-F26 | done | A Failed recurring contribution reset the way such a page resets it (In Progress, `failure_count` 0, retry date cleared) is charged on the first run on or after its schedule date: not before when the schedule date was moved into the future, and on the next run when the schedule was restarted from today (the two schedule choices a site can make) |
 | PU-F27 | done | A recurring contribution cancelled while it is being retried (failures above 0, retry date due) is not retried, makes no gateway call and is left untouched, while one that is still being retried is charged in the same run (CIVIEWAY-125) |
 | PU-F28 | done | A declined charge whose answer has no ResponseMessage raises no PHP deprecation (DEF-17, fixed: the message was split with explode() on null) |
 
@@ -559,17 +568,17 @@ Processing (`process_recurring_payments`, `process_payment`):
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-G1 | todo | `fillTokensMeta`: fills missing masked number and expiry for eWAY tokens only (other processor types untouched) |
-| PU-G2 | todo | Expiry becomes the last day of the month, year offset by 2000 |
-| PU-G3 | todo | Tokens that already have both fields are not queried |
-| PU-G4 | todo | Login failure for a processor skips its tokens without error |
-| PU-G5 | todo | Per-token query error is collected into `errors` with the token id and does not stop the batch |
-| PU-G6 | todo | Processor lookups are cached across tokens (one `PaymentProcessor.get` per processor) |
-| PU-G7 | todo | `getPaymentProcessorById`: found, unknown id returns null |
-| PU-G8 | todo | `saveToken` dedupe rule: same contact and processor with same token **or** same masked number updates the existing row, otherwise creates one |
+| PU-G1 | done | `fillTokensMeta`: fills missing masked number and expiry for eWAY tokens only (other processor types untouched) |
+| PU-G2 | done | Expiry becomes the last day of the month, year offset by 2000 |
+| PU-G3 | done | Tokens that already have both fields are not queried |
+| PU-G4 | done | Login failure for a processor skips its tokens without error |
+| PU-G5 | done | Per-token query error is collected into `errors` with the token id and does not stop the batch |
+| PU-G6 | done | Processor lookups are cached across tokens (one `PaymentProcessor.get` per processor) |
+| PU-G7 | done | `getPaymentProcessorById`: found, unknown id returns null |
+| PU-G8 | done | `saveToken` dedupe rule: same contact and processor with same token **or** same masked number updates the existing row, otherwise creates one |
 | PU-G9 | done | `saveToken` refuses without a fatal and with nothing sent to eWAY: no `pp_id` (it only closes its own window), no access code, an unknown processor (documented JSON errors), no transaction, no token, an unknown customer, a customer reference that is not a contact, and no card details (DEF-9, fixed). **Note:** the no-`pp_id` exit was changed from `die()` to `CRM_Utils_System::civiExit()` so a test can catch it |
-| PU-G10 | todo | `createToken` rejects each missing billing field with `Missing field: ...`, unknown processor, unknown contact |
-| PU-G11 | todo | `fillTokensMeta` picks up a token whose expiry and masked number were cleared by an in-place update, and refills them from eWAY using the new token value |
+| PU-G10 | done | `createToken` rejects each missing billing field with `Missing field: ...`, unknown processor, unknown contact |
+| PU-G11 | done | `fillTokensMeta` picks up a token whose expiry and masked number were cleared by an in-place update, and refills them from eWAY using the new token value |
 | PU-G12 | done | `saveToken` stores the card for the contact named in the eWAY customer reference, with the processor, token, masked number and expiry (DEF-9) |
 
 (`createToken` and `saveToken` call `die()` and `CRM_Utils_JSON::output()`. The JSON output throws
@@ -581,40 +590,40 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-H1 | todo | Managed entities exist after install: processor type `eWay_Recurring` (class `Payment_eWAYRecurring`, labels API Key / API Password, `is_recur`), activity types "eWay Transaction Failed" and "eWay Transaction Succeeded", four scheduled jobs with documented frequencies and active flags |
-| PU-H2 | todo | Settlement Sync job exists and is **disabled** by default (`Sync.mgd.php`) |
+| PU-H1 | done | Managed entities exist after install: processor type `eWay_Recurring` (class `Payment_eWAYRecurring`, labels API Key / API Password, `is_recur`), activity types "eWay Transaction Failed" and "eWay Transaction Succeeded", four scheduled jobs with documented frequencies and active flags |
+| PU-H2 | done | Settlement Sync job exists and is **disabled** by default (`Sync.mgd.php`) |
 | PU-H3 | done | `hook_enable` reactivates the processor type if it had been deactivated |
-| PU-H4 | todo | `buildForm`: `send_cancel_request` removed for eWAY processors on `CancelSubscription`, kept for others |
-| PU-H5 | todo | `validateForm`: API Key and API Password required on the processor admin form for eWAY type, not required for other types |
-| PU-H6 | todo | `hook_permission` declares both token permissions with labels |
-| PU-H7 | todo | `navigationMenu` adds "eWay Recurring Settings" under Administer, permission `administer CiviCRM` |
-| PU-H8 | todo | `searchKitTasks` registers `ContributionRecur.reset_recur_status` with the module and dialog template |
-| PU-H9 | todo | `coreResourceList` adds the script and the `agilewareEwayExtension.paymentProcessorId` list of eWAY processor ids, and quietly does nothing when none exist |
-| PU-H10 | todo | `preProcess` Thank You: validates once per invoice, hides line items for quick-config price sets |
-| PU-H11 | todo | `preProcess` Confirm (contribution and event): already-paid access code throws the right message per component, failed prior transaction shows the warning and clears the session response, not-processed-yet continues |
-| PU-H12 | todo | `hook_check`: no message at zero failures, message with count and link when failures exist past the 4-hour threshold, ignores test recurring records, honours a disabled `StatusPreference`, honours the `statusNames` filter (DEF-3: only recurring contributions marked Failed are counted) |
+| PU-H4 | done | `buildForm`: `send_cancel_request` removed for eWAY processors on `CancelSubscription`, kept for others |
+| PU-H5 | done | `validateForm`: API Key and API Password required on the processor admin form for eWAY type, not required for other types |
+| PU-H6 | done | `hook_permission` declares both token permissions with labels |
+| PU-H7 | done | `navigationMenu` adds "eWay Recurring Settings" under Administer, permission `administer CiviCRM` |
+| PU-H8 | done | `searchKitTasks` registers `ContributionRecur.reset_recur_status` with the module and dialog template |
+| PU-H9 | done | `coreResourceList` adds the script and the `agilewareEwayExtension.paymentProcessorId` list of eWAY processor ids, and quietly does nothing when none exist |
+| PU-H10 | done | `preProcess` Thank You: validates once per invoice (DEF-22), hides line items for quick-config price sets |
+| PU-H11 | done | `preProcess` Confirm (contribution and event): already-paid access code throws the right message per component, failed prior transaction shows the warning and clears the session response, not-processed-yet continues |
+| PU-H12 | done | `hook_check`: no message at zero failures, message with count and link when failures exist past the 4-hour threshold, ignores test recurring records, honours a disabled `StatusPreference`, honours the `statusNames` filter (DEF-3: only recurring contributions marked Failed are counted) |
 | PU-H13 | done | `hook_enable` works when nobody is logged in (no permissions): the processor type is reactivated and nothing throws "Authorization failed" (DEF-15, fixed) |
 
 ### PU-I `PermissionsTest` (`APIWrapper`)
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-I1 | todo | `PaymentToken.get` allowed with `view payment tokens` or `access CiviContribute`, denied otherwise |
-| PU-I2 | todo | `PaymentToken.create/update/delete` need `edit payment tokens` or `access CiviContribute`; `view payment tokens` alone is denied |
-| PU-I3 | todo | Other entities are not affected by the listener |
-| PU-I4 | todo | Both APIv3 and APIv4 paths honour it with `checkPermissions` on |
+| PU-I1 | done | `PaymentToken.get` allowed with `view payment tokens` or `access CiviContribute`, denied otherwise |
+| PU-I2 | done | `PaymentToken.create/update/delete` need `edit payment tokens` or `access CiviContribute`; `view payment tokens` alone is denied |
+| PU-I3 | done | Other entities are not affected by the listener |
+| PU-I4 | done | Both APIv3 and APIv4 paths honour it with `checkPermissions` on |
 
 ### PU-J `SettingsFormTest` (`Civi\Test\FormWrapper`)
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-J1 | todo | Defaults: retries 3, delay 4, receipts off, window 10, processors empty |
-| PU-J2 | todo | Validation: blank and non-numeric retries and delay rejected; window rejected at 0 and 91, accepted at 1 and 90 |
-| PU-J3 | todo | Save round trip for every setting |
-| PU-J4 | todo | Multi-select deselect-all stores an empty array (not the previous value) |
-| PU-J5 | todo | Legacy delimited string for processors still pre-populates |
-| PU-J6 | todo | Processor options list only live eWAY processors |
-| PU-J7 | todo | The setting key used by the cron (`eway_recurring_contribution_max_retry`) is the one the form writes, despite the differing `name` field in the settings file |
+| PU-J1 | done | Defaults: retries 3, delay 4, receipts off, window 10, processors empty |
+| PU-J2 | done | Validation: blank and non-numeric retries and delay rejected; window rejected at 0 and 91, accepted at 1 and 90 |
+| PU-J3 | done | Save round trip for every setting |
+| PU-J4 | done | Multi-select deselect-all stores an empty array (not the previous value) |
+| PU-J5 | done | Legacy delimited string for processors still pre-populates |
+| PU-J6 | done | Processor options list only live eWAY processors |
+| PU-J7 | done | The setting key used by the cron (`eway_recurring_contribution_max_retry`) is the one the form writes, despite the differing `name` field in the settings file |
 
 ### PU-K `PagesTest` (`VerifyPayment`)
 
@@ -638,11 +647,11 @@ version with seeded data are covered by the `UP` suite below.
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-L1 | todo | Fresh install creates `civicrm_eway_contribution_transactions` with all columns and both FKs |
+| PU-L1 | done | Fresh install creates `civicrm_eway_contribution_transactions` with all columns and both FKs |
 | PU-L2 | done | Stored schema version after install matches the latest upgrader step (DEF-8, fixed: robustness, a fresh install already ended at the newest step) |
-| PU-L3 | todo | Each `upgrade_*` step is idempotent when run twice |
-| PU-L4 | todo | `upgrade_20601` rewrites legacy class names on processor type and live processors only |
-| PU-L5 | todo | DAO and BAO metadata (`entityType.php`) match the table |
+| PU-L3 | done | Each `upgrade_*` step is idempotent when run twice |
+| PU-L4 | done | `upgrade_20601` rewrites legacy class names on processor type and live processors only |
+| PU-L5 | done | DAO and BAO metadata (`entityType.php`) match the table |
 | PU-L6 | done | `upgrade_30000` marks a recurring contribution Failed when it is for an eWAY processor, In Progress, has a retry date and has `failure_count` above 0 and at or above the configured retry limit (the stuck state left by releases up to 2.8.2); its failure count, retry date and schedule date are unchanged (FR-2) |
 | PU-L7 | done | `upgrade_30000` leaves alone: a record below the limit, a record with no retry date, records that are Completed, Cancelled or already Failed, other processors' records, test-mode records and Pending records (FR-2 Rule 1, decisions U2 and U3). A saved retry limit of 0 does not select records that have no failures |
 | PU-L8 | done | `upgrade_30000` is idempotent (a second run changes nothing), uses the retry limit saved at the time it runs, reports the number of records changed, does not send mail or create activities, and fires no recurring contribution hooks (U1: the change is a single SQL statement) (FR-2) |
@@ -653,19 +662,19 @@ version with seeded data are covered by the `UP` suite below.
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-M1 | todo | `EwaySettlement.Sync` API wrapper: no params, with `contribution_id`, invalid id |
-| PU-M2 | todo | Sync respects the form-saved settings (end-to-end from `Form_Settings::saveSettings`) |
-| PU-M3 | todo | `SettlementSync` logs and continues when a processor has bad credentials (HTTP 401) |
-| PU-M4 | todo | Large settlement set across multiple pages with a mix of matched and unmatched trxn ids |
+| PU-M1 | done | `EwaySettlement.Sync` API wrapper: no params, invalid id, zero id. Limit: the API builds its own Guzzle client, so a scoped call with an eligible contribution would reach the real gateway and is not tested here (needs an injectable client) |
+| PU-M2 | done | Sync respects the form-saved settings (end-to-end from `Form_Settings::saveSettings`) |
+| PU-M3 | done | `SettlementSync` logs and continues when a processor has bad credentials (HTTP 401) |
+| PU-M4 | done | Large settlement set across multiple pages with a mix of matched and unmatched trxn ids |
 
 ### PU-N `SubscriptionManagementTest`
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-N1 | todo | `changeSubscriptionAmount` writes `next_sched_contribution_date` from date and time parts; no change when absent |
-| PU-N2 | todo | `cancelSubscription` returns true and does not call eWAY |
-| PU-N3 | todo | `updateSubscriptionBillingInfo`: throws 9000 without `crid` or token; refuses Completed and Cancelled recurring records with the documented messages |
-| PU-N4 | todo | Success: recurring `payment_token_id` and `processor_id` updated, `credit_card_number` and expiry placed in params for the email, billing address created or updated (country, state, postcode optional) |
+| PU-N1 | done | `changeSubscriptionAmount` writes `next_sched_contribution_date` from date and time parts; no change when absent |
+| PU-N2 | done | `cancelSubscription` returns true and does not call eWAY |
+| PU-N3 | done | `updateSubscriptionBillingInfo`: throws 9000 without `crid` or token; refuses Completed and Cancelled recurring records with the documented messages |
+| PU-N4 | done | Success: recurring `payment_token_id` and `processor_id` updated, `credit_card_number` and expiry placed in params for the email, billing address created or updated (country, state, postcode optional) |
 | PU-N5 | done | `updateSubscriptionBillingInfo` on a Failed recurring record sets it back to In Progress with `failure_count` 0 and `failure_retry_date` cleared, as well as saving the token and billing address; `next_sched_contribution_date` is unchanged, so the next cron run charges it. A record still being retried keeps its status and retry state (DEF-13, fixed) |
 | PU-N6 | done | A card that belongs to a different contact, or that does not exist, is refused with a payment processor exception; the token, status, retry state and billing address are all left unchanged (DEF-14, fixed) |
 | PU-N7 | done | A card saved for a different payment processor is refused, changing nothing (DEF-14, fixed) |
@@ -676,11 +685,11 @@ version with seeded data are covered by the `UP` suite below.
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-O1 | todo | Saved search returns only non-test recurring records on eWAY processors **that have a payment token**; other processors, test records and token-less records are excluded |
-| PU-O2 | todo | Search display columns and sort match the managed definition |
-| PU-O3 | todo | The Reactivate payload (status In Progress, `failure_count` 0, `failure_retry_date` empty, optional `next_sched_contribution_date`) applied through `ContributionRecur.update` resets all four fields and leaves others alone |
-| PU-O4 | todo | Reactivated records are picked up by the next `get_scheduled_contributions` once the date has passed (ties F3 to the UI) |
-| PU-O5 | todo | Reactivate on a non-eWAY recurring record changes only its status fields |
+| PU-O1 | done | Saved search returns only non-test recurring records on eWAY processors **that have a payment token**; other processors, test records and token-less records are excluded |
+| PU-O2 | done | Search display columns and sort match the managed definition |
+| PU-O3 | done | The Reactivate payload (status In Progress, `failure_count` 0, `failure_retry_date` empty, optional `next_sched_contribution_date`) applied through `ContributionRecur.update` resets all four fields and leaves others alone |
+| PU-O4 | done | Reactivated records are picked up by the next `get_scheduled_contributions` once the date has passed (ties F3 to the UI) |
+| PU-O5 | done | Reactivate on a non-eWAY recurring record changes only its status fields |
 
 ### UP upgrade tests in CI (`tests/upgrade/`)
 
@@ -1030,6 +1039,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PHPUnit round: 79 cases written by three parallel agents on separate test files and made green on GitHub (PHPUnit 412 tests, upgrade 57 checks, both green on `release-3.0.0` at `1ae8113`): PU-A (nine more), PU-B (all but B12 already done), PU-C, PU-F25 and F26, PU-G, PU-H, PU-I, PU-J, PU-L1, L3 to L5, PU-M, PU-N1 to N4, PU-O. 157 cases done. The first run failed 22 tests, which found DEF-20 and DEF-21 and confirmed DEF-27; the rest were test fixes. Defects found and fixed along the way: DEF-19 to DEF-27. Cases reworded because the code under test is dead or changed: PU-B2 (the comma amount never reaches the conversion), PU-B4 (the `cvv_backoffice_required` branch is unreachable), PU-C1 and C2 (the UpdateBilling variants went with `VerifyUpdateToken`), PU-M1 (a scoped call would reach the real gateway). PU-K1 to K3 stay blocked: the refactor would extract a `resolve()` method from `VerifyPayment::run()`, and the failure redirect in `validateContribution()` needs a second seam. |
 | 2026-11-14 | Plan housekeeping. Section 1 and the feature inventory's "Coverage now" column were out of date (they still said there were no tests and PHPUnit-only CI) and are rewritten from the case table. Found by the tagging check in section 0: the plan had two cases with the ID PU-A6. The test for the `_is_test` property (DEF-16) is now PU-A11 and its test is tagged to match; PU-A6 is again only `supportsBackOffice()` and is `todo`. Earlier change log lines that say PU-A6 mean this case, now PU-A11. No counts change. 281 cases. |
 | 2026-11-14 | Playwright re-run on GitHub after the country fix: all 11 cases green (six PW-INF, five PW-F1) on a fresh WordPress site, with no PHP output flagged. PW-F1-01, 03, 04, 05 and 06 stay `wip` because their CMS column is all and Drupal, Joomla and Standalone have not run them. 281 cases. |
 | 2026-11-14 | First GitHub run of the three workflows on `release-3.0.0` (started on demand): PHPUnit green (150 tests), upgrade green (57 checks, 0 failures), Playwright red for the new cases only. PU-A6, PU-F28 and PU-N9 are `done` (they ran in the green PHPUnit run). PW-F1-03 to 06 failed on GitHub because the fresh CI site has no default country, so the Country box stayed on "- select -" and the form refused to continue; the local site defaulted to Australia and hid it. `fillDonation()` now chooses the country and state explicitly. With the default country cleared locally all 11 Playwright cases pass; the fix is not yet pushed, so PW-F1 stays `wip` until a GitHub run is green. 281 cases. |
