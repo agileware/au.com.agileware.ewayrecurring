@@ -46,7 +46,7 @@ documentation (that lives in `docs/`).
 | ID | Feature | Status | Target release | Test plan |
 | --- | --- | --- | --- | --- |
 | [FR-1](#fr-1-donor-facing-update-my-stored-card-page) | Donor-facing "update my stored card" page | `planned` | to be decided | Group to be added once decisions D1 to D5 are settled; supporting cases listed below |
-| [FR-2](#fr-2-upgrade-step-mark-exhausted-recurring-contributions-failed) | Upgrade step: mark exhausted recurring contributions Failed | `planned` | 3.0.0 | PU-L6 to PU-L8, UP-10 |
+| [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `planned` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
 
 ---
 
@@ -207,7 +207,7 @@ New cases will be added to the test plan once decisions D1 to D5 are settled. Th
 
 ---
 
-## FR-2 Upgrade step: mark exhausted recurring contributions Failed
+## FR-2 Upgrade step: repair recurring contributions left stuck by the old retry behaviour
 
 | | |
 | --- | --- |
@@ -218,61 +218,102 @@ New cases will be added to the test plan once decisions D1 to D5 are settled. Th
 ### Summary
 
 When 3.0.0 is installed over an earlier release, find the recurring contributions that the old retry
-behaviour left stuck and mark them Failed, so they appear in the Failed Recurring Contributions list
-and the System Status check, and so anything that recovers Failed records (Reactivate, or a site's
-own update-card page) can recover them.
+behaviour left stuck and repair them, by two rules:
+
+1. Records that used up their retries are marked Failed, so they appear in the Failed Recurring
+   Contributions list and the System Status check, and so anything that recovers Failed records
+   (Reactivate, or a site's own update-card page) can recover them.
+2. Records that have a retry date but no failures have the retry date cleared, so the normal cron
+   list can charge them again.
 
 ### Why
 
-Up to 2.8.2, when a recurring contribution used up its retries it kept the status In Progress, with
-`failure_count` at the retry limit and a retry date set. Neither cron list selects such a record:
-the normal list only takes records with no retry date, and the retry list only takes records below
-the limit. The Failed Recurring list, the System Status check and the Reactivate action all look for
-the status Failed, so they never see it. The record stays stuck, and the donor is never charged again,
-with nothing on screen to say so.
+**Rule 1: exhausted records.** Up to 2.8.2, when a recurring contribution used up its retries it kept
+the status In Progress, with `failure_count` at the retry limit and a retry date set. Neither cron list
+selects such a record: the normal list only takes records with no retry date, and the retry list only
+takes records below the limit. The Failed Recurring list, the System Status check and the Reactivate
+action all look for the status Failed, so they never see it. The record stays stuck, and the donor is
+never charged again, with nothing on screen to say so.
 
 The fix for this (DEF-3 in the test plan) marks a record Failed once its retries are used up, but only
 from then on. It does not touch records that were already stuck when the site upgraded. Without a data
 step, those donors stay stuck after the upgrade, including on sites whose own update-card page resets
 Failed records, because that reset finds nothing to reset.
 
+**Rule 2: a retry date with no failures.** An In Progress record with a retry date and
+`failure_count` 0 is stuck the other way round: the normal list needs no retry date, and the retry list
+needs at least one failure. It was left by the old update-billing page in releases 2.1.2 to 2.2.4,
+which reset the count but not the date, or by a hand edit that did the same. No current code produces
+it, so there are probably few, but nothing ever picks them up.
+
 ### Proposed behaviour
 
 - A new revision, `upgrade_30000`, in `CRM_eWAYRecurring_Upgrader`.
-- It selects recurring contributions that use an eWAY recurring payment processor, have the status In
-  Progress (not Pending), are not test-mode records, have a retry date, and have `failure_count` at or above the retry limit saved in the
-  setting `eway_recurring_contribution_max_retry` when the step runs.
-- It sets their status to Failed with a single SQL statement (decision U1), so no PHP hooks or rules fire, and changes nothing else: the failure count, retry date and next
-  scheduled date stay as they were.
-- It can be run again safely (a second run finds nothing to change).
-- Detailed logging, if the site has it enabled, still records the change, because it works through database triggers (without a user id).
-- It writes the number of records changed, and their ids, to the CiviCRM log, and shows the number
-  in the upgrade output.
+- Both rules apply only to recurring contributions that use an eWAY recurring payment processor, have
+  the status In Progress (not Pending), and are not test-mode records. Both have a retry date.
+- **Rule 1** selects those with `failure_count` above 0 and at or above the retry limit saved in the
+  setting `eway_recurring_contribution_max_retry` when the step runs. It sets their status to Failed
+  and changes nothing else: the failure count, retry date and next scheduled date stay as they were.
+- **Rule 2** selects those with `failure_count` 0. It clears the retry date and changes nothing else:
+  the status stays In Progress and the next scheduled date stays as it was. The next cron run then
+  charges the record once for the missed payment, and the schedule moves to the next interval from that
+  day (checked with the test gateway: a record six months behind got one extra charge, then nothing more).
+- Each rule is applied with a single SQL statement (decision U1), so no PHP hooks or rules fire.
+  Detailed logging, if the site has it enabled, still records the changes, because it works through
+  database triggers (without a user id).
+- The two rules never select the same record (one needs failures, the other none), and a second run
+  finds nothing to change.
+- The step writes the number of records changed by each rule, and their ids, to the CiviCRM log, and
+  shows the numbers in the upgrade output.
 - It sends no email and creates no activity.
 
-After the upgrade the System Status check starts reporting these records, because each one's retry
-date is already more than four hours old. That is intended: it is the first time anyone sees them.
+After the upgrade the System Status check starts reporting the Rule 1 records, because each one's
+retry date is already more than four hours old. That is intended: it is the first time anyone sees them.
 
 ### Risks
 
+- **Donors are charged by Rule 2.** Clearing the retry date lets the next cron run charge the donor,
+  possibly for a payment that is months or years overdue, and possibly on a card that has since expired
+  (that charge would then fail and go through the normal retries). Sites should check the list before
+  the first cron run after upgrading, and the release notes should say so. A site can pause the
+  "eWay Recurring Payments" job until it has looked.
 - **Hooks and rules.** Changing the status through the API would fire the usual hooks, and CiviRules or similar tools may have rules on recurring contribution changes, so a bulk change could send many emails. Decision U1 is to update with SQL, which fires no PHP hooks or rules. The cost is that nothing reacts to the change either: a site that relies on a rule to follow up a Failed recurring contribution will not see one for these records.
 - **A sudden count.** A site with many stuck records will see a large number in System Status and
   in the Failed list on the day it upgrades. Release notes should say so.
-- **Recovery is not automatic.** Marking a record Failed does not charge it. Staff (Reactivate) or a
-  site's own update-card page still have to recover it. What happens to its schedule date on
+- **Rule 1 recovery is not automatic.** Marking a record Failed does not charge it. Staff (Reactivate)
+  or a site's own update-card page still have to recover it. What happens to its schedule date on
   recovery is decision D3 in FR-1.
 
 ### Checking a site by hand
 
-Before upgrading, this lists the records the step would change. Replace the two placeholders with
-the eWAY processor's id and the saved retry limit:
+Before upgrading, these list the records each rule would change. Replace the placeholders with the
+eWAY processor's id and the saved retry limit.
+
+Rule 1 (to be marked Failed):
 
 ```sql
 SELECT cr.id, cr.contact_id, cr.failure_count, cr.failure_retry_date
 FROM civicrm_contribution_recur cr
 WHERE cr.payment_processor_id = <processor id>
+  AND cr.failure_count > 0
   AND cr.failure_count >= <retry limit>
   AND cr.failure_retry_date IS NOT NULL
+  AND cr.is_test = 0
+  AND cr.contribution_status_id = (
+    SELECT ov.value FROM civicrm_option_value ov
+    JOIN civicrm_option_group og ON og.id = ov.option_group_id
+    WHERE og.name = 'contribution_recur_status' AND ov.name = 'In Progress');
+```
+
+Rule 2 (retry date to be cleared, so they will be charged):
+
+```sql
+SELECT cr.id, cr.contact_id, cr.next_sched_contribution_date, cr.failure_retry_date
+FROM civicrm_contribution_recur cr
+WHERE cr.payment_processor_id = <processor id>
+  AND cr.failure_count = 0
+  AND cr.failure_retry_date IS NOT NULL
+  AND cr.is_test = 0
   AND cr.contribution_status_id = (
     SELECT ov.value FROM civicrm_option_value ov
     JOIN civicrm_option_group og ON og.id = ov.option_group_id
@@ -286,16 +327,18 @@ WHERE cr.payment_processor_id = <processor id>
 | U1 | Decided | Apply the change through the API (hooks and rules fire, logging records it) or with direct SQL (silent)? | 2026-11-14: **direct SQL**, one statement. Avoids a burst of emails or rule runs on the day of the upgrade. No PHP hooks or rules fire and no activity is created. Database logging triggers still record the change if logging is enabled. The step logs the ids it changed |
 | U2 | Decided | Include test-mode records? | 2026-11-14: **no**, leave them alone. The System Status check ignores them too |
 | U3 | Decided | Include records still Pending? | 2026-11-14: **no**, leave them alone. The retry list only selects In Progress, so a Pending record that failed is stuck in the same way, but such records are rare (the cron only charges a recurring contribution that already has a Completed contribution) |
-| U4 | Open | Also repair the other stuck state: In Progress, retry date set, `failure_count` 0? | Left by an old update-billing page that reset the count but not the date. Neither list selects it. A repair would clear the retry date so the normal list charges it on the next run, which charges the missed payment straight away |
+| U4 | Decided | Also repair the other stuck state: In Progress, retry date set, `failure_count` 0? | 2026-11-14: **yes, repair it (Rule 2) by clearing the retry date, option B.** The next cron run charges the missed payment once, then the schedule continues from that day. Confirmed as option B (clear the retry date). Marking these Failed instead, with no charge, was considered and not chosen |
 | U5 | Open | Offer a preview (an API action that lists what would change) so staff can check before upgrading? | The SQL above is the minimum |
 | U6 | Decided | Use the retry limit saved at upgrade time, or treat any record with failures and a retry date as exhausted? | 2026-11-14: **the saved limit at the time the step runs**. A site that lowered the limit before upgrading will see more records marked |
 
 ### Acceptance criteria
 
-- [ ] An upgrade from 2.8.1 marks every stuck record Failed and nothing else (UP-10).
+- [ ] An upgrade from 2.8.1 marks every exhausted record Failed and nothing else (UP-10), and clears the
+      retry date of every record with a retry date and no failures and nothing else (UP-11).
 - [ ] Records that must not change are unchanged: below the limit, no retry date, other statuses,
-      other processors, test-mode records and Pending records (PU-L7).
-- [ ] Running the step twice changes nothing more (PU-L8).
+      other processors, test-mode records and Pending records (PU-L7, PU-L10).
+- [ ] Running the step twice changes nothing more, and a record repaired by Rule 2 is charged once by
+      the next cron run (PU-L8, PU-L9).
 - [ ] No email is sent and no activity is created by the step (PU-L8).
 - [ ] The count appears in the upgrade output and the log.
 - [ ] The release notes describe the new System Status message and the Failed list entries.
@@ -304,10 +347,12 @@ WHERE cr.payment_processor_id = <processor id>
 
 | ID | What it covers |
 | --- | --- |
-| PU-L6 | The step marks exhausted In Progress records Failed and leaves their other fields alone |
-| PU-L7 | Records that must not change |
+| PU-L6 | Rule 1: the step marks exhausted In Progress records Failed and leaves their other fields alone |
+| PU-L7 | Records that Rule 1 must not change |
 | PU-L8 | Idempotent, uses the saved limit, reports the count, no mail or activities |
-| UP-10 | The same through a real upgrade from the baseline release |
+| PU-L9 | Rule 2: the retry date is cleared, status and schedule stay, and the next cron run charges the record once |
+| PU-L10 | Records that Rule 2 must not change |
+| UP-10, UP-11 | Rules 1 and 2 through a real upgrade from the baseline release |
 | PU-F14, PU-F15 | The DEF-3 behaviour for records that become exhausted after the upgrade |
 
 ---
@@ -318,6 +363,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 decision U4 settled: the step also repairs records with a retry date and no failures (Rule 2) by clearing the retry date, so the next cron run charges them once. FR-2 renamed and reworked into two rules; added the Rule 2 risk (donors are charged), a second SQL check, and a guard that Rule 1 needs `failure_count` above 0. |
 | 2026-11-14 | FR-2 decisions U2, U3 and U6 settled: test-mode and Pending records are left alone, and the retry limit saved when the step runs is used. Selection text updated. |
 | 2026-11-14 | FR-2 decision U1 settled: the upgrade step updates with a single SQL statement. Risk and behaviour text updated; logging note corrected (database triggers still record the change). |
 | 2026-11-14 | FR-2 added: an upgrade step that marks recurring contributions left stuck by releases up to 2.8.2 as Failed, planned for 3.0.0, with six open decisions (U1 to U6). |
