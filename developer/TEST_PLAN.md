@@ -88,7 +88,7 @@ Cases defined: **278**. Done: **75**. In progress: **6**. Blocked: **3**. To do:
 | PU-N | PHPUnit | `SubscriptionManagementTest` | 8 | 4 | 0 | 0 | 4 | 0 | none |
 | PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 0 | 0 | 0 | 5 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
-| PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Run locally on WordPress; waiting for a GitHub run and the other CMSs |
+| PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 0 | 0 | 13 | 0 | Phase 0 infra, S1 stub |
 | PW-F2 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
 | PW-F3 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
@@ -116,7 +116,7 @@ run date in the change log.
 
 | Playwright group | WordPress | Drupal | Joomla | Standalone |
 | --- | --- | --- | --- | --- |
-| Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | partial (ran locally, not yet in CI) | none | none | none |
+| Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | full (GitHub and local) | none | none | none |
 | Frontend (PW-F1 to PW-F6) | none | none | none | none |
 | Backend (PW-B-*) | none | none | none | none |
 | Security (PW-S) | none | none | none | none |
@@ -711,8 +711,8 @@ change shared fixtures create their own throwaway records, as the sibling suites
 ### 5.0 Infrastructure, `specs/infrastructure/`
 
 Checks of the test machinery itself (the site, the personas, the fake eWAY and the helpers), so the specs that
-build on it can trust it. They are written and passed on a local WordPress site; they are `wip` until the
-Playwright workflow has passed on GitHub and the other CMSs have been run.
+build on it can trust it. They pass on WordPress, on GitHub and on a local site. Their CMS column says all, so they
+stay `wip` until Drupal, Joomla and Standalone have run them too (section 0.1 records the progress per CMS).
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
@@ -945,7 +945,7 @@ Update the Status column as phases start and finish.
 
 | Phase | Status | Scope | Why this order |
 | --- | --- | --- | --- |
-| 0 | In progress (seam S1, PHPUnit fakes and fixture, coverage config done; Playwright scaffold written and run locally on WordPress, the workflow added and not yet run on GitHub; the other CMSs' account scripts and CI pinning not started) | Seam S1, `EwayFixture`, `FakeEwayHttp`, move SettlementSync helpers, fix coverage config. Playwright scaffold, **CMS-agnostic from the start**: package, config, `cms.ts`, `global-setup.ts`, `base.ts`, `civi.ts`, stub extension and `page.route()` hosted-page stub, setup scripts for all four CMSs (including the Joomla groups and access rules), `frontend-tests.yml` (WordPress), one smoke spec. | Everything else depends on these. Building `cms.ts` first means no spec ever hardcodes a WordPress path, which is far cheaper than retrofitting. Also proves the CI wiring early. |
+| 0 | In progress (seam S1, PHPUnit fakes and fixture, coverage config done; Playwright scaffold written and passing on WordPress in CI and locally; the other CMSs' account scripts and CI pinning not started) | Seam S1, `EwayFixture`, `FakeEwayHttp`, move SettlementSync helpers, fix coverage config. Playwright scaffold, **CMS-agnostic from the start**: package, config, `cms.ts`, `global-setup.ts`, `base.ts`, `civi.ts`, stub extension and `page.route()` hosted-page stub, setup scripts for all four CMSs (including the Joomla groups and access rules), `frontend-tests.yml` (WordPress), one smoke spec. | Everything else depends on these. Building `cms.ts` first means no spec ever hardcodes a WordPress path, which is far cheaper than retrofitting. Also proves the CI wiring early. |
 | 1 | In progress (PU-D, PU-E and PU-F done and passing in CI; PU-B has only PU-B12; the Playwright suites are not started) | PU-B, PU-D, PU-E, PU-F, plus PW-F1, PW-F2, PW-F5, PW-B-cron | Money and schedule logic. A regression here charges or fails to charge real donors. |
 | 2 | In progress (PU-A5, PU-G9, PU-G12 and PU-N5 to N8 done or started; the rest and all the Playwright suites not started) | PU-A, PU-C, PU-G, PU-H, PU-I, PU-J, PU-N, PU-O, plus PW-B-settings, PW-B-failed, PW-B-recurforms, PW-B-jobs, PW-B-processor | Admin features and hook behaviour. |
 | 3 | In progress (PU-L2, PU-L6 to PU-L10 and the UP suite done; the rest not started) | PU-K, PU-L, PU-M, UP (adds `tests/upgrade/` and `upgrade-tests.yml`), plus PW-F3, PW-F4, PW-F6, PW-B-backoffice, PW-B-status, PW-B-permissions, PW-S | Remaining journeys, hardening, upgrade safety. |
@@ -1014,6 +1014,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | The Playwright workflow passes on GitHub: all six PW-INF checks green on a fresh WordPress site, through the extensions-folder fallback. Infrastructure is `full` for WordPress in the CMS table; PW-INF-01 to 06 stay `wip` because their CMS column is all and Drupal, Joomla and Standalone have not run them. |
 | 2026-11-14 | The fallback's first version failed on GitHub too: the CI site's `extensionsDir` is an absolute path, not the `[civicrm.files]/ext` placeholder the script assumed. `fixtures/extension-dir.php` now swaps a trailing `/ext` for `/ext-playwright` in either form (and in the URL setting), and stops with the raw values if they do not fit. Tried locally with absolute settings like CI's and the fallback forced: all six PW-INF checks pass. |
 | 2026-11-14 | First GitHub run of the Playwright workflow failed in the setup script: the extensions folder is created as root by the bind mount, so the stub extension could not be copied beside the extension under test ("Permission denied"). `setup-common.sh` now falls back to a writable sibling folder, holding links to the existing extensions plus the stub, and points `extensionsDir` and `extensionsURL` at it. Tried on the local site with the fallback forced: all six PW-INF checks pass. PW-INF stays `wip` until a GitHub run passes. |
 | 2026-11-14 | Playwright scaffold started in `tests/playwright/`: package and lockfile, config, `cms.ts` (all four CMSs, WordPress run), `civi.ts`, `eway-stub.ts`, `global-setup.ts`, `base.ts` with the problem collector, personas, a WordPress setup script, the shared setup and seed, and a test-support extension that fakes eWAY's HTTP service. `.github/workflows/frontend-tests.yml` added. New group PW-INF (6 cases, `wip`): all six passed against a local WordPress site with all four personas signed in. The collector found real browser noise on first run (an unload permissions-policy console error, now ignored) and flagged a made-up return path that returned 404. Not yet run on GitHub; the account scripts for Drupal, Joomla and Standalone are not written. 278 cases. |
