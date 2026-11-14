@@ -26,7 +26,10 @@ rm -f "${EWAYRECURRING_UPGRADE_STATE}"
 cd "${EXTENSION_DIR}"
 
 echo "== 1. Install the old version"
-cv ext:enable "${EXTENSION_KEY}"
+# Install as a CMS user: release 2.8.1's enable hook asks APIv4 to check permissions, which fails with
+# nobody logged in (DEF-15, fixed in 3.0.0). The workflow's WordPress administrator is "admin".
+CV_USER="${UPGRADE_TEST_USER:-admin}"
+cv --user="${CV_USER}" ext:enable "${EXTENSION_KEY}"
 echo "Installed version:     $(cv ev "echo CRM_Extension_System::singleton()->getMapper()->keyToInfo('${EXTENSION_KEY}')->version;")"
 echo "Stored schema version: $(cv ev "echo CRM_Core_BAO_Extension::getSchemaVersion('${EXTENSION_KEY}');")"
 

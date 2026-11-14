@@ -46,7 +46,9 @@ function ewayrecurring_civicrm_postInstall() {
  */
 function ewayrecurring_civicrm_enable() {
   // Ensure payment processor is active, will be deactivated if extension is disabled and user has no way to reactivate
-  \Civi\Api4\PaymentProcessorType::update()
+  // No permission check: the extension can be enabled with nobody logged in (cv, an installer or a
+  // deployment script), and a check there fails the whole install with "Authorization failed".
+  \Civi\Api4\PaymentProcessorType::update(FALSE)
                                  ->addValue('is_active', TRUE)
                                  ->addWhere('name', '=', 'eWay_Recurring')
                                  ->execute();

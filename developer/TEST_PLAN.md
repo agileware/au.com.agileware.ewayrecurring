@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **271**. Done: **62**. In progress: **11**. Blocked: **3**. To do: **190**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **272**. Done: **62**. In progress: **13**. Blocked: **3**. To do: **189**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -79,7 +79,7 @@ Cases defined: **271**. Done: **62**. In progress: **11**. Blocked: **3**. To do
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-F | PHPUnit | `RecurringProcessingTest` | 27 | 25 | 0 | 0 | 2 | 0 | none (S1 done) |
 | PU-G | PHPUnit | `PaymentTokenTest` | 12 | 1 | 1 | 0 | 10 | 0 | none (S1 done) |
-| PU-H | PHPUnit | `HooksAndManagedTest` | 12 | 0 | 0 | 0 | 12 | 0 | none |
+| PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 0 | 2 | 0 | 11 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
 | PU-J | PHPUnit | `SettingsFormTest` | 7 | 0 | 0 | 0 | 7 | 0 | none |
 | PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 3 | 0 | 3 | page refactor (PU-K1 to K3); PU-K4 to K6 dropped with the deleted page |
@@ -413,6 +413,7 @@ branch the status reads `Fixed on `release-3.0.0``; change it to the release num
 | DEF-12 | Fixed on `release-3.0.0` | `process_recurring_payments()` | A contact with no address at all makes the job read `$billing_address['id']` on null, raising a PHP warning. The charge still proceeds. | PU-F24 |
 | DEF-13 | Fixed on `release-3.0.0` | `updateSubscriptionBillingInfo()` and `VerifyUpdateToken` | Found while planning the DEF-3 Playwright cases, from reading the code only. Core's Update Billing form (the staff form, reached from the contact's Recurring Contributions tab) saves the new token and billing address but does not reset `failure_count`, `failure_retry_date` or a Failed status, so a Failed record stays Failed after the card is updated until staff use Reactivate. The code that does reset them, `VerifyUpdateToken` (its comment says updating billing details should fix failed contributions), is never reached: its URL is only built when `getSuccessfulPaymentReturnUrl()` is given a recurring record, and its only caller never passes one. If it were reached it would reset the count but leave the retry date set, which stops the record being picked by either cron list. **Decision (2026-11-14):** the donor path should recover a Failed record. Expected: updating billing on a Failed record sets it to In Progress, `failure_count` 0 and clears `failure_retry_date`, leaving the schedule date alone (the same result as Reactivate). Not yet decided: whether to delete the unused `VerifyUpdateToken` page, and what a record that is still being retried should do (today it keeps retrying, now with the new token). | PU-N5, PW-F4-06 **Fix:** `updateSubscriptionBillingInfo()` now sets a Failed record to In Progress with `failure_count` 0 and the retry date cleared, leaving the schedule date; `VerifyUpdateToken`, its route and the dead `UpdateBilling` branches in the return-URL functions were deleted. | PU-N5, PW-F4-06 |
 | DEF-14 | Fixed on `release-3.0.0` | `updateSubscriptionBillingInfo()` | Found while answering whether an updated card is verified; from reading the code only. The token id comes from the request (`contact_payment_token`) and is looked up by id alone: nothing checks that the token belongs to the recurring record's contact, belongs to the same payment processor, or has not expired. The browser script only offers the contact's own unexpired tokens, but the server does not enforce it. A user who can open the form for their own recurring record could post another contact's token id and have that card charged by the cron. Token ids are sequential. Two related observations, not defects: adding a card makes no authorisation call with the issuer (a bad card is found at the next charge, PW-X-05), and the stored-card list is loaded with the PaymentToken API, which needs staff permission, so a donor with only "make online contributions" may see "No cards found." (PW-F4-07). | PU-N6, PU-N7, PW-S-05 **Fix:** the chosen card is now loaded and checked before anything is saved: it must exist, belong to the recurring record's contact and processor, and not be expired, otherwise the update is refused and nothing changes (the billing address used to be saved before the card was even looked up). |
+| DEF-15 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_enable()` | The enable hook updates the processor type through APIv4 with permission checks on, so enabling the extension with nobody logged in (`cv ext:enable`, an installer or a deployment script) fails the whole install with "Authorization failed". Found when the upgrade test installed release 2.8.1 with `cv`; present in 2.8.1 and 2.8.2. The fix turns the permission check off for that call. Installing from the admin screens was never affected. | PU-H3, PU-H13, UP-01 |
 
 ---
 
@@ -566,7 +567,7 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | --- | --- | --- |
 | PU-H1 | todo | Managed entities exist after install: processor type `eWay_Recurring` (class `Payment_eWAYRecurring`, labels API Key / API Password, `is_recur`), activity types "eWay Transaction Failed" and "eWay Transaction Succeeded", four scheduled jobs with documented frequencies and active flags |
 | PU-H2 | todo | Settlement Sync job exists and is **disabled** by default (`Sync.mgd.php`) |
-| PU-H3 | todo | `hook_enable` reactivates the processor type if it had been deactivated |
+| PU-H3 | wip | `hook_enable` reactivates the processor type if it had been deactivated |
 | PU-H4 | todo | `buildForm`: `send_cancel_request` removed for eWAY processors on `CancelSubscription`, kept for others |
 | PU-H5 | todo | `validateForm`: API Key and API Password required on the processor admin form for eWAY type, not required for other types |
 | PU-H6 | todo | `hook_permission` declares both token permissions with labels |
@@ -576,6 +577,7 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | PU-H10 | todo | `preProcess` Thank You: validates once per invoice, hides line items for quick-config price sets |
 | PU-H11 | todo | `preProcess` Confirm (contribution and event): already-paid access code throws the right message per component, failed prior transaction shows the warning and clears the session response, not-processed-yet continues |
 | PU-H12 | todo | `hook_check`: no message at zero failures, message with count and link when failures exist past the 4-hour threshold, ignores test recurring records, honours a disabled `StatusPreference`, honours the `statusNames` filter (DEF-3: only recurring contributions marked Failed are counted) |
+| PU-H13 | wip | `hook_enable` works when nobody is logged in (no permissions): the processor type is reactivated and nothing throws "Authorization failed" (DEF-15, fixed) |
 
 ### PU-I `PermissionsTest` (`APIWrapper`)
 
@@ -671,7 +673,7 @@ installs an older release (`FROM_REF`) on a WordPress + CiviCRM site, then runs
 the commit under test (`NEW_VERSION_DIR`), run `cv ext:upgrade-db`, check the result, and exit
 non-zero on any problem. The elections extension is the reference implementation
 (`tests/upgrade/ci-upgrade-test.sh`, `seed-v1.php`, `verify-v2.php`, `upgrade-from-v1.sh`, and an
-`upgrade-tests.yml` that passes `FROM_REF`). It is implemented here as `tests/upgrade/ci-upgrade-test.sh`, `seed-v2.8.1.php` and `verify-v3.php`, and `.github/workflows/upgrade-tests.yml` (on push and on demand). The cases below are `wip` until the workflow has passed on GitHub; a rehearsal of the script against a local site passed every check. The database upgrade is independent of the CMS, so
+`upgrade-tests.yml` that passes `FROM_REF`). It is implemented here as `tests/upgrade/ci-upgrade-test.sh`, `seed-v2.8.1.php` and `verify-v3.php`, and `.github/workflows/upgrade-tests.yml` (on push and on demand). The script installs the old release as a CMS user, because release 2.8.1's enable hook fails when nobody is logged in (DEF-15). The cases below are `wip` until the workflow has passed on GitHub; a rehearsal of the script against a local site passed every check. The database upgrade is independent of the CMS, so
 this suite runs on WordPress only. Pick `FROM_REF` as the last release the upgrade must support
 (decision 9: tag `2.8.1`); each `FROM_REF` is one workflow job. Note that between 2.8.1 and 2.8.2 the extension changed only the menu XML (`is_ajax` flags on `createtoken` and `savetoken`), and the upgrader has no step after `upgrade_20601` until `upgrade_30000` is added (FR-2; UP-10). From the 2.8.1 baseline the suite is therefore chiefly a guard that an in-place upgrade keeps data, settings and managed entities and rebuilds the menu, and it will exercise real upgrade steps only once a release adds one. A second, older baseline (2.6.1) would exercise real upgrade steps (`upgrade_20300` and `upgrade_20601`) and the switch of upgrader class; that case, UP-07, was dropped as not needed.
 
@@ -950,7 +952,7 @@ moves money would be under test.
 - Every case in scope is `done` here, tagged in the test, and the section 0.1 counts are refreshed.
 - [TESTING.md](TESTING.md) updated; `tests/playwright/README.md` written (same structure as the sibling
   repos); [LOCAL_DEV.md](LOCAL_DEV.md) extended with the Playwright commands.
-- Suspected defects (DEF-1 to DEF-14) in scope each either fixed with an agreed change, or pinned by a
+- Suspected defects (DEF-1 to DEF-15) in scope each either fixed with an agreed change, or pinned by a
   characterisation test with a comment that names the open question.
 
 ---
@@ -996,6 +998,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | DEF-15 found by the first GitHub run of the upgrade test and fixed: the enable hook failed with "Authorization failed" when the extension was enabled with nobody logged in (cv). New case PU-H13 and first tests for PU-H3 (both `wip`). The upgrade script now installs release 2.8.1 as a CMS user, since that release has the same bug. 272 cases. |
 | 2026-11-14 | UP suite started: `tests/upgrade/` (script, seed for 2.8.1, verifier) and `.github/workflows/upgrade-tests.yml` added, covering UP-01 to UP-06 and UP-08 to UP-11, `wip` until a GitHub run passes. A rehearsal against a local site passed every check. UP-04, UP-08 and UP-09 reworded to what the checks do (the Settlement Sync job already exists in 2.8.1; the `update: always` job is not asserted; jobs run through `Job.execute`; the menu flag lives in `module_data`). |
 | 2026-11-14 | PU-F27 is `done`: CI passed on `release-3.0.0`. |
 | 2026-11-14 | New case PU-F27 (a recurring contribution cancelled while being retried is not retried), from the CIVIEWAY-125 ticket text; the code already behaved this way. Decision 11 now quotes the ticket's original problem. 271 cases. |
