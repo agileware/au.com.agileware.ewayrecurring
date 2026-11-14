@@ -242,9 +242,10 @@ Failed records, because that reset finds nothing to reset.
 - It selects recurring contributions that use an eWAY recurring payment processor, have the status In
   Progress, have a retry date, and have `failure_count` at or above the retry limit saved in the
   setting `eway_recurring_contribution_max_retry` when the step runs.
-- It sets their status to Failed and changes nothing else: the failure count, retry date and next
+- It sets their status to Failed with a single SQL statement (decision U1), so no PHP hooks or rules fire, and changes nothing else: the failure count, retry date and next
   scheduled date stay as they were.
 - It can be run again safely (a second run finds nothing to change).
+- Detailed logging, if the site has it enabled, still records the change, because it works through database triggers (without a user id).
 - It writes the number of records changed, and their ids, to the CiviCRM log, and shows the number
   in the upgrade output.
 - It sends no email and creates no activity.
@@ -254,10 +255,7 @@ date is already more than four hours old. That is intended: it is the first time
 
 ### Risks
 
-- **Hooks and rules.** Changing the status through the API fires the usual hooks, and CiviRules or
-  similar tools may have rules on recurring contribution changes. A bulk change could send many emails
-  or create many log rows. Writing the status directly in SQL avoids that but also skips the
-  logging tables and any hook a site relies on (decision U1).
+- **Hooks and rules.** Changing the status through the API would fire the usual hooks, and CiviRules or similar tools may have rules on recurring contribution changes, so a bulk change could send many emails. Decision U1 is to update with SQL, which fires no PHP hooks or rules. The cost is that nothing reacts to the change either: a site that relies on a rule to follow up a Failed recurring contribution will not see one for these records.
 - **A sudden count.** A site with many stuck records will see a large number in System Status and
   in the Failed list on the day it upgrades. Release notes should say so.
 - **Recovery is not automatic.** Marking a record Failed does not charge it. Staff (Reactivate) or a
@@ -285,7 +283,7 @@ WHERE cr.payment_processor_id = <processor id>
 
 | # | Status | Question | Notes |
 | --- | --- | --- | --- |
-| U1 | Open | Apply the change through the API (hooks and rules fire, logging records it) or with direct SQL (silent)? | Check whether the sites that will upgrade have rules on recurring contribution changes. Silent is safer for the first run; the API is more conventional |
+| U1 | Decided | Apply the change through the API (hooks and rules fire, logging records it) or with direct SQL (silent)? | 2026-11-14: **direct SQL**, one statement. Avoids a burst of emails or rule runs on the day of the upgrade. No PHP hooks or rules fire and no activity is created. Database logging triggers still record the change if logging is enabled. The step logs the ids it changed |
 | U2 | Open | Include test-mode records? | The System Status check ignores them. Proposed: leave them alone |
 | U3 | Open | Include records still Pending? | The retry list only selects In Progress, so a Pending record that failed is stuck in the same way. Such records are rare (the cron only charges a recurring contribution that already has a Completed contribution), so proposed: leave them alone |
 | U4 | Open | Also repair the other stuck state: In Progress, retry date set, `failure_count` 0? | Left by an old update-billing page that reset the count but not the date. Neither list selects it. A repair would clear the retry date so the normal list charges it on the next run, which charges the missed payment straight away |
@@ -320,5 +318,6 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 decision U1 settled: the upgrade step updates with a single SQL statement. Risk and behaviour text updated; logging note corrected (database triggers still record the change). |
 | 2026-11-14 | FR-2 added: an upgrade step that marks recurring contributions left stuck by releases up to 2.8.2 as Failed, planned for 3.0.0, with six open decisions (U1 to U6). |
 | 2026-11-14 | File created with FR-1, the donor-facing update-my-stored-card page, as `planned`. Nine open decisions recorded. |

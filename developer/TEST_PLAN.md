@@ -626,7 +626,7 @@ version with seeded data are covered by the `UP` suite below.
 | PU-L5 | todo | DAO and BAO metadata (`entityType.php`) match the table |
 | PU-L6 | todo | `upgrade_30000` marks a recurring contribution Failed when it is for an eWAY processor, In Progress, has a retry date and has `failure_count` at or above the configured retry limit (the stuck state left by releases up to 2.8.2); its failure count, retry date and schedule date are unchanged (FR-2) |
 | PU-L7 | todo | `upgrade_30000` leaves alone: a record below the limit, a record with no retry date, records that are Completed, Cancelled or already Failed, other processors' records, and test records unless decision U2 says otherwise (FR-2) |
-| PU-L8 | todo | `upgrade_30000` is idempotent (a second run changes nothing), uses the retry limit saved at the time it runs, reports the number of records changed, and does not send mail or create activities (FR-2) |
+| PU-L8 | todo | `upgrade_30000` is idempotent (a second run changes nothing), uses the retry limit saved at the time it runs, reports the number of records changed, does not send mail or create activities, and fires no recurring contribution hooks (U1: the change is a single SQL statement) (FR-2) |
 
 ### PU-M `SettlementSync` gaps (add to existing class or a sibling)
 
@@ -991,6 +991,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 decision U1 settled: the upgrade step updates with a single SQL statement, so no hooks or rules fire. PU-L8 now also checks that no recurring contribution hook fires. |
 | 2026-11-14 | Planned an upgrade step, `upgrade_30000` (feature FR-2 in [FEATURES.md](FEATURES.md)), that marks recurring contributions left stuck by releases up to 2.8.2 (In Progress, retry date set, failure count at the limit) as Failed. New cases PU-L6 to PU-L8 and UP-10; UP-03 excludes the stuck records. 267 cases. |
 | 2026-11-14 | Statuses brought up to date after CI passed on `release-3.0.0`: every case with a tagged test is `done` (PU-A5, PU-B12, PU-D, PU-E, PU-F, PU-G12, PU-L2, PU-N5 to N8) except PU-G9, which is `wip` because some of its paths are not yet tested. DEF-1 to DEF-12 are now `Fixed on release-3.0.0` (DEF-3 awaiting maintainer check). PU-G8 and PU-G10 are `todo`, not `blocked`: JSON output throws under the test framework, so no `die()` refactor is needed. The test that was tagged PU-G8 was retagged to the new case PU-G12, because it checked the contact reference, not the dedupe rule. Case text that described pre-fix behaviour was rewritten. |
 | 2026-11-14 | Link to the new [FEATURES.md](FEATURES.md) added to the header. |
