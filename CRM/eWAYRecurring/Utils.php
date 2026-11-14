@@ -304,6 +304,27 @@ class CRM_eWAYRecurring_Utils {
       if (isset($recurringContribution['payment_token_id']) && !empty($recurringContribution['payment_token_id'])) {
         $params['id'] = $recurringContribution['payment_token_id'];
       }
+      else {
+        // A new recurring record has no card yet. Use the same dedupe rule as saveToken(): the same contact and
+        // payment processor with the same token or the same masked card number is the same card, so a returning
+        // donor does not collect a duplicate row each time.
+        $sameCard = \Civi\Api4\PaymentToken::get(FALSE)
+          ->addSelect('id')
+          ->addWhere('contact_id', '=', $recurringContribution['contact_id'])
+          ->addWhere('payment_processor_id', '=', $recurringContribution['payment_processor_id'])
+          ->addOrderBy('id', 'ASC')
+          ->setLimit(1);
+        if ($customerTokenID !== '') {
+          $sameCard->addClause('OR', ['token', '=', $customerTokenID], ['masked_account_number', '=', $ccNumber]);
+        }
+        else {
+          $sameCard->addWhere('masked_account_number', '=', $ccNumber);
+        }
+        $existing = $sameCard->execute()->first();
+        if ($existing) {
+          $params['id'] = $existing['id'];
+        }
+      }
       $paymentToken = civicrm_api3('PaymentToken', 'create', $params);
       $paymentTokenID = $paymentToken['id'];
     }

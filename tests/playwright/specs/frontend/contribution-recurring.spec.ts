@@ -228,7 +228,7 @@ test.describe('recurring contribution page', () => {
     expect(stub.requests('getCustomer')).toHaveLength(0);
   });
 
-  test('PW-F2-06 a returning donor whose saved card comes back from eWAY gets a second row for the same card', async ({ anonPage, stub }) => {
+  test('PW-F2-06 a returning donor whose saved card comes back from eWAY keeps one row for it', async ({ anonPage, stub }) => {
     const donor = uniqueDonor('recur06');
     const card = { token: newCustomerToken() };
     // The donor has been here before: a contact with this email address and one saved card.
@@ -258,18 +258,14 @@ test.describe('recurring contribution page', () => {
     expect(recur['contribution_status_id:name']).toBe('In Progress');
     expect(api4('Contact', 'get', { select: ['id'], where: [['email_primary.email', '=', donor.email]] })).toHaveLength(1);
 
-    // The plan row expected the extension's dedupe rule (same contact and processor, same token or same masked
-    // number: one row) to keep this to one card. It does not apply here: that rule lives in the browser-side
-    // saveToken endpoint, and the contribution page path (Utils::updateCustomerDetails) always creates a row for a
-    // new recurring record. So the donor ends with two identical rows, and the new record points at the newer one.
+    // The extension's dedupe rule (same contact and processor, same token or same masked number) keeps this to one
+    // card: the new recurring record points at the row the donor already had (DEF-36, before the fix it added a
+    // second identical row).
     const tokens = tokensOf(contactId);
-    expect(tokens).toHaveLength(2);
+    expect(tokens).toHaveLength(1);
     expect(tokens[0].id).toBe(existing.id);
-    for (const row of tokens) {
-      expect(row.token).toBe(card.token);
-      expect(row.masked_account_number).toBe('444433XXXXXX1111');
-      expect(row.payment_processor_id).toBe(liveProcessor.id);
-    }
-    expect(recur.payment_token_id).toBe(tokens[1].id);
+    expect(tokens[0].token).toBe(card.token);
+    expect(tokens[0].masked_account_number).toBe('444433XXXXXX1111');
+    expect(recur.payment_token_id).toBe(existing.id);
   });
 });

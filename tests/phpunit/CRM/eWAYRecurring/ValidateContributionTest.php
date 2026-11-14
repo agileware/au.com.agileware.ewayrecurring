@@ -362,6 +362,69 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
   }
 
   /**
+   * A returning donor's new recurring record uses the card they already have (same contact and processor, same
+   * token) instead of getting a second identical row (DEF-36).
+   *
+   * @testPlan PU-D10
+   */
+  public function testUpdateCustomerDetailsReusesTheSameCardForANewRecurringRecord(): void {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact();
+    $existing = Fixture::token($contactId, $processor['id'], ['token' => 'SAME-TOKEN']);
+    $recur = Fixture::recurring($contactId, $processor, ['token' => FALSE]);
+    $this->http->respond('getCustomer', Responses::customerFound('SAME-TOKEN'));
+
+    $tokenId = CRM_eWAYRecurring_Utils::updateCustomerDetails($this->gatewayResponse($processor, 'SAME-TOKEN'), $recur);
+
+    $this->assertEquals($existing['id'], $tokenId);
+    $this->assertSame(1, PaymentToken::get(FALSE)->addWhere('contact_id', '=', $contactId)->execute()->count());
+  }
+
+  /**
+   * The same masked card number is the same card even when eWAY issues a new customer token for it.
+   *
+   * @testPlan PU-D10
+   */
+  public function testUpdateCustomerDetailsReusesTheSameMaskedCardUnderANewToken(): void {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact();
+    $existing = Fixture::token($contactId, $processor['id'], ['token' => 'OLD-CARD-TOKEN', 'masked_account_number' => '444433XXXXXX1111']);
+    $recur = Fixture::recurring($contactId, $processor, ['token' => FALSE]);
+    $this->http->respond('getCustomer', Responses::customerFound('BRAND-NEW-TOKEN'));
+
+    $tokenId = CRM_eWAYRecurring_Utils::updateCustomerDetails($this->gatewayResponse($processor, 'BRAND-NEW-TOKEN'), $recur);
+
+    $this->assertEquals($existing['id'], $tokenId);
+    $this->assertSame(1, PaymentToken::get(FALSE)->addWhere('contact_id', '=', $contactId)->execute()->count());
+    $token = PaymentToken::get(FALSE)->addWhere('id', '=', $tokenId)->execute()->first();
+    $this->assertSame('BRAND-NEW-TOKEN', $token['token'], 'The row now holds the token eWAY gave this time.');
+  }
+
+  /**
+   * A card with the same token on another contact, or on another processor, is not the same card.
+   *
+   * @testPlan PU-D10
+   */
+  public function testUpdateCustomerDetailsDoesNotReuseACardOfAnotherContactOrProcessor(): void {
+    $processor = Fixture::processor();
+    $otherProcessor = Fixture::processor(FALSE, ['user_name' => 'other-key', 'password' => 'other-pass']);
+    $contactId = Fixture::contact();
+    $someoneElse = Fixture::contact('Someone', 'Else');
+    $theirs = Fixture::token($someoneElse, $processor['id'], ['token' => 'SHARED-TOKEN']);
+    $onOtherProcessor = Fixture::token($contactId, $otherProcessor['id'], ['token' => 'SHARED-TOKEN']);
+    $recur = Fixture::recurring($contactId, $processor, ['token' => FALSE]);
+    $this->http->respond('getCustomer', Responses::customerFound('SHARED-TOKEN'));
+
+    $tokenId = CRM_eWAYRecurring_Utils::updateCustomerDetails($this->gatewayResponse($processor, 'SHARED-TOKEN'), $recur);
+
+    $this->assertNotEquals($theirs['id'], $tokenId);
+    $this->assertNotEquals($onOtherProcessor['id'], $tokenId);
+    $token = PaymentToken::get(FALSE)->addWhere('id', '=', $tokenId)->execute()->first();
+    $this->assertEquals($contactId, $token['contact_id']);
+    $this->assertEquals($processor['id'], $token['payment_processor_id']);
+  }
+
+  /**
    * @testPlan PU-D10
    */
   public function testUpdateCustomerDetailsReturnsNullWhenTheCustomerHasNoCard(): void {
