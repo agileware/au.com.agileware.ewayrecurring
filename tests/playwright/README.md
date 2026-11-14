@@ -81,7 +81,9 @@ npx playwright test
 | `WP_CLEAN_URLS` | `0` for a WordPress site without pretty permalinks |
 
 If your prefix needs quoting (`ddev exec` joins its arguments back into one string), point `CIVI_EXEC_PREFIX` at a
-small wrapper script that quotes each argument.
+small wrapper script that quotes each argument. For DDEV, `ddev-exec.sh` in this folder is that script (see its
+header for `DDEV_PROJECT_DIR`). `developer/LOCAL_DEV.md` has the whole safe routine for a development machine:
+snapshot, deploy, run, restore.
 
 `npm run typecheck` checks the TypeScript without a site. `npx playwright test --list` lists the tests.
 
@@ -103,6 +105,7 @@ fixtures/
   extension-dir.php       works out the writable extensions folder used when the usual one is root-owned
   seed-data.php           idempotent seed, run with cv scr
   stub-extension/         test-support CiviCRM extension (never install it on a real site)
+ddev-exec.sh             runs a command inside a DDEV site, for CIVI_EXEC_PREFIX
 specs/
   infrastructure/         checks of the above
   frontend/               PW-F1 so far (contribution-once-off.spec.ts)
