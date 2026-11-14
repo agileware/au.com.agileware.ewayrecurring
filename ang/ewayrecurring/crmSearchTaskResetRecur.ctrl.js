@@ -33,8 +33,10 @@
                 where: [['name', '=', 'contribution_status_id']],
                 loadOptions: ['id', 'name', 'label'],
                 select: ['options']
-            }).then((result) => $timeout(() => $scope.$apply(function () {
-                // This is called inside $scope.$apply so we actually update the message in the interface
+            }).then((result) => $timeout(() => $scope.$apply(() => {
+                // This is called inside $scope.$apply so we actually update the message in the interface.
+                // An arrow function: a plain function has no `this` in strict mode, which made this throw
+                // "Cannot set properties of undefined (setting 'statusLabel')" every time the dialog opened.
                 statusLabel = this.statusLabel = _.indexBy(result[0].options, 'name')['In Progress'].label;
                 ctrl.statusMessage = statusMessage();
             })));

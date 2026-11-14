@@ -253,6 +253,46 @@ class CRM_eWAYRecurring_HooksAndManagedTest extends \PHPUnit\Framework\TestCase 
     $this->assertTrue($form->elementExists('send_cancel_request'));
   }
 
+  /**
+   * The fields core's cancel form lists for its template, as it assigns them.
+   */
+  private function cancelFormEntityFields(): array {
+    return [
+      'cancel_reason' => ['name' => 'cancel_reason'],
+      'send_cancel_request' => ['name' => 'send_cancel_request', 'title' => 'Send cancellation request?'],
+      'is_notify' => ['name' => 'is_notify', 'title' => 'Notify Contributor?'],
+    ];
+  }
+
+  /**
+   * Core's template draws a row for every entity field, so a row for the removed element printed PHP warnings
+   * ("Undefined array key send_cancel_request") on the Cancel Recurring Contribution screen (DEF-59).
+   *
+   * @testPlan PU-H15
+   */
+  public function testCancelSubscriptionTakesTheCancelRequestRowOutOfTheTemplateFieldsForEway(): void {
+    $form = $this->cancelSubscriptionForm('eWay_Recurring');
+    $form->assign('entityFields', $this->cancelFormEntityFields());
+
+    ewayrecurring_civicrm_buildForm('CRM_Contribute_Form_CancelSubscription', $form);
+
+    $assigned = CRM_Core_Smarty::singleton()->getTemplateVars('entityFields');
+    $this->assertSame(['cancel_reason', 'is_notify'], array_keys($assigned));
+  }
+
+  /**
+   * @testPlan PU-H15
+   */
+  public function testCancelSubscriptionLeavesTheTemplateFieldsAloneForOtherProcessors(): void {
+    $form = $this->cancelSubscriptionForm('Dummy');
+    $form->assign('entityFields', $this->cancelFormEntityFields());
+
+    ewayrecurring_civicrm_buildForm('CRM_Contribute_Form_CancelSubscription', $form);
+
+    $assigned = CRM_Core_Smarty::singleton()->getTemplateVars('entityFields');
+    $this->assertSame(['cancel_reason', 'send_cancel_request', 'is_notify'], array_keys($assigned));
+  }
+
   // ---------------------------------------------------------------------------
   // hook_validateForm (PU-H5)
   // ---------------------------------------------------------------------------

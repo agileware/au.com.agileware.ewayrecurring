@@ -199,6 +199,13 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
   if (($form instanceof CRM_Contribute_Form_CancelSubscription) &&
     ($form->_paymentProcessor['payment_processor_type'] == 'eWay_Recurring')) {
     $form->removeElement('send_cancel_request');
+    // Core's template draws one row for each of the form's entity fields, and "send_cancel_request" is one of
+    // them. With the element gone the row printed PHP warnings, so take the field out of the list as well.
+    $entityFields = CRM_Core_Smarty::singleton()->getTemplateVars('entityFields');
+    if (is_array($entityFields) && isset($entityFields['send_cancel_request'])) {
+      unset($entityFields['send_cancel_request']);
+      $form->assign('entityFields', $entityFields);
+    }
   }
 }
 
