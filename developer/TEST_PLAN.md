@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **271**. Done: **61**. In progress: **2**. Blocked: **3**. To do: **200**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **271**. Done: **62**. In progress: **1**. Blocked: **3**. To do: **200**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -77,7 +77,7 @@ Cases defined: **271**. Done: **61**. In progress: **2**. Blocked: **3**. To do:
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 0 | 0 | 0 | 3 | 0 | none |
 | PU-D | PHPUnit | `ValidateContributionTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 27 | 24 | 1 | 0 | 2 | 0 | none (S1 done) |
+| PU-F | PHPUnit | `RecurringProcessingTest` | 27 | 25 | 0 | 0 | 2 | 0 | none (S1 done) |
 | PU-G | PHPUnit | `PaymentTokenTest` | 12 | 1 | 1 | 0 | 10 | 0 | none (S1 done) |
 | PU-H | PHPUnit | `HooksAndManagedTest` | 12 | 0 | 0 | 0 | 12 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
@@ -536,7 +536,7 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-F24 | done | A contact with no address at all is charged without a PHP warning (DEF-12, fixed) |
 | PU-F25 | todo | A recurring contribution whose payment token row was changed in place (new `token` value, `expiry_date` and `masked_account_number` cleared, which is how a website-built update-card page replaces a card) is charged with the new token value, and `payment_token_id` is unchanged |
 | PU-F26 | todo | A Failed recurring contribution reset the way such a page resets it (In Progress, `failure_count` 0, retry date cleared) is charged on the first run on or after its schedule date: not before when the schedule date was moved into the future, and on the next run when the schedule was restarted from today (the two schedule choices a site can make) |
-| PU-F27 | wip | A recurring contribution cancelled while it is being retried (failures above 0, retry date due) is not retried, makes no gateway call and is left untouched, while one that is still being retried is charged in the same run (CIVIEWAY-125) |
+| PU-F27 | done | A recurring contribution cancelled while it is being retried (failures above 0, retry date due) is not retried, makes no gateway call and is left untouched, while one that is still being retried is charged in the same run (CIVIEWAY-125) |
 
 ### PU-G `PaymentTokenTest`
 
@@ -996,6 +996,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PU-F27 is `done`: CI passed on `release-3.0.0`. |
 | 2026-11-14 | New case PU-F27 (a recurring contribution cancelled while being retried is not retried), from the CIVIEWAY-125 ticket text; the code already behaved this way. Decision 11 now quotes the ticket's original problem. 271 cases. |
 | 2026-11-14 | Decision 11: the status given when retries run out is `Failed`. DEF-3 no longer awaits a maintainer check. PW-B-recurforms-05 reworded to check what core does with an inactive Failed record (View only on the contact tab; Edit and Cancel by direct address; Reactivate restores the links). |
 | 2026-11-14 | PU-L6 to PU-L10 are `done`: CI passed on `release-3.0.0` with `upgrade_30000`. UP-10 and UP-11 are still `todo`. |
