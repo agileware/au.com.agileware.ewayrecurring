@@ -696,8 +696,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    */
   function changeSubscriptionAmount(&$message = '', $params = []) {
     // Process Schedule updates here.
-    if ($params['next_scheduled_date']) {
-      $submitted_nsd = strtotime($params['next_scheduled_date'] . ' ' . $params['next_scheduled_date_time']);
+    if (!empty($params['next_scheduled_date'])) {
+      $submitted_nsd = strtotime($params['next_scheduled_date'] . ' ' . ($params['next_scheduled_date_time'] ?? ''));
       CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
         $params['id'],
         'next_sched_contribution_date',

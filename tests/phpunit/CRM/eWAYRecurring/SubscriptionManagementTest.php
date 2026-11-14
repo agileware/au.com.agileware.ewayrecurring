@@ -6,6 +6,7 @@ use Civi\Test\HeadlessInterface;
 use Civi\Test\HookInterface;
 use Civi\Test\TransactionalInterface;
 use CRM_eWAYRecurring_Test_EwayFixture as Fixture;
+use CRM_eWAYRecurring_Test_FakeEwayHttp as FakeHttp;
 
 /**
  * Updating the billing details of a recurring contribution:
@@ -27,6 +28,7 @@ class CRM_eWAYRecurring_SubscriptionManagementTest extends \PHPUnit\Framework\Te
   public function tearDown(): void {
     // The method reads the recurring id and chosen card from the request.
     unset($_REQUEST['crid'], $_REQUEST['contact_payment_token']);
+    FakeHttp::uninstall();
     parent::tearDown();
   }
 
@@ -70,12 +72,36 @@ class CRM_eWAYRecurring_SubscriptionManagementTest extends \PHPUnit\Framework\Te
    * @throws \Civi\Payment\Exception\PaymentProcessorException
    */
   private function updateBilling(array $processor, array $recur, int $tokenId) {
+    $params = $this->formParams();
+    return $this->updateBillingWith($processor, $recur, $tokenId, $params);
+  }
+
+  /**
+   * As updateBilling(), with the form parameters passed in and by reference, because the method adds
+   * the card's number and expiry to them for the confirmation email.
+   */
+  private function updateBillingWith(array $processor, array $recur, int $tokenId, array &$params) {
     $_REQUEST['crid'] = $recur['id'];
     $_REQUEST['contact_payment_token'] = $tokenId;
     $row = $processor;
     $message = '';
-    $params = $this->formParams();
     return (new CRM_Core_Payment_eWAYRecurring('live', $row))->updateSubscriptionBillingInfo($message, $params);
+  }
+
+  private function paymentFor(array $processor): CRM_Core_Payment_eWAYRecurring {
+    $row = $processor;
+    return new CRM_Core_Payment_eWAYRecurring('live', $row);
+  }
+
+  /**
+   * All the contact's billing addresses.
+   */
+  private function billingAddresses(int $contactId): array {
+    return \Civi\Api4\Address::get(FALSE)
+      ->addWhere('contact_id', '=', $contactId)
+      ->addWhere('is_billing', '=', TRUE)
+      ->execute()
+      ->getArrayCopy();
   }
 
   private function statusName(array $recur): string {
@@ -244,6 +270,302 @@ class CRM_eWAYRecurring_SubscriptionManagementTest extends \PHPUnit\Framework\Te
     $this->assertEquals(3, $after['failure_count']);
     $this->assertNotEmpty($after['failure_retry_date']);
     $this->assertSame($streetBefore, $this->billingStreet($contactId), 'The billing address is not changed either');
+  }
+
+  // ---------------------------------------------------------------------------
+  // The schedule date and cancelling (PU-N1, PU-N2)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @testPlan PU-N1
+   */
+  public function testChangingTheScheduleWritesTheNextDateFromItsDateAndTimeParts(): void {
+    $processor = Fixture::processor();
+    $recur = Fixture::recurring(Fixture::contact(), $processor, ['amount' => 25]);
+    $message = '';
+
+    $result = $this->paymentFor($processor)->changeSubscriptionAmount($message, [
+      'id' => $recur['id'],
+      'next_scheduled_date' => '2031-03-15',
+      'next_scheduled_date_time' => '14:30:00',
+    ]);
+
+    $this->assertTrue($result);
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame(strtotime('2031-03-15 14:30:00'), strtotime($after['next_sched_contribution_date']));
+    $this->assertEquals(25, $after['amount'], 'Nothing else on the record changes');
+    $this->assertSame('In Progress', $this->statusName($after));
+  }
+
+  /**
+   * @testPlan PU-N1
+   */
+  public function testChangingTheScheduleWithABlankDateChangesNothing(): void {
+    $processor = Fixture::processor();
+    $recur = Fixture::recurring(Fixture::contact(), $processor);
+    $message = '';
+
+    $result = $this->paymentFor($processor)->changeSubscriptionAmount($message, [
+      'id' => $recur['id'],
+      'next_scheduled_date' => '',
+      'next_scheduled_date_time' => '',
+    ]);
+
+    $this->assertTrue($result);
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame(strtotime($recur['next_sched_contribution_date']), strtotime($after['next_sched_contribution_date']));
+  }
+
+  /**
+   * With no date parts at all the method must still change nothing, and must not raise a PHP warning
+   * for the missing keys.
+   *
+   * @testPlan PU-N1
+   */
+  public function testChangingTheScheduleWithNoDatePartsChangesNothingAndRaisesNoWarning(): void {
+    $processor = Fixture::processor();
+    $recur = Fixture::recurring(Fixture::contact(), $processor);
+    $message = '';
+
+    $problems = [];
+    set_error_handler(function ($level, $text) use (&$problems) {
+      $problems[] = $text;
+      return TRUE;
+    });
+    try {
+      $result = $this->paymentFor($processor)->changeSubscriptionAmount($message, ['id' => $recur['id']]);
+    }
+    finally {
+      restore_error_handler();
+    }
+
+    $this->assertTrue($result);
+    $this->assertSame([], $problems);
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame(strtotime($recur['next_sched_contribution_date']), strtotime($after['next_sched_contribution_date']));
+  }
+
+  /**
+   * @testPlan PU-N2
+   */
+  public function testCancellingASubscriptionReturnsTrueWithoutCallingEway(): void {
+    $http = (new FakeHttp())->install();
+    $processor = Fixture::processor();
+    $recur = Fixture::recurring(Fixture::contact(), $processor);
+    $message = '';
+
+    $result = $this->paymentFor($processor)->cancelSubscription($message, ['subscriptionId' => $recur['processor_id']]);
+
+    $this->assertTrue($result);
+    $this->assertSame([], $http->requests, 'No request goes to eWAY');
+    $this->assertSame('', $message);
+  }
+
+  // ---------------------------------------------------------------------------
+  // What is refused before anything is saved (PU-N3)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Run the update with only some of the request values present.
+   */
+  private function updateBillingFromRequest(array $processor, array $request): void {
+    unset($_REQUEST['crid'], $_REQUEST['contact_payment_token']);
+    foreach ($request as $key => $value) {
+      $_REQUEST[$key] = $value;
+    }
+    $message = '';
+    $params = $this->formParams();
+    $this->paymentFor($processor)->updateSubscriptionBillingInfo($message, $params);
+  }
+
+  /**
+   * @testPlan PU-N3
+   */
+  public function testUpdatingBillingWithoutTheRecurringIdOrTheCardIsRefused(): void {
+    [$processor, $recur, $contactId] = $this->failedRecurring();
+    $token = Fixture::token($contactId, $processor['id'], ['token' => 'MISSING00001']);
+    $requests = [
+      'no recurring id' => ['contact_payment_token' => $token['id']],
+      'no card' => ['crid' => $recur['id']],
+      'neither' => [],
+    ];
+
+    foreach ($requests as $label => $request) {
+      try {
+        $this->updateBillingFromRequest($processor, $request);
+        $this->fail("$label: the update should have been refused");
+      }
+      catch (PaymentProcessorException $e) {
+        $this->assertSame(9000, $e->getErrorCode(), $label);
+        $this->assertSame('Missing contribution id and token id.', $e->getMessage(), $label);
+      }
+    }
+
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('Failed', $this->statusName($after), 'Nothing was changed');
+    $this->assertEquals($recur['payment_token_id'], $after['payment_token_id']);
+  }
+
+  /**
+   * @testPlan PU-N3
+   */
+  public function testUpdatingBillingOnACompletedRecurringContributionIsRefused(): void {
+    [$processor, $recur, $contactId] = $this->failedRecurring(['contribution_status_id:name' => 'Completed']);
+    $token = Fixture::token($contactId, $processor['id'], ['token' => 'COMPLETED0001']);
+    $streetBefore = $this->billingStreet($contactId);
+
+    try {
+      $this->updateBilling($processor, $recur, $token['id']);
+      $this->fail('A completed recurring contribution cannot be updated');
+    }
+    catch (PaymentProcessorException $e) {
+      $this->assertSame(9010, $e->getErrorCode());
+      $this->assertSame('Attempted to update billing details for a completed contribution.', $e->getMessage());
+    }
+
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertEquals($recur['payment_token_id'], $after['payment_token_id'], 'The card is not changed');
+    $this->assertSame('Completed', $this->statusName($after));
+    $this->assertSame($streetBefore, $this->billingStreet($contactId), 'The address is not changed');
+  }
+
+  /**
+   * @testPlan PU-N3
+   */
+  public function testUpdatingBillingOnACancelledRecurringContributionIsRefused(): void {
+    [$processor, $recur, $contactId] = $this->failedRecurring(['contribution_status_id:name' => 'Cancelled']);
+    $token = Fixture::token($contactId, $processor['id'], ['token' => 'CANCELLED0001']);
+    $streetBefore = $this->billingStreet($contactId);
+
+    try {
+      $this->updateBilling($processor, $recur, $token['id']);
+      $this->fail('A cancelled recurring contribution cannot be updated');
+    }
+    catch (PaymentProcessorException $e) {
+      $this->assertSame(9010, $e->getErrorCode());
+      $this->assertSame('Attempted to update billing details for a cancelled contribution.', $e->getMessage());
+    }
+
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertEquals($recur['payment_token_id'], $after['payment_token_id']);
+    $this->assertSame('Cancelled', $this->statusName($after));
+    $this->assertSame($streetBefore, $this->billingStreet($contactId));
+  }
+
+  // ---------------------------------------------------------------------------
+  // A successful update (PU-N4)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * A recurring contribution that is running normally, with an old card, and a new card to switch to.
+   *
+   * @return array [processor, recur, contactId, newToken]
+   */
+  private function runningRecurringWithANewCard(bool $withAddress = TRUE): array {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact('Test', 'Donor', $withAddress);
+    $recur = Fixture::recurring($contactId, $processor);
+    $newToken = Fixture::token($contactId, $processor['id'], [
+      'token' => 'NEWCARD00001',
+      'masked_account_number' => '510510XXXXXX5100',
+      'expiry_date' => date('Y-m-t', strtotime('+3 years')),
+    ]);
+    return [$processor, $recur, $contactId, $newToken];
+  }
+
+  /**
+   * @testPlan PU-N4
+   */
+  public function testUpdatingBillingSwitchesTheCardAndPassesItsDetailsToTheEmail(): void {
+    [$processor, $recur, , $newToken] = $this->runningRecurringWithANewCard();
+    $params = $this->formParams();
+
+    $this->assertTrue($this->updateBillingWith($processor, $recur, $newToken['id'], $params));
+
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertEquals($newToken['id'], $after['payment_token_id']);
+    $this->assertSame('NEWCARD00001', $after['processor_id'], 'The legacy token field follows the card');
+    $this->assertSame('In Progress', $this->statusName($after), 'A running record stays running');
+
+    $expiry = strtotime($newToken['expiry_date']);
+    $this->assertSame('510510XXXXXX5100', $params['credit_card_number']);
+    $this->assertSame(['Y' => date('Y', $expiry), 'M' => date('m', $expiry)], $params['credit_card_exp_date']);
+  }
+
+  /**
+   * @testPlan PU-N4
+   */
+  public function testUpdatingBillingChangesTheExistingBillingAddressInPlace(): void {
+    [$processor, $recur, $contactId, $newToken] = $this->runningRecurringWithANewCard();
+    $before = $this->billingAddresses($contactId);
+    $this->assertCount(1, $before, 'Set-up: one billing address');
+
+    $this->updateBilling($processor, $recur, $newToken['id']);
+
+    $after = $this->billingAddresses($contactId);
+    $this->assertCount(1, $after, 'The address is updated, not added');
+    $this->assertSame($before[0]['id'], $after[0]['id']);
+    $this->assertSame('99 New Street', $after[0]['street_address']);
+    $this->assertSame('Sydney', $after[0]['city']);
+    $this->assertSame('2000', $after[0]['postal_code']);
+    $this->assertEquals(1013, $after[0]['country_id']);
+  }
+
+  /**
+   * @testPlan PU-N4
+   */
+  public function testUpdatingBillingCreatesABillingAddressWhenTheContactHasNone(): void {
+    [$processor, $recur, $contactId, $newToken] = $this->runningRecurringWithANewCard(FALSE);
+    $this->assertSame([], $this->billingAddresses($contactId), 'Set-up: no address');
+
+    $this->updateBilling($processor, $recur, $newToken['id']);
+
+    $after = $this->billingAddresses($contactId);
+    $this->assertCount(1, $after);
+    $this->assertSame('99 New Street', $after[0]['street_address']);
+    $this->assertSame('Sydney', $after[0]['city']);
+    $this->assertEquals(1013, $after[0]['country_id']);
+  }
+
+  /**
+   * The postcode and state are optional: when the form sends neither, an existing value stays.
+   *
+   * @testPlan PU-N4
+   */
+  public function testUpdatingBillingWithNoPostcodeOrStateKeepsTheExistingOnes(): void {
+    [$processor, $recur, $contactId, $newToken] = $this->runningRecurringWithANewCard();
+    $params = $this->formParams();
+    unset($params['postal_code'], $params['state_province_id']);
+
+    $this->updateBillingWith($processor, $recur, $newToken['id'], $params);
+
+    $after = $this->billingAddresses($contactId);
+    $this->assertCount(1, $after);
+    $this->assertSame('99 New Street', $after[0]['street_address'], 'The street is still updated');
+    $this->assertSame('2600', $after[0]['postal_code'], 'The existing postcode stays');
+  }
+
+  /**
+   * @testPlan PU-N4
+   */
+  public function testUpdatingBillingSavesTheStateWhenTheFormSendsOne(): void {
+    $state = \Civi\Api4\StateProvince::get(FALSE)
+      ->addWhere('country_id', '=', 1013)
+      ->setLimit(1)
+      ->execute()
+      ->first();
+    if (!$state) {
+      $this->markTestSkipped('The test database has no states for country 1013.');
+    }
+    [$processor, $recur, $contactId, $newToken] = $this->runningRecurringWithANewCard(FALSE);
+    $params = $this->formParams();
+    $params['state_province_id'] = $state['id'];
+
+    $this->updateBillingWith($processor, $recur, $newToken['id'], $params);
+
+    $after = $this->billingAddresses($contactId);
+    $this->assertCount(1, $after);
+    $this->assertEquals($state['id'], $after[0]['state_province_id']);
   }
 
 }
