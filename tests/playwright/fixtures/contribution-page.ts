@@ -201,6 +201,31 @@ export async function hasHorizontalOverflow(page: Page): Promise<boolean> {
 }
 
 /**
+ * An empty string when the page fits its window, otherwise the widest few elements that stick out past the right
+ * edge (tag, id, classes, right edge in pixels), so a failure says what to fix.
+ */
+export async function horizontalOverflowReport(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const width = document.documentElement.clientWidth;
+    if (document.documentElement.scrollWidth <= width + 1) {
+      return '';
+    }
+    const found: { text: string; right: number }[] = [];
+    for (const el of Array.from(document.body.querySelectorAll('*'))) {
+      const box = el.getBoundingClientRect();
+      if (box.width > 0 && box.right > width + 1) {
+        const id = el.id ? `#${el.id}` : '';
+        const classes = typeof el.className === 'string' && el.className ? `.${el.className.trim().split(/\s+/).slice(0, 3).join('.')}` : '';
+        found.push({ text: `${el.tagName.toLowerCase()}${id}${classes}`, right: Math.round(box.right) });
+      }
+    }
+    found.sort((a, b) => b.right - a.right);
+    return `page is ${document.documentElement.scrollWidth}px wide in a ${width}px window; sticking out: ` +
+      found.slice(0, 8).map((item) => `${item.text} (right edge ${item.right}px)`).join('; ');
+  });
+}
+
+/**
  * Submit a QuickForm step the way a browser would if its script had not run: without the browser-side checks.
  * A donor with scripting off, or a script that posts the form directly, gets this path, so the server has to refuse
  * bad input itself. `buttonName` is the name of the step's submit button, for example `_qf_Main_upload`. Resolves

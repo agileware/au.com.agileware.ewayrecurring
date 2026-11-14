@@ -6,7 +6,7 @@ import {
   contributionCount,
   fillDonation,
   freePageId,
-  hasHorizontalOverflow,
+  horizontalOverflowReport,
   latestContribution,
   newAccessCode,
   newTransactionId,
@@ -158,7 +158,7 @@ test.describe('once-off contribution page: variants', () => {
     await anonPage.setViewportSize({ width: 375, height: 812 });
     await anonPage.goto(pageUrl(onceOffPageId()));
     await expect(anonPage.getByRole('radio', { name: /\$25\b/ })).toBeVisible();
-    expect(await hasHorizontalOverflow(anonPage), 'the form fits the screen width').toBe(false);
+    expect(await horizontalOverflowReport(anonPage), 'the form fits the screen width').toBe('');
 
     await fillDonation(anonPage, 25, donor);
     // The submit button can be reached and is inside the screen's width.
@@ -166,16 +166,16 @@ test.describe('once-off contribution page: variants', () => {
     const button = await anonPage.locator('#_qf_Main_upload-bottom').boundingBox();
     expect(button!.x).toBeGreaterThanOrEqual(0);
     expect(button!.x + button!.width).toBeLessThanOrEqual(375);
-    expect(await hasHorizontalOverflow(anonPage), 'the filled-in form fits the screen width').toBe(false);
+    expect(await horizontalOverflowReport(anonPage), 'the filled-in form fits the screen width').toBe('');
 
     await reviewContribution(anonPage);
     await expect(anonPage.locator('#crm-main-content-wrapper')).toContainText('$25.00');
-    expect(await hasHorizontalOverflow(anonPage), 'the confirm step fits the screen width').toBe(false);
+    expect(await horizontalOverflowReport(anonPage), 'the confirm step fits the screen width').toBe('');
 
     await continueToHostedPage(anonPage);
     await anonPage.locator('#pay').click();
     await expect(anonPage.locator('body')).toContainText('processed successfully');
-    expect(await hasHorizontalOverflow(anonPage), 'the thank you page fits the screen width').toBe(false);
+    expect(await horizontalOverflowReport(anonPage), 'the thank you page fits the screen width').toBe('');
     expect(latestContribution(donor.email)!['contribution_status_id:name']).toBe('Completed');
   });
 
