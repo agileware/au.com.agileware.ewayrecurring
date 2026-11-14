@@ -15,7 +15,9 @@ use CRM_eWAYRecurring_ExtensionUtil as E;
  */
 function ewayrecurring_civicrm_config(&$config) {
   _ewayrecurring_civix_civicrm_config($config);
-  Civi::dispatcher()->addListener('civi.api.authorize', ['CRM_eWAYRecurring_APIWrapper', 'authorize'], -100);
+  // Just ahead of core's own permission checks (priority -100). APIv3 throws as soon as core's check
+  // fails, so a listener that ran after it could never grant access to a user without core's permission.
+  Civi::dispatcher()->addListener('civi.api.authorize', ['CRM_eWAYRecurring_APIWrapper', 'authorize'], -99);
 }
 
 /**
