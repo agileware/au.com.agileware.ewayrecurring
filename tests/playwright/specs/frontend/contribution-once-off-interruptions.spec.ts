@@ -173,26 +173,32 @@ test.describe('once-off contribution page: interruptions', () => {
     expect(stub.requests('postAccessCodeShared')).toHaveLength(1);
   });
 
-  test('PW-F1-07 a donor who paid but went Back to the confirm step is told so and cannot pay again', async ({ anonPage, stub }) => {
-    const donor = uniqueDonor('paidback');
-    stub.respond('postAccessCodeShared', responses.sharedPageCreated(newAccessCode('F107P')));
+  // The extension refuses on purpose by throwing from its confirm step, and CiviCRM answers that with its error
+  // page and an HTTP 500. The browser logs the 500 as a console error, so this test expects it.
+  test.describe('a payment already completed', () => {
+    test.use({ allowedProblems: [/Failed to load resource: the server responded with a status of 500/] });
 
-    const contribution = await reachHostedPage(anonPage, donor);
+    test('PW-F1-07 a donor who paid but went Back to the confirm step is told so and cannot pay again', async ({ anonPage, stub }) => {
+      const donor = uniqueDonor('paidback');
+      stub.respond('postAccessCodeShared', responses.sharedPageCreated(newAccessCode('F107P')));
 
-    // On eWAY's side the payment went through, but the donor's browser never came back with it (they pressed Back,
-    // or the tab was closed and the confirm page was opened again).
-    stub.respond('getTransaction', transactionApproved(25), { repeat: true });
-    await anonPage.goBack();
-    await anonPage.waitForLoadState('load');
+      const contribution = await reachHostedPage(anonPage, donor);
 
-    await expect(anonPage.locator('body')).toContainText('Payment already completed for this Contribution');
-    // There is no button to pay with, and no second payment was set up.
-    await expect(anonPage.locator('#_qf_Confirm_next-bottom')).toHaveCount(0);
-    expect(stub.requests('postAccessCodeShared')).toHaveLength(1);
-    expect(contributionCount(donor.email)).toBe(1);
-    // The record itself is left for the verification job to settle (PW-F1-08).
-    expect(latestContribution(donor.email)!['contribution_status_id:name']).toBe('Pending');
-    expect(Number(queueRow(contribution.id)?.status)).toBe(0);
+      // On eWAY's side the payment went through, but the donor's browser never came back with it (they pressed Back,
+      // or the tab was closed and the confirm page was opened again).
+      stub.respond('getTransaction', transactionApproved(25), { repeat: true });
+      await anonPage.goBack();
+      await anonPage.waitForLoadState('load');
+
+      await expect(anonPage.locator('body')).toContainText('Payment already completed for this Contribution');
+      // There is no button to pay with, and no second payment was set up.
+      await expect(anonPage.locator('#_qf_Confirm_next-bottom')).toHaveCount(0);
+      expect(stub.requests('postAccessCodeShared')).toHaveLength(1);
+      expect(contributionCount(donor.email)).toBe(1);
+      // The record itself is left for the verification job to settle (PW-F1-08).
+      expect(latestContribution(donor.email)!['contribution_status_id:name']).toBe('Pending');
+      expect(Number(queueRow(contribution.id)?.status)).toBe(0);
+    });
   });
 
   test('PW-F1-07 opening the Thank You address again after paying does not check or charge again', async ({ anonPage, stub }) => {
