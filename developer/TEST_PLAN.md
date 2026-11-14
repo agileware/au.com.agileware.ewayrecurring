@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **258**. Done: **0**. In progress: **52**. Blocked: **6**. To do: **195**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **262**. Done: **0**. In progress: **52**. Blocked: **6**. To do: **199**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -77,8 +77,8 @@ Cases defined: **258**. Done: **0**. In progress: **52**. Blocked: **6**. To do:
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 0 | 0 | 0 | 3 | 0 | none |
 | PU-D | PHPUnit | `ValidateContributionTest` | 12 | 0 | 12 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 0 | 12 | 0 | 0 | 0 | none (S1 done) |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 24 | 0 | 24 | 0 | 0 | 0 | none (S1 done) |
-| PU-G | PHPUnit | `PaymentTokenTest` | 10 | 0 | 0 | 3 | 7 | 0 | none (S1 done); PU-G8 to G10 need the `die()` refactor |
+| PU-F | PHPUnit | `RecurringProcessingTest` | 26 | 0 | 24 | 0 | 2 | 0 | none (S1 done) |
+| PU-G | PHPUnit | `PaymentTokenTest` | 11 | 0 | 0 | 3 | 8 | 0 | none (S1 done); PU-G8 to G10 need the `die()` refactor |
 | PU-H | PHPUnit | `HooksAndManagedTest` | 12 | 0 | 0 | 0 | 12 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
 | PU-J | PHPUnit | `SettingsFormTest` | 7 | 0 | 0 | 0 | 7 | 0 | none |
@@ -97,7 +97,7 @@ Cases defined: **258**. Done: **0**. In progress: **52**. Blocked: **6**. To do:
 | PW-B-settings | Playwright | `specs/backend/` | 8 | 0 | 0 | 0 | 8 | 0 | Phase 0 infra |
 | PW-B-processor | Playwright | `specs/backend/` | 4 | 0 | 0 | 0 | 4 | 0 | Phase 0 infra |
 | PW-B-jobs | Playwright | `specs/backend/` | 5 | 0 | 0 | 0 | 5 | 0 | Phase 0 infra, S1 stub |
-| PW-B-cron | Playwright | `specs/backend/` | 7 | 0 | 0 | 0 | 7 | 0 | Phase 0 infra, S1 stub |
+| PW-B-cron | Playwright | `specs/backend/` | 8 | 0 | 0 | 0 | 8 | 0 | Phase 0 infra, S1 stub |
 | PW-B-failed | Playwright | `specs/backend/` | 12 | 0 | 0 | 0 | 12 | 0 | Phase 0 infra |
 | PW-B-status | Playwright | `specs/backend/` | 3 | 0 | 0 | 0 | 3 | 0 | Phase 0 infra |
 | PW-B-recurforms | Playwright | `specs/backend/` | 5 | 0 | 0 | 0 | 5 | 0 | Phase 0 infra |
@@ -150,7 +150,7 @@ Tests that already existed before this plan (not part of the case counts above):
 | FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | None |
 | FEAT-3 | Recurring processing by cron, with retry of failures | `ProcessTrait::process_recurring_payments` and helpers | PU-F | PW-B-cron | None |
 | FEAT-4 | Saved-card ("stored credit card") back-office payments | `doPayment` back-office branch, `js/eway.js`, `PaymentToken::createToken/saveToken` | PU-B, PU-G | PW-B-backoffice | None |
-| FEAT-5 | Update billing details for a recurring contribution | `updateSubscriptionBillingInfo` (`VerifyUpdateToken` was unreachable and has been deleted, DEF-13) | PU-N, PU-K | PW-F4 | None |
+| FEAT-5 | Update billing details for a recurring contribution (staff form) | `updateSubscriptionBillingInfo` (`VerifyUpdateToken` was unreachable and has been deleted, DEF-13) | PU-N, PU-K | PW-F4 | None |
 | FEAT-6 | Pending transaction verification queue and job | `EwayContributionTransactions` API, `Utils::validatePendingTransactions` | PU-E | PW-F5 | None |
 | FEAT-7 | Token metadata backfill | `PaymentToken::fillTokensMeta`, `EwayRecurring.fillTokensMeta` | PU-G | PW-B-jobs | None |
 | FEAT-8 | Settlement Sync | `SettlementSync`, `EwaySettlement.Sync` | existing `SettlementSyncTest`, PU-M | PW-B-settings | Headless: good. Front end: none |
@@ -411,7 +411,7 @@ Defect status values: `Open, unconfirmed` (observed in review, not yet pinned by
 | DEF-10 | Pinned | `ProcessTrait::mark_recurring_contribution_failed()` and the success branch of `process_recurring_payments()` | The "eWay Transaction Failed" and "eWay Transaction Succeeded" activities are never created on CiviCRM 6.16: the code passes the option's label to `Activity.create`, which only accepts the name (`eWay_Transaction_Failed`), so the call is rejected and the exception is caught and logged. Found while writing PU-F13. | PU-F13, PU-F15 |
 | DEF-11 | Pinned | `ProcessTrait::process_payment()` | The guard against two consecutive responses with the same TransactionID uses `static $prev_response; $prev_response = &$eWayResponse;`. PHP does not keep a reference assigned to a static between calls, so the guard never fires. CiviCRM's own duplicate check catches it later (the second charge ends Pending). | PU-F20 |
 | DEF-12 | Pinned | `process_recurring_payments()` | A contact with no address at all makes the job read `$billing_address['id']` on null, raising a PHP warning. The charge still proceeds. | PU-F24 |
-| DEF-13 | Fixed on `release-3.0.0` | `updateSubscriptionBillingInfo()` and `VerifyUpdateToken` | Found while planning the DEF-3 Playwright cases, from reading the code only. The page donors use (core's Update Billing form) saves the new token and billing address but does not reset `failure_count`, `failure_retry_date` or a Failed status, so a Failed record stays Failed after the donor fixes their card until staff use Reactivate. The code that does reset them, `VerifyUpdateToken` (its comment says updating billing details should fix failed contributions), is never reached: its URL is only built when `getSuccessfulPaymentReturnUrl()` is given a recurring record, and its only caller never passes one. If it were reached it would reset the count but leave the retry date set, which stops the record being picked by either cron list. **Decision (2026-11-14):** the donor path should recover a Failed record. Expected: updating billing on a Failed record sets it to In Progress, `failure_count` 0 and clears `failure_retry_date`, leaving the schedule date alone (the same result as Reactivate). Not yet decided: whether to delete the unused `VerifyUpdateToken` page, and what a record that is still being retried should do (today it keeps retrying, now with the new token). | PU-N5, PW-F4-06 **Fix:** `updateSubscriptionBillingInfo()` now sets a Failed record to In Progress with `failure_count` 0 and the retry date cleared, leaving the schedule date; `VerifyUpdateToken`, its route and the dead `UpdateBilling` branches in the return-URL functions were deleted. | PU-N5, PW-F4-06 |
+| DEF-13 | Fixed on `release-3.0.0` | `updateSubscriptionBillingInfo()` and `VerifyUpdateToken` | Found while planning the DEF-3 Playwright cases, from reading the code only. Core's Update Billing form (the staff form, reached from the contact's Recurring Contributions tab) saves the new token and billing address but does not reset `failure_count`, `failure_retry_date` or a Failed status, so a Failed record stays Failed after the card is updated until staff use Reactivate. The code that does reset them, `VerifyUpdateToken` (its comment says updating billing details should fix failed contributions), is never reached: its URL is only built when `getSuccessfulPaymentReturnUrl()` is given a recurring record, and its only caller never passes one. If it were reached it would reset the count but leave the retry date set, which stops the record being picked by either cron list. **Decision (2026-11-14):** the donor path should recover a Failed record. Expected: updating billing on a Failed record sets it to In Progress, `failure_count` 0 and clears `failure_retry_date`, leaving the schedule date alone (the same result as Reactivate). Not yet decided: whether to delete the unused `VerifyUpdateToken` page, and what a record that is still being retried should do (today it keeps retrying, now with the new token). | PU-N5, PW-F4-06 **Fix:** `updateSubscriptionBillingInfo()` now sets a Failed record to In Progress with `failure_count` 0 and the retry date cleared, leaving the schedule date; `VerifyUpdateToken`, its route and the dead `UpdateBilling` branches in the return-URL functions were deleted. | PU-N5, PW-F4-06 |
 | DEF-14 | Fixed on `release-3.0.0` | `updateSubscriptionBillingInfo()` | Found while answering whether an updated card is verified; from reading the code only. The token id comes from the request (`contact_payment_token`) and is looked up by id alone: nothing checks that the token belongs to the recurring record's contact, belongs to the same payment processor, or has not expired. The browser script only offers the contact's own unexpired tokens, but the server does not enforce it. A user who can open the form for their own recurring record could post another contact's token id and have that card charged by the cron. Token ids are sequential. Two related observations, not defects: adding a card makes no authorisation call with the issuer (a bad card is found at the next charge, PW-X-05), and the stored-card list is loaded with the PaymentToken API, which needs staff permission, so a donor with only "make online contributions" may see "No cards found." (PW-F4-07). | PU-N6, PU-N7, PW-S-05 **Fix:** the chosen card is now loaded and checked before anything is saved: it must exist, belong to the recurring record's contact and processor, and not be expired, otherwise the update is refused and nothing changes (the billing address used to be saved before the card was even looked up). |
 
 ---
@@ -534,6 +534,8 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-F22 | wip | `handlePaymentCron` and the `Job.run_payment_cron` API reach `process_recurring_payments` for processor `eWay_Recurring` **Note:** core runs the live and then the test instance of the processor type and fails if either is missing, so the test creates both. |
 | PU-F23 | wip | `mark_recurring_contribution_failed` still updates the recurring record when the activity create fails |
 | PU-F24 | wip | A contact with no address is still charged, but PHP raises "Trying to access array offset on null" (DEF-12); the test records the warning |
+| PU-F25 | todo | A recurring contribution whose payment token row was changed in place (new `token` value, `expiry_date` and `masked_account_number` cleared, which is how a website-built update-card page replaces a card) is charged with the new token value, and `payment_token_id` is unchanged |
+| PU-F26 | todo | A Failed recurring contribution reset the way such a page resets it (In Progress, `failure_count` 0, retry date cleared) is charged on the first run on or after its schedule date: not before when the schedule date was moved into the future, and on the next run when the schedule was restarted from today (the two schedule choices a site can make) |
 
 ### PU-G `PaymentTokenTest`
 
@@ -549,6 +551,7 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-G8 | blocked | `saveToken` dedupe rule: same contact and processor with same token **or** same masked number updates the existing row, otherwise creates one |
 | PU-G9 | blocked | `saveToken` with no `pp_id`, no access code, empty token, unknown processor: documented JSON errors, no fatal on malformed response (characterises DEF-9) |
 | PU-G10 | blocked | `createToken` rejects each missing billing field with `Missing field: ...`, unknown processor, unknown contact |
+| PU-G11 | todo | `fillTokensMeta` picks up a token whose expiry and masked number were cleared by an in-place update, and refills them from eWAY using the new token value |
 
 (`createToken` and `saveToken` call `die()` and `CRM_Utils_JSON::output()`. Where that blocks
 headless testing, either refactor the body into a testable method that returns an array and keep
@@ -734,25 +737,29 @@ change shared fixtures create their own throwaway records, as the sibling suites
 | PW-F3-05 | todo | all | Multiple participants, correct total sent |
 | PW-F3-06 | todo | all | Free event (no payment) does not use eWAY |
 
-**PW-F4 update billing details** (`update-billing.spec.ts`)
+**PW-F4 update billing details, staff form** (`update-billing.spec.ts`)
 
-The page at `civicrm/contribute/updatebilling` is CiviCRM core's own form (permission "make online
-contributions"). The extension supplies its saved-card controls ("Stored Credit Card" and "Add
-Credit Card", the same as the back-office form, PW-B-backoffice) and `updateSubscriptionBillingInfo()`,
-which saves the chosen token and the billing address. The extension adds no link to the page and sends
-no failure email; the link comes from core (the contact's Recurring Contributions tab, "Change Billing
-Details") or from an update-billing URL token in a message template. an older page, `civicrm/ewayrecurring/verifyupdatetoken`,
-was unreachable since 2.2.5 and has been deleted (DEF-13). Whether a donor, as opposed to staff, can actually complete the form is checked by PW-F4-07.
+The page at `civicrm/contribute/updatebilling` is CiviCRM core's own form. This extension supplies its
+saved-card controls ("Stored Credit Card" and "Add Credit Card", the same as the back-office form,
+PW-B-backoffice) and `updateSubscriptionBillingInfo()`, which saves the chosen token and the billing
+address. In practice it is a staff tool: it is reached from "Change Billing Details" on the contact's
+Recurring Contributions tab, and its saved-card list needs staff-level permission. Donors do not use it.
+A site that wants donors to update their own card builds its own page outside this extension, which
+replaces the stored card in place; the extension's side of that arrangement is covered by PU-F25,
+PU-F26, PU-G11 and PW-B-cron-08. The extension adds no link to the form and sends no failure email.
+An older page, `civicrm/ewayrecurring/verifyupdatetoken`, was unreachable since 2.2.5 and has been
+deleted (DEF-13). Whether a user with only "make online contributions" can complete the form is
+checked by PW-F4-07.
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
-| PW-F4-01 | todo | all | "Change Billing Details" on the recurring contribution opens `civicrm/contribute/updatebilling` with the Stored Credit Card list, Add Credit Card button and the current billing address |
-| PW-F4-02 | todo | all | Add a new card through the stub hosted window, select it and submit: the recurring record's `payment_token_id` and `processor_id` point at the new token, the billing address is updated, the success message shows, the old token row is kept |
+| PW-F4-01 | todo | all | A staff user opens "Change Billing Details" on a recurring contribution: `civicrm/contribute/updatebilling` shows the Stored Credit Card list, the Add Credit Card button and the current billing address |
+| PW-F4-02 | todo | all | As staff, add a new card through the stub hosted window, select it and submit: the recurring record's `payment_token_id` and `processor_id` point at the new token, the billing address is updated, the success message shows, the old token row is kept |
 | PW-F4-03 | todo | all | Add Credit Card abandoned or refused on the stub hosted page: no new token, recurring record unchanged, form still usable |
 | PW-F4-04 | todo | all | Completed and Cancelled recurring records cannot have billing updated: the message "Attempted to update billing details for a completed (or cancelled) contribution" is shown |
 | PW-F4-05 | todo | all | Wrong user, or a bad checksum, cannot open another contact's recurring record (core's access rules, kept as a guard) |
-| PW-F4-06 | todo | all | Donor updates the card on a Failed record: seed the failure by running the cron until the record is marked Failed, then submit the update-billing form with a new card. The record is In Progress with `failure_count` 0 and no retry date, the schedule date is unchanged, and the next cron run charges the new token and creates a Completed contribution (DEF-13). |
-| PW-F4-07 | todo | all | Who can use the form: a donor opening the link from a checksum (permission "make online contributions" only) sees either their saved cards or "No cards found." (the list is loaded with the PaymentToken API, which needs staff permission). Record which, then decide whether donors should be able to use this form at all (DEF-14 note). Staff on the contact's tab are the control case |
+| PW-F4-06 | todo | all | Staff update the card on a Failed record: seed the failure by running the cron until the record is marked Failed, then submit the update-billing form with a new card. The record is In Progress with `failure_count` 0 and no retry date, the schedule date is unchanged, and the next cron run charges the new token and creates a Completed contribution (DEF-13) |
+| PW-F4-07 | todo | all | Who can use the form: a user with only "make online contributions" (for example arriving by a checksum link) sees either the saved cards or "No cards found." (the list is loaded with the PaymentToken API, which needs staff permission). Record which; the expectation is that the form is effectively staff-only. A staff user on the contact's tab is the control case (DEF-14 note) |
 
 **PW-F5 verification queue effects** (`verification-queue.spec.ts`)
 
@@ -822,6 +829,7 @@ was unreachable since 2.2.5 and has been deleted (DEF-13). Whether a donor, as o
 | PW-B-cron-05 | todo | all | Receipt email recorded (outbound mail redirected to the database) only when "Send receipt for all recurring contributions" is on |
 | PW-B-cron-06 | todo | all | Retries exhausted ends in Failed. With the retry limit set to 2: the first failed charge leaves the recurring record In Progress with `failure_count` 1 and a retry date; the second marks it Failed, visible on the contact's Recurring Contributions tab. A further cron run charges nothing and creates no contribution. |
 | PW-B-cron-07 | todo | all | Success after retries: a failed charge, then the retry (once the delay has passed) succeeds. The record stays In Progress throughout and is never shown as Failed; `failure_count` back to 0, retry date cleared, next scheduled date moved forward, and the contact has an "eWay Transaction Succeeded" activity reading "Transaction Succeeded after N retries". |
+| PW-B-cron-08 | todo | all | Replace the stored card in place through the API (new token value, expiry and masked number cleared, as a website-built update-card page does): the next cron run charges the new token value at the stub and the contribution appears on the contact; running the fill-missing-metadata job (PW-B-jobs-03) then restores the card's masked number and expiry. The expiry reminder date moving afterwards is behaviour of the separate expiredcreditcards extension and is tested there |
 
 **PW-B-failed** (`failed-recurring.spec.ts`)
 
@@ -952,7 +960,7 @@ Record the outcome and date when a decision is made.
 | 7 | Decided | **CI for non-WordPress CMSs.** The shared `playwright-tests.yml` builds WordPress only. Add a `CMS` input to it, add a separate workflow per CMS, or keep those three as local-only runs? | 2026-11-14: separate workflow per CMS (Drupal, Joomla, Standalone) in `agileware/ci-workflows`, with the shared steps in a composite action and the existing WordPress workflow left unchanged. See section 2.5. Still to do: confirm container images exist and scope each site build. |
 | 8 | Decided | **Joomla personas.** The elections suite only has an administrator session on Joomla, so permission-based cases skip there. Script Joomla access levels so those cases can run, or accept the skips? | 2026-11-14: script them. All cases run on Joomla. See section 2.5. |
 | 9 | Decided | **Upgrade baseline.** Which release is the last one the upgrade must support (`FROM_REF` for the `UP` suite)? | 2026-11-14: **2.8.1** for the whole `UP` suite, revised the same day from a policy ("oldest release any live site still runs"). A second baseline (2.6.1) was considered for UP-07, which would have exercised `upgrade_20601`; UP-07 was then dropped as not needed, so there is a single baseline. |
-| 10 | Decided | **Donor update-billing on a Failed recurring record.** Should the donor's update-billing form recover the record, or is staff Reactivate the only route? | 2026-11-14: the donor path should recover it (DEF-13 confirmed as a bug). Updating billing on a Failed record sets In Progress, failure count 0, retry date cleared. PW-F4-06 and PU-N5 assert that and are `blocked` until the fix lands. Fixed on `release-3.0.0` together with DEF-14. |
+| 10 | Decided | **Donor update-billing on a Failed recurring record.** Should the donor's update-billing form recover the record, or is staff Reactivate the only route? | 2026-11-14: the donor path should recover it (DEF-13 confirmed as a bug). Updating billing on a Failed record sets In Progress, failure count 0, retry date cleared. PW-F4-06 and PU-N5 assert that and are `blocked` until the fix lands. Fixed on `release-3.0.0` together with DEF-14. Later finding: donors do not use this form (see the PW-F4 introduction), so the fix applies to the staff form. |
 
 ### Follow-up actions from the decisions
 
@@ -977,6 +985,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PW-F4 reworded as the staff-side update billing form (donors do not use it; sites that want donor self-service build their own page that replaces the stored card in place). New cases for the extension's side of that arrangement: PU-F25, PU-F26, PU-G11, PW-B-cron-08. 262 cases. |
 | 2026-11-14 | DEF-13 and DEF-14 fixed on `release-3.0.0` and the unused `VerifyUpdateToken` page, route and dead return-URL branches deleted. New suite `SubscriptionManagementTest`: PU-N5 to PU-N8 (PU-N8, expired card, is new) are `wip` until CI passes. PU-K4 to K6 and PW-F6-02 dropped (`n/a`, the page is gone). PW-B-cron-06 and 07, PW-B-failed-11, PW-B-status-03, PW-B-recurforms-05 and PW-F4-06 are no longer `blocked`: the fixes they needed are on this branch. 258 cases. Fixed-status of DEF-1 to DEF-12 still to be updated. |
 | 2026-11-14 | DEF-14 added (suspected security issue: `updateSubscriptionBillingInfo()` accepts any token id, found from reading the code). New cases PU-N6 and PU-N7 (characterise it), PW-S-05 (tampered token id), PW-F4-07 (can a donor use the form at all) and PW-X-05 (adding a card is not verified with the issuer). 257 cases. |
 | 2026-11-14 | Delivery changed to one long-lived branch, `release-3.0.0`, pushed to the remote and tested on GitHub, with a single pull request to `master` when testing is done. The foundations and the fixes for DEF-1 to DEF-12 are on it; the per-defect pull requests were closed. Plan references to individual pull requests removed. |
