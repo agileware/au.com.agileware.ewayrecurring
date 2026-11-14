@@ -627,8 +627,8 @@ version with seeded data are covered by the `UP` suite below.
 | PU-L6 | todo | `upgrade_30000` marks a recurring contribution Failed when it is for an eWAY processor, In Progress, has a retry date and has `failure_count` above 0 and at or above the configured retry limit (the stuck state left by releases up to 2.8.2); its failure count, retry date and schedule date are unchanged (FR-2) |
 | PU-L7 | todo | `upgrade_30000` leaves alone: a record below the limit, a record with no retry date, records that are Completed, Cancelled or already Failed, other processors' records, test-mode records and Pending records (FR-2 Rule 1, decisions U2 and U3). A saved retry limit of 0 does not select records that have no failures |
 | PU-L8 | todo | `upgrade_30000` is idempotent (a second run changes nothing), uses the retry limit saved at the time it runs, reports the number of records changed, does not send mail or create activities, and fires no recurring contribution hooks (U1: the change is a single SQL statement) (FR-2) |
-| PU-L9 | todo | `upgrade_30000` Rule 2: an In Progress eWAY record with a retry date and `failure_count` 0 has its retry date cleared and keeps its status and next scheduled date; the normal cron list then selects it, and a cron run charges it once and moves the schedule on from that day (FR-2) |
-| PU-L10 | todo | `upgrade_30000` Rule 2 leaves alone: records with failures (Rule 1's), records with no retry date, other statuses, other processors, test-mode records and Pending records; a second run changes nothing; the count is reported separately from Rule 1's (FR-2, decisions U2 and U3) |
+| PU-L9 | todo | `upgrade_30000` Rule 2: an In Progress eWAY record with a retry date and `failure_count` 0 is marked Failed and keeps its failure count of 0, its retry date and its next scheduled date; nobody is charged, and it then shows in the Failed Recurring Contributions list (FR-2) |
+| PU-L10 | todo | `upgrade_30000` Rule 2 leaves alone: records with failures below the limit (still being retried), records with no retry date, other statuses, other processors, test-mode records and Pending records; a second run changes nothing; the count is reported separately from Rule 1's (FR-2, decisions U2 and U3) |
 
 ### PU-M `SettlementSync` gaps (add to existing class or a sibling)
 
@@ -686,7 +686,7 @@ this suite runs on WordPress only. Pick `FROM_REF` as the last release the upgra
 | UP-08 | todo | After the upgrade the scheduled-job APIs (`Job.run_payment_cron`, `EwayContributionTransactions.validate`, `EwayRecurring.fillTokensMeta`) run without error on the seeded data (nothing due, so no gateway call) |
 | UP-09 | todo | The routes `civicrm/ewayrecurring/createtoken` and `savetoken` carry the `is_ajax` flags added after 2.8.1 (true and false respectively) once the menu is rebuilt by the upgrade, so a plain GET navigation to `createtoken` is refused (CIVI-SA-2026-49) |
 | UP-10 | todo | Seed recurring contributions in the stuck state left by `FROM_REF` (In Progress, retry date set, `failure_count` at the retry limit) alongside ones that must not change; after the upgrade the stuck ones are Failed, appear in the Failed Recurring Contributions list and are counted by System Status once their retry date is more than four hours old, and the others are untouched (FR-2) |
-| UP-11 | todo | Seed In Progress recurring contributions with a retry date and `failure_count` 0 (the second stuck state) alongside ones that must not change; after the upgrade the retry date of the stuck ones is cleared, their status and schedule date are unchanged, and the others are untouched (FR-2 Rule 2) |
+| UP-11 | todo | Seed In Progress recurring contributions with a retry date and `failure_count` 0 (the second stuck state) alongside ones that must not change; after the upgrade the stuck ones are Failed with their failure count, retry date and schedule date unchanged, they appear in the Failed Recurring Contributions list, and the others are untouched (FR-2 Rule 2) |
 
 ### Suite level
 
@@ -994,6 +994,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 decision U4 changed to option C: Rule 2 marks records with a retry date and no failures Failed instead of clearing the retry date. PU-L9, PU-L10 and UP-11 reworded to match. 270 cases. |
 | 2026-11-14 | FR-2 decision U4 settled (the upgrade step also clears the retry date of records that have one but no failures). New cases PU-L9, PU-L10 and UP-11; PU-L6 and PU-L7 now require `failure_count` above 0 for Rule 1. 270 cases. |
 | 2026-11-14 | FR-2 decisions U2, U3 and U6 settled (test-mode and Pending records left alone; saved retry limit used). PU-L7 updated to name them. |
 | 2026-11-14 | FR-2 decision U1 settled: the upgrade step updates with a single SQL statement, so no hooks or rules fire. PU-L8 now also checks that no recurring contribution hook fires. |
