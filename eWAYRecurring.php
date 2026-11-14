@@ -207,7 +207,6 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
  * @throws \Civi\Payment\Exception\PaymentProcessorException
  */
 function ewayrecurring_civicrm_preProcess($formName, &$form) {
-  Civi::$statics['openedeWayForm'] = $formName;
 	switch($formName) {
     case 'CRM_Contribute_Form_Contribution_ThankYou':
       $paymentProcessor = $form->getVar('_paymentProcessor');
