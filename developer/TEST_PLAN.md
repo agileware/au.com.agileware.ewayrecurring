@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | Extension version | 2.8.2 |
-| Status last updated | 2026-11-14 |
+| Status last updated | 2026-11-15 |
 | Owner | Extension maintainers (update this file in the same pull request as any test change) |
 | Related | [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment), [FEATURES.md](FEATURES.md) (planned features) |
 
@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **281**. Done: **160**. In progress: **48**. Blocked: **0**. To do: **68**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **285**. Done: **160**. In progress: **67**. Blocked: **0**. To do: **53**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -79,9 +79,9 @@ Cases defined: **281**. Done: **160**. In progress: **48**. Blocked: **0**. To d
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-F | PHPUnit | `RecurringProcessingTest` | 28 | 28 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-G | PHPUnit | `PaymentTokenTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 13 | 0 | 0 | 0 | 0 | none |
+| PU-H | PHPUnit | `HooksAndManagedTest` | 14 | 13 | 1 | 0 | 0 | 0 | none (PU-H14 passes locally, `done` after a CI run) |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 4 | 0 | 0 | 0 | 0 | none |
-| PU-J | PHPUnit | `SettingsFormTest` | 7 | 7 | 0 | 0 | 0 | 0 | none |
+| PU-J | PHPUnit | `SettingsFormTest` | 10 | 7 | 3 | 0 | 0 | 0 | none (PU-J8 to J10 pass locally, `done` after a CI run) |
 | PU-K | PHPUnit | `PagesTest` | 6 | 3 | 0 | 0 | 0 | 3 | none (refactor done); PU-K4 to K6 dropped with the deleted page |
 | PU-L | PHPUnit | `SchemaAndUpgradeTest` | 10 | 10 | 0 | 0 | 0 | 0 | none |
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 4 | 0 | 0 | 0 | 0 | none |
@@ -95,15 +95,15 @@ Cases defined: **281**. Done: **160**. In progress: **48**. Blocked: **0**. To d
 | PW-F4 | Playwright | `specs/frontend/` | 7 | 0 | 7 | 0 | 0 | 0 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F5 | Playwright | `specs/frontend/` | 4 | 0 | 4 | 0 | 0 | 0 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F6 | Playwright | `specs/frontend/` | 7 | 0 | 6 | 0 | 0 | 1 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them; PW-F6-02 dropped with the deleted page |
-| PW-B-settings | Playwright | `specs/backend/` | 8 | 0 | 0 | 0 | 8 | 0 | Phase 0 infra |
-| PW-B-processor | Playwright | `specs/backend/` | 4 | 0 | 0 | 0 | 4 | 0 | Phase 0 infra |
+| PW-B-settings | Playwright | `specs/backend/` | 8 | 0 | 8 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-processor | Playwright | `specs/backend/` | 4 | 0 | 4 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
 | PW-B-jobs | Playwright | `specs/backend/` | 5 | 0 | 0 | 0 | 5 | 0 | Phase 0 infra, S1 stub |
 | PW-B-cron | Playwright | `specs/backend/` | 8 | 0 | 0 | 0 | 8 | 0 | Phase 0 infra, S1 stub |
 | PW-B-failed | Playwright | `specs/backend/` | 12 | 0 | 0 | 0 | 12 | 0 | Phase 0 infra |
 | PW-B-status | Playwright | `specs/backend/` | 3 | 0 | 0 | 0 | 3 | 0 | Phase 0 infra |
 | PW-B-recurforms | Playwright | `specs/backend/` | 5 | 0 | 0 | 0 | 5 | 0 | Phase 0 infra |
 | PW-B-backoffice | Playwright | `specs/backend/` | 10 | 0 | 0 | 0 | 10 | 0 | Phase 0 infra, S1 stub |
-| PW-B-permissions | Playwright | `specs/backend/` | 3 | 0 | 0 | 0 | 3 | 0 | Phase 0 infra |
+| PW-B-permissions | Playwright | `specs/backend/` | 3 | 0 | 3 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
 | PW-S | Playwright | `specs/security/` | 5 | 0 | 0 | 0 | 5 | 0 | Phase 0 infra |
 | PW-X | Playwright | `specs/sandbox/` | 5 | 0 | 0 | 0 | 5 | 0 | Phase 0 infra, S1 stub |
 
@@ -118,7 +118,7 @@ run date in the change log.
 | --- | --- | --- | --- | --- |
 | Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | full (GitHub and local) | none | none | none |
 | Frontend (PW-F1 to PW-F6) | partial (PW-F1 to PW-F6 green on GitHub) | none | none | none |
-| Backend (PW-B-*) | none | none | none | none |
+| Backend (PW-B-*) | partial (PW-B-settings, PW-B-processor and PW-B-permissions green locally; not yet on GitHub) | none | none | none |
 | Security (PW-S) | none | none | none | none |
 | Sandbox (PW-X) | none | n/a | n/a | n/a |
 
@@ -140,7 +140,7 @@ Tests that already existed before this plan (not part of the case counts above):
 | Update billing, retry and recovery of Failed records | Covered by PHPUnit | PU-N5 to PU-N9, with the donor-path fixes DEF-13 and DEF-14. |
 | Upgrade from 2.8.1 | Covered in CI | `tests/upgrade/` and PU-L, 57 checks green on GitHub. |
 | Hooks, settings form, permissions, Search Kit action | Covered by PHPUnit | PU-H, PU-I, PU-J and PU-O are done. The browser side (`js/eway.js`, the Search Kit screens) is only reachable with Playwright. |
-| Front end | Started | Playwright PW-F1 (once-off contribution page), PW-F2 (recurring set-up) and PW-F3 (events) have all 25 cases green on WordPress, on GitHub, and so do PW-F4 (update billing) and PW-F5 (verification queue). The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
+| Front end | Started | Back office: PW-B-settings, PW-B-processor and PW-B-permissions are written and green locally on WordPress (`wip` until GitHub and the other CMSs). Playwright PW-F1 (once-off contribution page), PW-F2 (recurring set-up) and PW-F3 (events) have all 25 cases green on WordPress, on GitHub, and so do PW-F4 (update billing) and PW-F5 (verification queue). The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
 | CI | PHPUnit, upgrade and Playwright | `phpunit-tests.yml`, `upgrade-tests.yml` and `frontend-tests.yml` call the shared workflows in `agileware/ci-workflows`. They run on pushes to master, on pull requests and on demand. Playwright runs on WordPress only. |
 | Coverage config | Restricted | `phpunit.xml.dist` includes only `CRM/` and `api/` (the generated DAO files are excluded). |
 
@@ -161,13 +161,13 @@ log in section 8. This section is a summary and goes stale: when you finish a su
 | FEAT-6 | Pending transaction verification queue and job | `EwayContributionTransactions` API, `Utils::validatePendingTransactions` | PU-E | PW-F5 | Headless: good (PU-E, 12 of 12). Front end: PW-F5 all four cases green on WordPress (`wip` until the other CMSs run) |
 | FEAT-7 | Token metadata backfill | `PaymentToken::fillTokensMeta`, `EwayRecurring.fillTokensMeta` | PU-G | PW-B-jobs | Headless: good (PU-G done, including the backfill errors). Front end: none |
 | FEAT-8 | Settlement Sync | `SettlementSync`, `EwaySettlement.Sync` | existing `SettlementSyncTest`, PU-M | PW-B-settings | Headless: good. Front end: none |
-| FEAT-9 | Settings form | `Form/Settings.php`, `settings/eWAYRecurring.setting.php` | PU-J | PW-B-settings | Headless: good (PU-J done). Front end: none |
+| FEAT-9 | Settings form | `Form/Settings.php`, `settings/eWAYRecurring.setting.php` | PU-J | PW-B-settings | Headless: good (PU-J1 to J7 done, J8 to J10 wip). Front end: PW-B-settings all eight cases green locally on WordPress (`wip`) |
 | FEAT-10 | Failed Recurring Contributions listing and Reactivate action | `ang/`, `managed/`, `searchKitTasks` hook | PU-O | PW-B-failed | Headless: good (PU-O done). Front end: none |
 | FEAT-11 | System status check for stuck failures | `ewayrecurring_civicrm_check` | PU-H | PW-B-status | Headless: good (PU-H11, H12 done). Front end: none |
 | FEAT-12 | Cancel / Update Subscription form behaviour | `buildForm` hook, `getEditableRecurringScheduleFields`, `eway.js` | PU-H, PU-N | PW-B-recurforms | Headless: good (PU-H, PU-N done). Front end: none |
-| FEAT-13 | Permissions (`view/edit payment tokens`) | `APIWrapper::authorize` | PU-I | PW-B-permissions | Headless: good (PU-I done). Front end: none |
+| FEAT-13 | Permissions (`view/edit payment tokens`) | `APIWrapper::authorize` | PU-I | PW-B-permissions | Headless: good (PU-I done). Front end: PW-B-permissions all three cases green locally on WordPress (`wip`) |
 | FEAT-14 | Managed entities, install, enable, upgrade | `ewayrecurring_civicrm_managed`, `Upgrader`, civix schema | PU-H, PU-L, UP | PW-B-jobs, PW-B-processor | Headless: good (PU-H, PU-L done and the upgrade workflow, UP 10 of 11). Front end: none |
-| FEAT-15 | Payment processor admin validation | `ewayrecurring_civicrm_validateForm` | PU-H | PW-B-processor | Headless: good (PU-H done). Front end: none |
+| FEAT-15 | Payment processor admin validation | `ewayrecurring_civicrm_validateForm` | PU-H | PW-B-processor | Headless: good (PU-H done). Front end: PW-B-processor all four cases green locally on WordPress (`wip`) |
 
 ---
 
@@ -302,10 +302,14 @@ Personas (`fixtures/test-users.json`). The capabilities column uses CiviCRM perm
 | Persona | Capabilities | Used for |
 | --- | --- | --- |
 | `admin` | CMS administrator | settings, processor admin, jobs |
-| `finance` | `access_civicrm`, `access_civicontribute`, `edit_contributions`, `view_payment_tokens`, `edit_payment_tokens` | Failed list, back-office payments, tokens |
-| `tokenviewer` | `access_civicrm`, `view_payment_tokens` | read-only token access |
+| `finance` | `access_civicrm`, `view_all_contacts`, `access_civicontribute`, `edit_contributions`, `view_payment_tokens`, `edit_payment_tokens` | Failed list, back-office payments, tokens |
+| `tokenviewer` | `access_civicrm`, `view_all_contacts`, `view_payment_tokens` | read-only token access |
 | `limited` | `access_civicrm` only | negative permission tests |
 | anonymous | none | public contribution page, event registration, direct endpoint hits |
+
+`finance` and `tokenviewer` also have `view all contacts`. Without it CiviCRM's contact access control hides every
+saved card from them: a token read returns an empty list and a delete removes nothing, with no error (found by
+PW-B-permissions-01). A real finance user needs it anyway to open a contact's page.
 
 Note from the sibling repos: on WordPress the capability string is the munged form of the CiviCRM
 permission (`CRM_Utils_String::munge`, lower case, underscores), for example
@@ -461,6 +465,12 @@ branch the status reads `Fixed on `release-3.0.0``; change it to the release num
 | DEF-49 | Fixed on `release-3.0.0` | `PaymentToken::createToken()` | An unknown or empty country or state id made the lookup result null and the code read a key from it, printing "Trying to access array offset on null" in front of the JSON answer. The lookups now fall back to an empty value and the "Missing field" answer follows. Found by PW-F6-04. | PW-F6-04 |
 | DEF-50 | Fixed on `release-3.0.0` | `CRM_Core_Payment_eWAYRecurring::validateContribution()` | The return page marked the verification queue row done whatever eWAY answered, including "not processed yet" (the visitor returned before eWAY had a result). The verification job only looks at rows still waiting, so the contribution or registration stayed Pending for good although eWAY later approved the payment. A worse case of DEF-38. The row is now only settled when eWAY has an answer. Found by PW-F6-06. | PU-D11, PW-F6-06 |
 | DEF-51 | Fixed on `release-3.0.0` | `verifypayment` return page | A processor id that was not a whole number (letters, a blank, `7 OR 1=1`) reached the CiviCRM API, which threw, so the visitor got CiviCRM's own fatal page ("id is not a valid integer", HTTP 200) and, for a list, an internal PHP message from the database layer. The id must now be digits only, otherwise 400 with an empty body. Found by PW-F6-01. | PW-F6-01 |
+| DEF-52 | Fixed on `release-3.0.0` | `Form/Settings.php` `validate()` | The retry limit and the retry delay were checked with `is_numeric()`, so -1, 2.5 and 1e2 were accepted and saved exactly as typed (and " 5" with its space). A count of retries or days is a whole number of zero or more. The check now requires digits only (spaces around them are allowed and trimmed on save); the message is unchanged. Found by PW-B-settings-03. | PU-J8, PW-B-settings-03 |
+| DEF-53 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_enable()`, the managed jobs | Disabling the extension makes core switch its managed scheduled jobs off, and enabling it again did not switch them back on: core reconciles the managed records after the enable has finished, when the extension no longer counts as being enabled, and a job is then left as it is. The recurring payments, transaction verification and token metadata jobs stayed off for good with nothing to say so (no payments charged, no pending payments verified). The enable hook now switches back on the jobs the extension declares active; the settlement sync job is shipped off and stays off. Found by PW-B-processor-04. | PU-H14, PW-B-processor-04 |
+| DEF-54 | Fixed on `release-3.0.0` | `Form/Settings.php` `postProcess()` | Saving the settings redirected straight back to the page with no message, so an administrator could not tell it had worked. It now shows "The eWay Recurring settings have been saved." Found by PW-B-settings-04. | PU-J9, PW-B-settings-04 |
+| DEF-55 | Fixed on `release-3.0.0` | `Form/Settings.php` | The form set `$this->_submittedValues` without declaring it, a "Creation of dynamic property" deprecation on PHP 8.2 and later, printed in front of the redirect on every save. Declared now. Seen in the PHPUnit output while writing PU-J8. | PU-J10 |
+| DEF-56 | Pinned | `ewayrecurring_civicrm_validateForm()` | The processor admin form always requires the LIVE API Key and API Password for an eWay Recurring processor. A processor with only test credentials (for the eWAY sandbox, say) is refused, although CiviCRM's own check says at least the test or live section must be filled. A processor saved with live credentials only also gets a test row with empty credentials. Decision needed: allow test-only credentials, or keep live required. PW-B-processor-02 records today's behaviour. | PW-B-processor-02 |
+| DEF-57 | Open | `ewayrecurring_civicrm_managed()`, upgrade | A site whose eWay Recurring processor type was created before the extension managed it (the local development site) has no managed record for it. Every cache flush then logs "Unable to create managed entity eWay_Recurring: DB Error: already exists", and disabling the extension does not deactivate the type. The processor admin hook already has a comment about such sites. Decision needed: an upgrade step that links an existing type to the managed record. Not seen on a fresh site; check the CI run. Found while writing PW-B-processor-04. | PW-B-processor-04 |
 
 ---
 
@@ -627,6 +637,7 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | PU-H11 | done | `preProcess` Confirm (contribution and event): already-paid access code throws the right message per component, failed prior transaction shows the warning and clears the session response, not-processed-yet continues |
 | PU-H12 | done | `hook_check`: no message at zero failures, message with count and link when failures exist past the 4-hour threshold, ignores test recurring records, honours a disabled `StatusPreference`, honours the `statusNames` filter (DEF-3: only recurring contributions marked Failed are counted) |
 | PU-H13 | done | `hook_enable` works when nobody is logged in (no permissions): the processor type is reactivated and nothing throws "Authorization failed" (DEF-15, fixed) |
+| PU-H14 | wip | `hook_enable` switches the three active scheduled jobs back on and leaves the Settlement Sync job off (DEF-53) |
 
 ### PU-I `PermissionsTest` (`APIWrapper`)
 
@@ -648,6 +659,9 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | PU-J5 | done | Legacy delimited string for processors still pre-populates |
 | PU-J6 | done | Processor options list only live eWAY processors |
 | PU-J7 | done | The setting key used by the cron (`eway_recurring_contribution_max_retry`) is the one the form writes, despite the differing `name` field in the settings file |
+| PU-J8 | wip | Retries and delay must be whole numbers of zero or more: -1, 2.5, 0.5, 1e2, +3 and -0 refused; 0, 7 and padded numbers accepted and trimmed on save (DEF-52) |
+| PU-J9 | wip | Saving shows a "settings have been saved" status message; a refused submission shows none (DEF-54) |
+| PU-J10 | wip | The form declares its `_submittedValues` property (no PHP 8.2 dynamic property deprecation, DEF-55) |
 
 ### PU-K `PagesTest` (`VerifyPayment`)
 
@@ -865,23 +879,23 @@ checked by PW-F4-07.
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
-| PW-B-settings-01 | todo | all | Page loads at `civicrm/ewayrecurring/settings` for admin with defaults 3, 4, No, 10 and an empty processor list |
-| PW-B-settings-02 | todo | all | Menu item "eWay Recurring Settings" appears under Administer and navigates there |
-| PW-B-settings-03 | todo | all | Blank or non-numeric retries and delay show the field errors; window 0 and 91 rejected, 1 and 90 accepted |
-| PW-B-settings-04 | todo | all | Saving persists and survives reload; page redirects back to itself |
-| PW-B-settings-05 | todo | all | Processor multi-select lists only live eWAY processors (test and non-eWAY processors absent) |
-| PW-B-settings-06 | todo | all | Selecting then deselecting every processor clears the setting (DB check) |
-| PW-B-settings-07 | todo | all | `finance` and `limited` users are refused (administer CiviCRM only) |
-| PW-B-settings-08 | todo | all | The settings page is reachable from the CMS's own admin navigation (WordPress admin menu, Drupal toolbar, Joomla administrator menu, Standalone navigation) via the "eWay Recurring Settings" entry |
+| PW-B-settings-01 | wip | all | Page loads at `civicrm/ewayrecurring/settings` for admin with defaults 3, 4, No, 10 and an empty processor list **Found:** the page's heading is "eWay Recurring Contributions Settings" (the menu entry is "eWay Recurring Settings"). The case reverts the settings first, so it checks the defaults and not what the site had stored. |
+| PW-B-settings-02 | wip | all | Menu item "eWay Recurring Settings" appears under Administer and navigates there **Found:** the entry sits directly under Administer, not in one of its groups. CiviCRM's menu opens on a click; hovering does not open it in a driven browser. |
+| PW-B-settings-03 | wip | all | Blank or non-numeric retries and delay show the field errors; window 0 and 91 rejected, 1 and 90 accepted **Found:** blank and letters were refused as planned, but negative, fractional and exponent numbers for retries and delay (-1, 2.5, 1e2) were accepted and saved as typed (DEF-52, fixed: whole numbers of zero or more only, spaces trimmed). A blank or lettered window counts as 0 and is refused with the window message. Two tests carry this ID (retries and delay, then the window). |
+| PW-B-settings-04 | wip | all | Saving persists and survives reload; page redirects back to itself **Found:** a save gave the administrator no confirmation at all (DEF-54, fixed: a "Settings saved" message) and printed a PHP 8.2 deprecation for a property the form never declared (DEF-55, fixed). The case also saves a processor choice and the receipts switch and reads everything back after a reload and a fresh visit. |
+| PW-B-settings-05 | wip | all | Processor multi-select lists only live eWAY processors (test and non-eWAY processors absent) **Found:** the box lists one entry per live, active eWAY processor, by title and valued by id. The seeded live and test processors share a title, so the case tells them apart by id. An inactive live eWAY processor, made and removed by the case, is not offered. On a site with other eWAY processors the list is longer; the case compares with the database, not a fixed list. |
+| PW-B-settings-06 | wip | all | Selecting then deselecting every processor clears the setting (DB check) **Found:** as planned. The case also checks the stored value is an empty list, and that the box is empty on the next visit. |
+| PW-B-settings-07 | wip | all | `finance` and `limited` users are refused (administer CiviCRM only) **Found:** the refusal is an HTTP 403 page reading "You do not have permission to access this page.", with no form. On WordPress core prints a "Cannot set response code - headers already sent" warning after it, which the case allows as core noise. A post made without the form is refused with 403 as well and changes nothing, and the Administer menu does not offer the entry to these users. |
+| PW-B-settings-08 | wip | all | The settings page is reachable from the CMS's own admin navigation (WordPress admin menu, Drupal toolbar, Joomla administrator menu, Standalone navigation) via the "eWay Recurring Settings" entry **Found:** WordPress's own admin sidebar has a CiviCRM entry (and CiviCRM's Settings) but nothing from this extension. The extension's entry is in CiviCRM's menu bar, which WordPress shows on every CiviCRM screen, so the case goes sidebar, CiviCRM, Administer, "eWay Recurring Settings". Only WordPress is scripted; the case skips on the other CMSs until their navigation is. |
 
 **PW-B-processor** (`payment-processor.spec.ts`)
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
-| PW-B-processor-01 | todo | all | "eWay Recurring" is offered as a processor type with API Key / API Password labels |
-| PW-B-processor-02 | todo | all | Saving without key or password shows both required-field errors; other processor types are unaffected |
-| PW-B-processor-03 | todo | all | A valid new processor saves and appears in the contribution page processor list |
-| PW-B-processor-04 | todo | all | Deactivating and re-enabling the extension leaves the processor type active |
+| PW-B-processor-01 | wip | all | "eWay Recurring" is offered as a processor type with API Key / API Password labels **Found:** both the live and the test section are relabelled (API Key, API Password, Site URL, Recurring Payments URL) and the Signature, API URL and Button URL fields are removed. Choosing a type reloads the credential section from the server (`pp=<id>`); the Dummy type keeps User Name, Site URL and Recurring Payments URL. |
+| PW-B-processor-02 | wip | all | Saving without key or password shows both required-field errors; other processor types are unaffected **Found:** the extension always asks for the LIVE key and password: credentials in the test section alone are refused, although CiviCRM's own message says "at least the test or live section" (DEF-56, pinned, decision needed). Other types are untouched: a Dummy processor with nothing filled in gets only core's message, and saves with a user name and no password. |
+| PW-B-processor-03 | wip | all | A valid new processor saves and appears in the contribution page processor list **Found:** after Save, CiviCRM opens the new processor for editing with a "has been saved" message. Only the live section was filled, so CiviCRM also made a test row with empty credentials. The contribution page's Amounts tab lists the processor, unticked. On this site core prints "Undefined array key weight" from the page's tab header, which the case allows as core noise. The case deletes what it makes. |
+| PW-B-processor-04 | wip | all | Deactivating and re-enabling the extension leaves the processor type active **Found:** Disable and Enable are CiviCRM's own full-page confirmations. Enabling did not switch the extension's scheduled jobs back on: core reconciles the managed jobs after the enable has finished, so all four stayed off (DEF-53, fixed in the enable hook; the settlement sync job stays off as shipped). On a site whose processor type was created before the extension managed it (this local site) disabling does not deactivate the type, so the case makes it inactive itself before enabling, to exercise the hook everywhere; the type's state while disabled is recorded as a test annotation (DEF-57, open). |
 
 **PW-B-jobs** (`scheduled-jobs.spec.ts`)
 
@@ -962,9 +976,9 @@ checked by PW-F4-07.
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
-| PW-B-permissions-01 | todo | all | APIv4 Explorer as `tokenviewer`: PaymentToken get allowed, create/delete denied |
-| PW-B-permissions-02 | todo | all | `finance` (has `access CiviContribute`) allowed everything |
-| PW-B-permissions-03 | todo | all | `limited` denied |
+| PW-B-permissions-01 | wip | all | APIv4 Explorer as `tokenviewer`: PaymentToken get allowed, create/delete denied **Found:** the APIv4 Explorer page opens for these users but its Action list is empty unless the user is an administrator, so the case calls the same ajax route the Explorer uses with `CRM.api4()` from a signed-in CiviCRM page. Reads work; create, update and delete answer HTTP 403. The personas needed "view all contacts": without it core's contact access control hides every token (a read returned an empty list, and `finance`'s delete removed nothing, with no error), so `finance` and `tokenviewer` now have it in `test-users.json`. |
+| PW-B-permissions-02 | wip | all | `finance` (has `access CiviContribute`) allowed everything **Found:** create, update and delete all work for `finance`, checked in the database. Needs the persona's "view all contacts" (see PW-B-permissions-01). |
+| PW-B-permissions-03 | wip | all | `limited` denied **Found:** every call is refused with HTTP 403, a read included, and nothing changes. |
 
 ### 5.3 Security, `specs/security/`
 
@@ -1063,6 +1077,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-15 | Back office started: PW-B-settings (8 cases), PW-B-processor (4) and PW-B-permissions (3) written for WordPress by a Playwright agent on the local site (snapshot, run, restore, all checked) and green locally (16 tests; the whole suite also ran, 97 passed, the 17 failures being PHP warnings printed by another extension on that site, which pass with `IGNORE_PROBLEMS=scheduledccrecipients`, and one `test.fail()` that passes on this site's theme). Not yet run on GitHub, so all fifteen are `wip`. Plan rows corrected from real behaviour (see each **Found:**). Defects found: DEF-52 (settings form accepted negative, fractional and exponent retries and delay), DEF-53 (re-enabling the extension left its scheduled jobs off), DEF-54 (saving the settings gave no confirmation) and DEF-55 (PHP 8.2 dynamic property deprecation on save), all fixed with new PHPUnit cases PU-J8 to PU-J10 and PU-H14 (green locally, `wip` until CI runs them); DEF-56 pinned (live credentials always required for an eWAY processor) and DEF-57 open (a site whose processor type pre-dates managed entities logs an error on every flush). The `finance` and `tokenviewer` personas gained `view all contacts`: without it core hides every saved card from them. New helper `fixtures/backend.ts`. 285 cases: 160 done, 67 in progress, 53 to do, 5 dropped. |
 | 2026-11-15 | PW-F6 (public endpoints, 6 cases, PW-F6-02 stays `n/a`) written for WordPress and green on GitHub (Playwright run on `2873340`, PHPUnit 440 tests on `d003484`). All six are `wip`. Defects found and fixed: DEF-47 (security: the return page did not check the eWAY transaction against the contribution's invoice and amount), DEF-48 (non-eWAY processor id on the return and token routes), DEF-49 (unknown country or state in `createtoken` printed PHP warnings), DEF-50 (queue row settled before eWAY had a result), DEF-51 (non-numeric processor id gave core's fatal page). 281 cases: 160 done, 48 in progress, 68 to do, 5 dropped. |
 | 2026-11-14 | PW-F4 (update billing, 7 cases) and PW-F5 (verification queue, 4 cases) written for WordPress and green on GitHub (Playwright 67 tests passed, PHPUnit 434, workflow runs on `6e95d40`). All eleven are `wip`. Defects found and fixed: DEF-41 (full-page Save lost the recurring id), DEF-42 (PHP warning from the Add Credit Card field), DEF-43 (script error after adding a card), DEF-44 (each card listed twice in the dropdown, found only on the CI site). Logged open for a decision: DEF-45 (no link to the form for a Failed record) and DEF-46 (a failure already moves the schedule date on). A test of mine for DEF-32 was racy (a contribution dated exactly on the window cutoff) and now uses twelve hours back. First CI run of the PW-F4 specs failed four tests for CI-only reasons (the duplicate cards, the HTTP 500 permission page, a cancelled Search Kit request, the checksum-only donor reaching the login page), each handled. 74 cases to do, all Playwright. |
 | 2026-11-14 | Four more defects logged as open, from what the Playwright rounds showed: DEF-37 (a declined first payment leaves a Pending recurring record, and the function meant to delete it is never called), DEF-38 (a declined transaction sets the queue row to the success status), DEF-39 (a donor going Back from the hosted page sees core's raw "Duplicate error" message) and DEF-40 (the "payment already completed" refusal is an HTTP 500 error page). Each needs a decision on the behaviour before it is fixed. |

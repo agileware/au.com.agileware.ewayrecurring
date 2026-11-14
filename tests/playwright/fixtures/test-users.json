@@ -4,13 +4,13 @@
     "username": "ewayfinance",
     "password": "Eway-finance-Test-1!",
     "email": "ewayfinance@example.test",
-    "capabilities": ["access CiviCRM", "access CiviContribute", "edit contributions", "view payment tokens", "edit payment tokens"]
+    "capabilities": ["access CiviCRM", "view all contacts", "access CiviContribute", "edit contributions", "view payment tokens", "edit payment tokens"]
   },
   "tokenviewer": {
     "username": "ewayviewer",
     "password": "Eway-viewer-Test-1!",
     "email": "ewayviewer@example.test",
-    "capabilities": ["access CiviCRM", "view payment tokens"]
+    "capabilities": ["access CiviCRM", "view all contacts", "view payment tokens"]
   },
   "limited": {
     "username": "ewaylimited",

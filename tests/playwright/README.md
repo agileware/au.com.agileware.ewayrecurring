@@ -10,8 +10,11 @@ path and the decline (`contribution-once-off.spec.ts`), required billing details
 (`contribution-once-off-interruptions.spec.ts`), and the variants: non-ASCII text, test mode, a free option, a phone
 screen and the CMS theme (`contribution-once-off-variants.spec.ts`). Recurring set-up on the contribution page
 (group `PW-F2`, `contribution-recurring.spec.ts`) and event registration (group `PW-F3`, `event-registration.spec.ts`)
-follow. The rest of the journeys (`specs/frontend/`,
-`specs/backend/`, `specs/security/`, `specs/sandbox/`) are still to be written.
+follow, then the donor-facing update billing, verification queue and public endpoint groups (`PW-F4` to `PW-F6`). The
+back office has begun (`specs/backend/`): the settings page (`PW-B-settings`, `settings.spec.ts`), the payment
+processor admin screens and the extension being switched off and on (`PW-B-processor`, `payment-processor.spec.ts`)
+and who may read and change saved cards (`PW-B-permissions`, `token-permissions.spec.ts`). The rest of the back office,
+`specs/security/` and `specs/sandbox/` are still to be written.
 
 ## How it works
 
@@ -29,6 +32,8 @@ follow. The rest of the journeys (`specs/frontend/`,
     the site to another host.)
 - **Personas.** `admin`, `finance`, `tokenviewer` and `limited` are logged in once by `fixtures/global-setup.ts`
   and used as pre-authenticated pages (`adminPage`, `financePage`, ...). `anonPage` is a visitor who is not signed in.
+  `finance` and `tokenviewer` also have "view all contacts": without it core's contact access control hides every
+  saved card from them (a token read returns an empty list and a delete removes nothing, with no error).
 - **Problems fail the test.** The shared `test` in `fixtures/base.ts` fails any test that sees an uncaught page error,
   a console error, a failed request to `civicrm/ajax/*` or `civicrm/ewayrecurring/*`, or PHP output on the page. A
   test that expects one lists it: `test.use({ allowedProblems: [/pattern/] })`.
@@ -103,6 +108,8 @@ fixtures/
                           run the verification job
   event-registration.ts   the seeded events: find them, fill in the registration steps, read participants and the
                           contribution that pays for one
+  backend.ts              back-office helpers: the settings page (open, submit, the select2 box, reset and read the
+                          settings it owns), the Administer menu, and CRM.api4() called from a signed-in page
   visibility.ts           checks that a message really shows inside the theme (size, position, contrast, not covered)
   civi.ts                 cv api4 / ev / scr wrappers
   eway-stub.ts            scripted responses, the request log, the fake hosted page's HTML, response builders
@@ -120,5 +127,6 @@ ddev-exec.sh             runs a command inside a DDEV site, for CIVI_EXEC_PREFIX
 specs/
   infrastructure/         checks of the above
   frontend/               PW-F1 (contribution-once-off*.spec.ts), PW-F2 (contribution-recurring.spec.ts), PW-F3 (event-registration.spec.ts)
-  backend/ security/ sandbox/    still to be written
+  backend/                PW-B-settings (settings.spec.ts), PW-B-processor (payment-processor.spec.ts), PW-B-permissions (token-permissions.spec.ts)
+  security/ sandbox/      still to be written
 ```
