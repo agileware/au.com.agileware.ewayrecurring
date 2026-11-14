@@ -536,7 +536,9 @@ class CRM_eWAYRecurring_HooksAndManagedTest extends \PHPUnit\Framework\TestCase 
     [$payment, $first] = $this->pendingContribution('AC-THANKS-2');
     [, $second] = $this->pendingContribution('AC-THANKS-3');
     $_REQUEST['AccessCode'] = 'AC-THANKS-2';
-    $this->http->respond('getTransaction', Responses::transactionFound(), TRUE);
+    // Each invoice gets its own eWAY transaction id, as core refuses a duplicate.
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 20001]));
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 20002]));
 
     $this->preProcessThankYou($this->thankYouForm($payment, $first['invoice_id']));
     $this->preProcessThankYou($this->thankYouForm($payment, $second['invoice_id']));

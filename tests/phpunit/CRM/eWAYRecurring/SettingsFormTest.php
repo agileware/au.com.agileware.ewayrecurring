@@ -158,7 +158,6 @@ class CRM_eWAYRecurring_SettingsFormTest extends \PHPUnit\Framework\TestCase imp
       'blank' => [''],
       'letters' => ['abc'],
       'a word and a number' => ['3 times'],
-      'left out' => [NULL],
     ];
   }
 
@@ -166,7 +165,7 @@ class CRM_eWAYRecurring_SettingsFormTest extends \PHPUnit\Framework\TestCase imp
    * @dataProvider badNumberProvider
    * @testPlan PU-J2
    */
-  public function testRetriesMustBeANumber(?string $value): void {
+  public function testRetriesMustBeANumber(string $value): void {
     $errors = $this->errorsFor($this->values(['eway_recurring_contribution_max_retry' => $value]));
 
     $this->assertSame(['eway_recurring_contribution_max_retry' => 'Retries should be a valid number'], $errors);
@@ -176,10 +175,26 @@ class CRM_eWAYRecurring_SettingsFormTest extends \PHPUnit\Framework\TestCase imp
    * @dataProvider badNumberProvider
    * @testPlan PU-J2
    */
-  public function testTheRetryDelayMustBeANumber(?string $value): void {
+  public function testTheRetryDelayMustBeANumber(string $value): void {
     $errors = $this->errorsFor($this->values(['eway_recurring_contribution_retry_delay' => $value]));
 
     $this->assertSame(['eway_recurring_contribution_retry_delay' => 'Retry delay should be a valid number'], $errors);
+  }
+
+  /**
+   * A field left out of the post is not an error: the form falls back to the
+   * value it was showing (the saved setting, or its default), so the check
+   * never sees a missing value.
+   *
+   * @testPlan PU-J2
+   */
+  public function testLeavingRetriesAndDelayOutIsNotAnError(): void {
+    $errors = $this->errorsFor($this->values([
+      'eway_recurring_contribution_max_retry' => NULL,
+      'eway_recurring_contribution_retry_delay' => NULL,
+    ]));
+
+    $this->assertSame([], $errors);
   }
 
   public function windowProvider(): array {
