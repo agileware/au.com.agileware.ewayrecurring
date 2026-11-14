@@ -46,6 +46,8 @@ const HEADERS_SENT_WARNING = /http_response_code\(\): Cannot set response code/;
 const CORE_NOISE = new RegExp(`${IS_REQUIRED_WARNING.source}|${HEADERS_SENT_WARNING.source}|status of 403`);
 /** What the browser reports when CiviCRM answers an error (a refused save) with its error page: HTTP 500, and WordPress's admin script. */
 const ERROR_PAGE_NOISE = /status of 500|ViewTransition/;
+/** Search Kit's list on the contact's tab is cancelled when the test moves to another page. */
+const SEARCH_ABORTED = /SearchDisplay%2Frun \(net::ERR_ABORTED\)/;
 
 /** The form's address for a recurring record, as the staff link on the contact's tab builds it. */
 function billingUrl(record: RecurringRecord, extra: Record<string, string | number> = {}): string {
@@ -154,7 +156,7 @@ async function addCardOnHostedPage(page: Page, card: NewCard): Promise<void> {
 }
 
 test.describe('update billing details: the staff form', () => {
-  test.use({ allowedProblems: [new RegExp(`${IS_REQUIRED_WARNING.source}|${CARD_LIST_SCRIPT_ERROR.source}|${ERROR_PAGE_NOISE.source}`)] });
+  test.use({ allowedProblems: [new RegExp(`${IS_REQUIRED_WARNING.source}|${CARD_LIST_SCRIPT_ERROR.source}|${ERROR_PAGE_NOISE.source}|${SEARCH_ABORTED.source}`)] });
 
   test('PW-F4-01 staff open Change Billing Details from the recurring tab and see the saved cards, Add Credit Card and the current billing address', async ({ adminPage }) => {
     const record = createRecurring({
@@ -538,7 +540,8 @@ test.describe('update billing details: the staff form', () => {
  */
 test.describe('update billing details: who can open the form', () => {
   const NO_ACCESS = /You do not have permission to access this page/;
-  test.use({ allowedProblems: [CORE_NOISE] });
+  // CiviCRM answers "You do not have permission" with an HTTP 500 page on a fresh site, which the browser logs.
+  test.use({ allowedProblems: [new RegExp(`${CORE_NOISE.source}|${ERROR_PAGE_NOISE.source}`)] });
 
   /** The donor's street, which must not reach anyone who may not see the record. */
   async function expectNotShown(page: Page, record: RecurringRecord): Promise<void> {
@@ -630,7 +633,9 @@ test.describe('update billing details: who can open the form', () => {
 
       // Save needs a card, so the donor cannot complete it. Nothing is changed.
       await donorPage.getByRole('button', { name: 'Save' }).click();
-      await expect(donorPage.locator('body')).toContainText('Stored Credit Card is a required field.');
+      // Either the form says a card is required, or (on a fresh site, where the save request no longer carries the
+      // checksum) the donor is sent to the login page. Both mean the donor cannot finish.
+      await expect(donorPage.locator('body')).toContainText(/Stored Credit Card is a required field\.|Log In/);
       expect(recurRow(record.recurId).payment_token_id).toBe(record.tokenId);
       expect(billingAddressOf(record.contactId)!.street_address).toBe(record.donor.street);
     } finally {

@@ -55,7 +55,9 @@ CRM.eway.updateOptions = function (values) {
 
     const $select = CRM.$('#contact_payment_token');
     if ($select) {
-        $select.find('option').replaceWith(html || '<option value="">No cards found.</option>')
+        // html() replaces the whole list once. replaceWith() on each existing option put the full list in place of
+        // every option, so a select that already held the cards showed each of them twice.
+        $select.html(html || '<option value="">No cards found.</option>');
 
         if(CRM.eway.selectedToken) {
             $select.val(CRM.eway.selectedToken);
