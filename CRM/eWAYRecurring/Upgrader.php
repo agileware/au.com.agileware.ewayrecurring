@@ -39,7 +39,10 @@ SQL;
 
   public function upgrade_7() {
     $this->ctx->log->info('Add email receipt field to eWAY Contribution Transactions store.');
-    CRM_Core_DAO::executeQuery("ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1");
+    // A fresh install already has the column, and a step must be safe to run again.
+    if (!CRM_Core_BAO_SchemaHandler::checkIfFieldExists('civicrm_eway_contribution_transactions', 'is_email_receipt')) {
+      CRM_Core_DAO::executeQuery("ALTER TABLE `civicrm_eway_contribution_transactions` ADD `is_email_receipt` TINYINT(1) DEFAULT 1");
+    }
     return TRUE;
   }
 
