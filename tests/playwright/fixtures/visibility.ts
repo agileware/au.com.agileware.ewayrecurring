@@ -12,8 +12,8 @@ import { expect, type Locator } from '@playwright/test';
  *  - nothing else is drawn over its middle.
  */
 export async function expectShownInTheme(locator: Locator, what: string): Promise<void> {
-  await locator.first().scrollIntoViewIfNeeded();
   await expect(locator.first(), `${what} is visible`).toBeVisible();
+  await locator.first().scrollIntoViewIfNeeded();
 
   const result = await locator.first().evaluate((element) => {
     const parse = (color: string): number[] | null => {
@@ -50,8 +50,9 @@ export async function expectShownInTheme(locator: Locator, what: string): Promis
     const middle = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
     return {
       opacity: parseFloat(style.opacity),
-      left: box.left,
-      right: box.right,
+      // Page coordinates, so scrolling the element into view cannot hide that it is out to one side.
+      left: box.left + window.scrollX,
+      right: box.right + window.scrollX,
       width: box.width,
       height: box.height,
       topOnPage: box.top + window.scrollY,
