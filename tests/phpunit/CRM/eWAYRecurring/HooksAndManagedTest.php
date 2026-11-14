@@ -282,6 +282,29 @@ class CRM_eWAYRecurring_HooksAndManagedTest extends \PHPUnit\Framework\TestCase 
   }
 
   /**
+   * A site whose processor type pre-dates managed entities has no managed record for it. The hook used to read
+   * that record on every form and print a warning when it was missing (DEF-35).
+   *
+   * @testPlan PU-H5
+   */
+  public function testTheProcessorFormStillChecksWhenThereIsNoManagedRecordForTheType(): void {
+    \Civi\Api4\Managed::delete(FALSE)
+      ->addWhere('module', '=', 'au.com.agileware.ewayrecurring')
+      ->addWhere('name', '=', 'eWay_Recurring')
+      ->execute();
+
+    $errors = $this->validateForm('CRM_Admin_Form_PaymentProcessor', [
+      'payment_processor_type_id' => (string) $this->processorTypeId('eWay_Recurring'),
+      'user_name' => '',
+      'password' => '',
+    ]);
+
+    $this->assertSame('API Key is a required field.', $errors['user_name']);
+    $this->assertSame('API Password is a required field.', $errors['password']);
+    $this->assertSame([], $this->validateForm('CRM_Contribute_Form_Contribution_Main', ['user_name' => '']), 'Other forms are not touched.');
+  }
+
+  /**
    * @testPlan PU-H5
    */
   public function testOtherProcessorTypesDoNotNeedAnApiKeyAndPassword(): void {

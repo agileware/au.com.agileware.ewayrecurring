@@ -176,18 +176,18 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
 }
 
 function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
-  $paymentProcessorID = \Civi\Api4\Managed::get(FALSE)
-    ->addSelect('entity_id')
-    ->addWhere('module', '=', 'au.com.agileware.ewayrecurring')
-    ->addWhere('name', '=', 'eWay_Recurring')
-    ->setLimit(1)
-    ->execute()
-    ->first()
-    ['entity_id'];
-
   switch($formName) {
     case'CRM_Admin_Form_PaymentProcessor':
-      if(($fields['payment_processor_type_id'] ?? NULL) != $paymentProcessorID) {
+      // Look the type up by name. The managed record that links it can be missing on a site whose
+      // processor type pre-dates managed entities, and then reading it printed a warning on every form.
+      $paymentProcessorID = \Civi\Api4\PaymentProcessorType::get(FALSE)
+        ->addSelect('id')
+        ->addWhere('name', '=', 'eWay_Recurring')
+        ->setLimit(1)
+        ->execute()
+        ->first()['id'] ?? NULL;
+
+      if($paymentProcessorID === NULL || ($fields['payment_processor_type_id'] ?? NULL) != $paymentProcessorID) {
         break;
       }
 
