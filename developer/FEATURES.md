@@ -431,6 +431,76 @@ articles. The reading was incomplete, see the last point.
    says at token creation and at the first charge. This decides option B.
 3. Settle C1 to C6 here, then add the test cases to [TEST_PLAN.md](TEST_PLAN.md).
 
+### Research notes (so the work can be picked up)
+
+Research done on 2026-11-14 from the web only. Nothing was tried against the eWAY sandbox, and no
+eWAY account or key was used. Treat every point below as "the documentation says", not "eWAY does".
+
+#### How the extension adds a card today (read from the code)
+
+- `js/eway.js` calls the front-context route `civicrm/ewayrecurring/createtoken`, handled by
+  `CRM_eWAYRecurring_PaymentToken::createToken()`.
+- `createToken()` calls the SDK's `createCustomer(ApiMethod::RESPONSIVE_SHARED, ...)` with the contact's
+  billing details and `CustomerReadOnly`. eWAY returns a `SharedPaymentUrl`, the person enters the card on
+  eWAY's hosted page, and eWAY redirects to `civicrm/ewayrecurring/savetoken` with an `AccessCode`.
+- `PaymentToken::saveToken()` asks eWAY for the result (`queryTransaction` on the access code), reads the
+  customer token and stores it as a CiviCRM `PaymentToken`.
+- No payment or authorisation request is made anywhere in that flow. The bundled SDK does support the
+  method: `vendor/eway/eway-rapid-php/src/Rapid/Enum/PaymentMethod.php` has `AUTHORISE = 'Authorise'`
+  (next to `PROCESS_PAYMENT`, `CREATE_TOKEN_CUSTOMER`, `UPDATE_TOKEN_CUSTOMER` and `TOKEN_PAYMENT`), and
+  its language file has the error `V6142 = 'Authorise not available for Bank/Branch'`.
+- The Update Billing form (`updateSubscriptionBillingInfo()`) only picks an existing token, so a card
+  added in the same session goes through the flow above.
+
+#### Sources read, and how well
+
+| Source | What it gave | How well it was read |
+| --- | --- | --- |
+| [Eway Rapid API Reference](https://eway.io/api-v3/) (the same page is also served at [eway.com.au/api-v3](https://www.eway.com.au/api-v3/)) | The `Method` field and its `Authorise` value; the `TotalAmount` zero rule for `CreateTokenCustomer`; the unused `Verification` object; `BeagleVerification`; Query Customer | The page is about 456,000 characters. Read verbatim: characters 0 to 39,968, 139,968 to 179,936 and 279,936 to 319,904. Characters 39,968 to 139,968 and 179,936 to 279,936 were seen only as a model-made summary. Characters 419,904 to the end were never read, and probably hold the response and error code tables |
+| [How does PreAuth work?](https://go.eway.io/s/article/How-does-PreAuth-work?language=en_US) | Seen in search results only: pre-auth is set with `Method` = `Authorise` and has three stages (authorise, capture, void); described as useful to check card details before taking payment | Not read. The page loads its text with JavaScript and a plain fetch returned only a "Loading" shell |
+| [Can you do preauth on a token payment?](https://go.eway.io/s/article/Can-you-do-preauth-on-a-token-payment?language=en_US) | Seen in search results only: pass the token id and `Method` = `Authorise`, then capture with the standard pre-auth capture request | Not read, same reason |
+| [Preauth - API Snippets](https://go.eway.io/s/article/Preauth-API-Snippets?language=en_US) | Not seen beyond its title | Not read, same reason |
+| [What is considered a transaction?](https://go.eway.io/s/article/What-is-considered-a-transaction?language=en_US) | Not seen beyond its title. Wanted for the fee question (does an authorisation or a void count as a billable transaction?) | Not read |
+| [Developers Documentation, preauth](https://eway.io/sg/developers/api/preauth/) | Title only (the Singapore site) | Not read |
+| [How to Enable and Test 3D Secure 2.0 in the Eway Sandbox](https://go.eway.io/s/article/How-to-Enable-and-Test-3DS-2-0-in-the-Eway-Sandbox?language=en_US) | Title only. 3DS 2.0 is a cardholder authentication step in the checkout and is a different thing from an issuer check on a saved card | Not read |
+| [Active Merchant eWAY Rapid gateway source](https://codeclimate.com/github/Shopify/active_merchant/lib/active_merchant/billing/gateways/eway_rapid.rb/source) | Third party. Shows `Method` = `Authorise` for an authorisation and `UpdateTokenCustomer` for a token update, so the two are separate calls in practice | Only seen as a search snippet |
+| [Chargebee's eWAY page](https://www.chargebee.com/docs/payments/1.0/payment-gateways-and-configuration/eWay) | Third party. Says payments use a permanent token held in eWAY's vault | Only seen as a search snippet |
+
+#### Findings, with how sure they are
+
+1. **`Authorise` exists.** Quoted from the API reference: "This transaction type will authorise and hold an
+   amount on the customer's card without charging it." The value goes in `Method`; `TransactionType`
+   stays `Purchase`, `MOTO` or `Recurring`. The SDKs set it when `Capture` is false. Sure.
+2. **`CreateTokenCustomer` takes no payment.** `TotalAmount` "must be 0" for `CreateTokenCustomer` and
+   `UpdateTokenCustomer` (seen in a summary of the Direct Connection payment fields). Fairly sure.
+3. **No issuer check is described on token creation.** The pages read neither say the card is checked
+   with the issuer nor say it is only format checked. This is absence of evidence. The sandbox decides it.
+4. **No response field reports an issuer check.** `Verification` (CVN, Address, Email, Mobile, Phone) is
+   documented as "currently unused". `BeagleVerification` (Email, Phone; 0 not verified, 1 attempted,
+   2 verified, 3 failed) is Fraud Verify identity checking, and only on the Responsive Shared Page. The
+   error codes were not read, so a token-creation decline code may exist. Sure about what was read.
+5. **Query Customer reads stored data.** It returns the masked card and expiry for a token. Nothing says
+   it contacts the issuer. An `IsActive` flag appears in one place only and two readings disagreed, so its
+   meaning is unknown.
+6. **Authorise on a saved token.** Only from search summaries of the help article. Needs the article read.
+7. **Not found anywhere:** a zero or one dollar `Authorise`, or any statement that `Authorise` works on the
+   Responsive Shared Page, Transparent Redirect and Direct connection each. The reference says only "your
+   preferred connection method".
+
+#### Where the research stopped, and how to carry on
+
+1. **Read the help articles.** They need a browser that runs JavaScript, so use the built-in browser pane
+   or Claude in Chrome rather than a plain fetch. Start with the two pre-auth articles and "What is
+   considered a transaction?" (the fee question, decision C3).
+2. **Read the rest of the API reference.** Start at character 419,904 (response and error codes), then the
+   two ranges that were only summarised, looking for anything on `Authorise` with a token, a zero amount,
+   the Responsive Shared Page and `CreateTokenCustomer`, and the response codes for a declined token.
+3. **Try it in the sandbox (PW-X-05).** The eWAY sandbox has test card numbers and magic amounts that
+   force declines. Add a card that a real issuer would decline and record what eWAY says at token creation
+   and at the first charge. Then try `Authorise` against that token and record the response. The case is
+   `todo` in [TEST_PLAN.md](TEST_PLAN.md) and is WordPress only (it needs the sandbox keys as secrets).
+4. **Then settle C1 to C6** in the table above and write the acceptance criteria.
+
 ### Acceptance criteria
 
 To be written once the options are decided.
