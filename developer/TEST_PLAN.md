@@ -551,7 +551,7 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-G6 | todo | Processor lookups are cached across tokens (one `PaymentProcessor.get` per processor) |
 | PU-G7 | todo | `getPaymentProcessorById`: found, unknown id returns null |
 | PU-G8 | todo | `saveToken` dedupe rule: same contact and processor with same token **or** same masked number updates the existing row, otherwise creates one |
-| PU-G9 | wip | `saveToken` refuses with a documented JSON error and no fatal: no transaction, no token, unknown customer, a customer reference that is not a contact, and no card details (DEF-9, fixed) **Note:** not yet covered: no `pp_id`, no access code, unknown processor. |
+| PU-G9 | wip | `saveToken` refuses without a fatal and with nothing sent to eWAY: no `pp_id` (it only closes its own window), no access code, an unknown processor (documented JSON errors), no transaction, no token, an unknown customer, a customer reference that is not a contact, and no card details (DEF-9, fixed). **Note:** every path is now tested; `done` once CI has run them. The no-`pp_id` exit was changed from `die()` to `CRM_Utils_System::civiExit()` so a test can catch it |
 | PU-G10 | todo | `createToken` rejects each missing billing field with `Missing field: ...`, unknown processor, unknown contact |
 | PU-G11 | todo | `fillTokensMeta` picks up a token whose expiry and masked number were cleared by an in-place update, and refills them from eWAY using the new token value |
 | PU-G12 | done | `saveToken` stores the card for the contact named in the eWAY customer reference, with the processor, token, masked number and expiry (DEF-9) |
@@ -998,6 +998,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PU-G9 now covers every refusal path of `saveToken` (no `pp_id`, no access code, unknown processor added); `wip` until CI runs them. The no-`pp_id` exit uses `civiExit()` instead of `die()` so it can be tested. |
 | 2026-11-14 | The UP suite is `done`: the corrected upgrade workflow passed on GitHub with 57 checks and none failing (UP-01 to UP-06 and UP-08 to UP-11; UP-07 stays dropped). |
 | 2026-11-14 | PU-H3 and PU-H13 are `done` (CI passed). The first green GitHub run of the upgrade test was a false pass: the verifier counted failures in a variable that was local to the function cv runs the script in, so it printed FAIL lines yet exited 0 (two UP-09 checks failed because that core version stores the menu flag as 1 and 0, not "true" and "false"). Both fixed; a broken record now makes the verifier exit 1, checked locally. The UP cases stay `wip` until a corrected run passes on GitHub. |
 | 2026-11-14 | DEF-15 found by the first GitHub run of the upgrade test and fixed: the enable hook failed with "Authorization failed" when the extension was enabled with nobody logged in (cv). New case PU-H13 and first tests for PU-H3 (both `wip`). The upgrade script now installs release 2.8.1 as a CMS user, since that release has the same bug. 272 cases. |

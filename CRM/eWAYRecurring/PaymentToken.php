@@ -177,7 +177,8 @@ class CRM_eWAYRecurring_PaymentToken {
     $pp_id = CRM_Utils_Request::retrieve('pp_id', 'String');
     if (!$pp_id) {
       echo "<script>window.close();</script>";
-      die();
+      // civiExit() ends the request like die() does, and lets the test framework catch it.
+      CRM_Utils_System::civiExit();
     }
 
     // eway will have access code in url

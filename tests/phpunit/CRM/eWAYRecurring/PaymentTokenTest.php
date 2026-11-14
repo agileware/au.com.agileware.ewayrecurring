@@ -64,6 +64,72 @@ class CRM_eWAYRecurring_PaymentTokenTest extends \PHPUnit\Framework\TestCase imp
   }
 
   /**
+   * Call savetoken with the request as given and return what it printed.
+   *
+   * @param string|null $processorId The pp_id parameter.
+   * @param string|null $sessionAccessCode The code held in the session.
+   *
+   * @return array [what it printed as JSON (or NULL), anything else it echoed]
+   */
+  private function callSaveToken(?string $processorId, ?string $sessionAccessCode): array {
+    unset($_REQUEST['pp_id'], $_REQUEST['AccessCode']);
+    if ($processorId !== NULL) {
+      $_REQUEST['pp_id'] = $processorId;
+    }
+    CRM_Core_Session::singleton()->set('eway_accesscode', $sessionAccessCode);
+    $level = ob_get_level();
+    ob_start();
+    try {
+      CRM_eWAYRecurring_PaymentToken::saveToken();
+    }
+    catch (CRM_Core_Exception_PrematureExitException $e) {
+      return [$e->errorData ?: NULL, ob_get_clean()];
+    }
+    finally {
+      // Close only the buffer opened here.
+      while (ob_get_level() > $level) {
+        ob_end_clean();
+      }
+    }
+    $this->fail('saveToken() was expected to answer and exit.');
+  }
+
+  /**
+   * Without pp_id the page only closes its own window.
+   *
+   * @testPlan PU-G9
+   */
+  public function testSavingATokenWithNoProcessorJustClosesTheWindow(): void {
+    [$json, $echoed] = $this->callSaveToken(NULL, 'AC-TOKEN');
+
+    $this->assertArrayNotHasKey('is_error', $json ?? [], 'It does not answer with an error.');
+    $this->assertSame('<script>window.close();</script>', $echoed);
+    $this->assertSame([], $this->http->requests, 'eWAY is not called.');
+  }
+
+  /**
+   * @testPlan PU-G9
+   */
+  public function testSavingATokenWithNoAccessCodeIsRefused(): void {
+    [$json] = $this->callSaveToken((string) Fixture::processor()['id'], NULL);
+
+    $this->assertSame(1, $json['is_error']);
+    $this->assertSame('no access code.', $json['message']);
+    $this->assertSame([], $this->http->requests, 'eWAY is not called.');
+  }
+
+  /**
+   * @testPlan PU-G9
+   */
+  public function testSavingATokenForAnUnknownProcessorIsRefused(): void {
+    [$json] = $this->callSaveToken('99999999', 'AC-TOKEN');
+
+    $this->assertSame(1, $json['is_error']);
+    $this->assertSame('no payment processor.', $json['message']);
+    $this->assertSame([], $this->http->requests, 'eWAY is not called.');
+  }
+
+  /**
    * @testPlan PU-G9
    */
   public function testSavingATokenForAnAccessCodeWithNoTransactionIsRefused(): void {
