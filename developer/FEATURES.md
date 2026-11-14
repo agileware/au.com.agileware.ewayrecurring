@@ -248,7 +248,7 @@ it, so there are probably few, but nothing ever picks them up.
 
 ### Behaviour
 
-Built on `release-3.0.0` (PU-L6 to PU-L10 are done and passing in CI; UP-10 and UP-11 wait for the upgrade-test workflow).
+Built on `release-3.0.0` (PU-L6 to PU-L10 are done and passing in CI; UP-10 and UP-11 are written in `tests/upgrade/` and passed a local rehearsal, and wait for a GitHub run).
 
 - A new revision, `upgrade_30000`, in `CRM_eWAYRecurring_Upgrader`. It calls
   `markStuckRecurringContributionsFailed()`, which does the work and returns the ids changed.
@@ -365,6 +365,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 upgrade tests UP-10 and UP-11 written (`tests/upgrade/`) and passed a local rehearsal; waiting for a GitHub run. |
 | 2026-11-14 | FR-2 tests PU-L6 to PU-L10 passing in CI. UP-10 and UP-11 still to be written; FR-2 stays `in progress` until they are done. |
 | 2026-11-14 | FR-2 built on `release-3.0.0`: `upgrade_30000` and `markStuckRecurringContributionsFailed()` added to the upgrader, with tests PU-L6 to PU-L10 (`wip` until CI passes). UP-10 and UP-11 not written yet. Status `in progress`. |
 | 2026-11-14 | FR-2 decision U5 settled: no new preview feature for 3.0.0. The two SQL checks (before upgrading) plus the step's log and upgrade output are the preview. All FR-2 decisions U1 to U6 are now decided; status stays `planned` until the step is built. |

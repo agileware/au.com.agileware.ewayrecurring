@@ -39,6 +39,28 @@ in a suitable environment:
 phpunit9 --group e2e
 ```
 
+## Upgrade tests
+
+`tests/upgrade/` checks that a site can upgrade from an older release without losing or changing data.
+It is run on GitHub by `.github/workflows/upgrade-tests.yml`, which uses the shared workflow in
+`agileware/ci-workflows`: it installs release 2.8.1 on a WordPress and CiviCRM site, seeds it
+(`seed-v2.8.1.php`), replaces it with the commit under test, upgrades, and checks the result
+(`verify-v3.php`). Every check is tagged with its ID from the UP suite in [TEST_PLAN.md](TEST_PLAN.md).
+
+To rehearse it on a disposable local site that has `cv`, take a database snapshot first, because the
+script seeds data and upgrades the site. Install the old release in the extension folder, copy the
+version under test somewhere outside the site, and run the script from inside the extension folder:
+
+```bash
+EXTENSION_KEY=au.com.agileware.ewayrecurring \
+EXTENSION_DIR=<the extension folder, holding release 2.8.1> \
+NEW_VERSION_DIR=<a copy of the version under test> \
+bash <NEW_VERSION_DIR>/tests/upgrade/ci-upgrade-test.sh
+```
+
+Restore the snapshot and the extension folder afterwards. When the seed data needs to change, edit
+`seed-v2.8.1.php` and `verify-v3.php` together.
+
 ## Test plan and coverage status
 
 [TEST_PLAN.md](TEST_PLAN.md) lists every planned test case with a stable ID and a status, and
@@ -56,4 +78,4 @@ New test classes should follow the pattern in `tests/phpunit/CRM/eWAYRecurring/S
 - Implement `HeadlessInterface, HookInterface, TransactionalInterface`
 - Use `setUpHeadless()` to install the extension (not `setUpBeforeClass`)
 - Use `Civi\Api4\*` for all database interactions
-- `TransactionalInterface` handles rollback automatically — no manual cleanup needed
+- `TransactionalInterface` handles rollback automatically, so no manual cleanup is needed
