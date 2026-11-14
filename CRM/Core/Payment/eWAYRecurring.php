@@ -388,7 +388,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       } catch (CRM_Core_Exception $e) {
         $this->paymentFailed($params, 'Please select a valid credit card token.');
       }
-      if ($result['is_error']) {
+      if (!empty($result['is_error'])) {
         $this->paymentFailed($params, 'Cannot find the payment token.');
       }
       $token = $result['token'];
