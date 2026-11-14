@@ -270,29 +270,33 @@ test.describe('the return page: bad requests', () => {
     expect(contributionTotal()).toBe(before);
   });
 
-  // The row says 400, but a processor id that is not a whole number never reaches the check: the extension hands it to
-  // the CiviCRM API, which throws, so CiviCRM answers with its own error page. Pinned here as the real behaviour.
-  test('PW-F6-01 a processor id that is not a whole number gets CiviCRM\'s error page (no 400, no trace)', async ({ anonPage, stub }) => {
+  // A processor id that is not a whole number is a bad request (DEF-51). It used to reach the CiviCRM API, which threw,
+  // so the visitor got CiviCRM's own error page (and, for a list, an internal PHP message).
+  test('PW-F6-01 a processor id that is not a whole number is a 400 with nothing shown', async ({ anonPage, stub }) => {
     const invoice = `no-such-invoice-${Date.now()}`;
-    const values: [string, string, RegExp][] = [
-      ['letters', 'abc', /id is not a valid integer/],
-      ['a blank', '%20', /id is not a valid integer/],
-      ['an injection attempt', "7 OR 1=1", /id is not a valid integer/],
-      // A list reaches the database layer, whose own message is shown (a PHP TypeError from core, not a trace).
-      ['a list', '', /mysqli_real_escape_string|not a valid integer|must be of type string/],
+    const values: [string, string][] = [
+      ['letters', 'abc'],
+      ['a blank', '%20'],
+      ['an injection attempt', '7 OR 1=1'],
+      ['a list', ''],
     ];
     const before = contributionTotal();
-    for (const [name, value, message] of values) {
+    for (const [name, value] of values) {
       const base = routeUrl('verifypayment', { contributionInvoiceID: invoice, component: 'event' });
       const url = name === 'a list'
         ? `${base}${base.includes('?') ? '&' : '?'}paymentProcessorID%5B%5D=7`
         : appendQuery(base, { paymentProcessorID: decodeURIComponent(value) });
       const result = await get(anonPage, url);
-      expect([200, 500], `${name}: status ${result.status}`).toContain(result.status);
-      const text = visibleText(result.body);
-      expect(text, name).toMatch(message);
-      expect(result.body, `${name}: no PHP output or trace`).not.toMatch(/Stack trace:|\bon line \d+/);
+      expect(result.body, `${name}: no PHP output or trace`).not.toMatch(/Stack trace:|\bon line \d+|mysqli_real_escape_string/);
       expect(result.status === 302 || result.location, `${name}: not a redirect`).toBeFalsy();
+      if (name === 'a list') {
+        // A list never reaches the extension's own check, so only a clean answer is asked for.
+        expect(result.status, `${name}: status ${result.status}`).toBeGreaterThanOrEqual(200);
+      }
+      else {
+        expect(result.status, `${name}: status`).toBe(400);
+        expect(result.body, `${name}: body`).toBe('');
+      }
     }
     expect(stub.requests()).toEqual([]);
     expect(contributionTotal()).toBe(before);
@@ -405,14 +409,13 @@ test.describe('the return page: replay', () => {
     });
   });
 
-  // KNOWN DEFECT: the return page takes the invoice id and the access code from the address and never checks that eWAY's
+  // FIXED DEFECT (DEF-47): the return page took the invoice id and the access code from the address and never checks that eWAY's
   // transaction is the one for that invoice (its InvoiceNumber or InvoiceReference) or for that amount.
   //   CRM/eWAYRecurring/Utils.php, validateContribution() and validateEwayAccessCode(): the transaction is only checked
   //   for TransactionStatus; its InvoiceNumber and TotalAmount are never compared with the contribution.
   // So any approved access code (a small payment of the visitor's own, or one paid earlier) completes any Pending
-  // contribution whose invoice id the visitor holds, for any amount. Pinned with test.fail().
+  // contribution whose invoice id the visitor holds, for any amount. This was DEF-47 and is fixed: the return is refused.
   test('PW-F6-01 an approved access code that belongs to another payment does not complete this contribution', async ({ anonPage, stub }) => {
-    test.fail();
     const payment = createPendingPayment({ label: 'f601swap', amount: 25 });
     const [{ invoice_id: invoice }] = api4('Contribution', 'get', { select: ['invoice_id'], where: [['id', '=', payment.contributionId]] });
     // eWAY approved a payment of one dollar, for a different invoice.
@@ -435,15 +438,14 @@ test.describe('the return page: replay', () => {
     expect(contributionState(payment.contributionId).status).toBe('Pending');
   });
 
-  // KNOWN DEFECT: the processor id in the address is not checked against the processor the contribution was made with.
+  // FIXED DEFECT (DEF-48): the processor id in the address is not checked against the processor the contribution was made with.
   // Naming a processor that is not eWAY's (here the seeded Dummy one) makes the extension build an eWAY client with no
   // credentials, which prints two PHP warnings (with the server's file path) into the page, treats the missing client
   // as a declined payment, marks the Pending contribution Failed and redirects to the contribution page's cancel step.
   //   CRM/eWAYRecurring/Utils.php, getEWayClient() (lines 166 and 167 read user_name and password unguarded) and
   //   validateEwayAccessCode() (the missing client is reported as "Extension error code: 1001").
-  // Pinned with test.fail().
+  // This was DEF-48 and is fixed: the processor id must name an eWAY processor, otherwise the answer is 400.
   test('PW-F6-01 a processor id that is not an eWAY processor does not fail the contribution or print PHP warnings', async ({ anonPage, stub }) => {
-    test.fail();
     const payment = createPendingPayment({ label: 'f601dummy' });
     const [{ invoice_id: invoice }] = api4('Contribution', 'get', { select: ['invoice_id'], where: [['id', '=', payment.contributionId]] });
     const result = await get(anonPage, routeUrl('verifypayment', {
@@ -679,7 +681,6 @@ test.describe('create token', () => {
         expect(json(result).is_error, name).toBe(1);
       }
     }
-    test.fail(seen.length > 0, 'PHP warnings are printed in front of the JSON');
     expect(seen, 'PHP output in the JSON answers').toEqual([]);
     expect(stub.requests()).toEqual([]);
   });
@@ -693,7 +694,6 @@ test.describe('create token', () => {
   test('PW-F6-04 a processor that is not eWAY\'s is refused with clean JSON', async ({ financePage, stub }) => {
     const contact = newContact('f604dummy');
     const result = await post(financePage, routeUrl('createtoken', { contact_id: contact.id, pp_id: dummyId }), billingForm());
-    test.fail(PHP_OUTPUT.test(result.body), 'PHP warnings are printed in front of the JSON');
     expect(result.body).not.toMatch(PHP_OUTPUT);
     expect(json(result).is_error).toBe(1);
     expect(stub.requests()).toEqual([]);
@@ -846,14 +846,13 @@ test.describe('the return address', () => {
     expect(contribution.status).toBe('Pending');
   });
 
-  // KNOWN DEFECT (a worse case of DEF-38): the return page marks the verification queue row as done even when eWAY has
+  // FIXED DEFECT (DEF-50, a worse case of DEF-38): the return page marked the verification queue row as done even when eWAY has
   // no result yet, so the verification job, which only looks at rows still waiting, never settles the registration:
   //   CRM/Core/Payment/eWAYRecurring.php, validateContribution() calls CRM_eWAYRecurring_Utils::completeEWayTransaction()
   //   whatever the answer was, including "not processed yet".
   // The registration stays "Pending from incomplete transaction" for good although eWAY later approves the payment.
-  // Pinned with test.fail().
+  // This was DEF-50 and is fixed: the queue row is only settled once eWAY has a result.
   test('PW-F6-06 a registration whose visitor returned before eWAY had a result is still settled by the verification job', async ({ anonPage, stub }) => {
-    test.fail();
     const { person, code, redirectUrl, amount } = await toHostedPage(anonPage, stub, 'f606d');
     stub.respond('getTransaction', transactionNotProcessedYet());
     await anonPage.goto(appendQuery(redirectUrl, { AccessCode: code }));

@@ -72,7 +72,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     $this->_is_test = $contribution['is_test'];
 
     $response = CRM_eWAYRecurring_Utils::validateContribution($eWayAccessCode, $contribution, $paymentProcessor);
-    CRM_eWAYRecurring_Utils::completeEWayTransaction($eWayAccessCode);
+    // Leave the queue row waiting when eWAY has no result yet, so the verification job still settles it later.
+    if (empty($response['transactionNotProcessedYet'])) {
+      CRM_eWAYRecurring_Utils::completeEWayTransaction($eWayAccessCode);
+    }
 
     $hasTransactionFailed = $response['hasTransactionFailed'];
     $transactionResponseError = $response['transactionResponseError'];

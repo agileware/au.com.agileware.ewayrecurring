@@ -352,6 +352,55 @@ class CRM_eWAYRecurring_Utils {
   }
 
   /**
+   * Is this payment processor one of this extension's (an eWAY processor)?
+   */
+  public static function isEwayProcessor(int $paymentProcessorId): bool {
+    return \Civi\Api4\PaymentProcessor::get(FALSE)
+      ->addSelect('id')
+      ->addWhere('id', '=', $paymentProcessorId)
+      ->addWhere('payment_processor_type_id:name', '=', 'eWay_Recurring')
+      ->execute()
+      ->count() > 0;
+  }
+
+  /**
+   * Refuse an eWAY transaction that is not the one made for this contribution.
+   *
+   * doPayment() sends eWAY the contribution's invoice id as the InvoiceReference and the amount in cents, and eWAY
+   * returns both on the transaction. Without this check an approved access code from any other payment (a small one
+   * of the visitor's own) would complete any Pending contribution whose invoice id is known. A response with no
+   * InvoiceReference (an error answer, or a stub) carries nothing to compare and is left to the other checks.
+   *
+   * @param object $transaction
+   *   The transaction from eWAY, or the whole response when eWAY answered with errors.
+   * @param int $contributionID
+   *
+   * @throws \CRM_Core_Exception When the transaction belongs to another invoice or has another amount.
+   */
+  private static function assertTransactionIsForContribution($transaction, $contributionID) {
+    if (!is_object($transaction) || !isset($transaction->InvoiceReference) || (string) $transaction->InvoiceReference === '') {
+      return;
+    }
+
+    $contribution = civicrm_api3('Contribution', 'getsingle', [
+      'id' => $contributionID,
+      'return' => ['invoice_id', 'total_amount'],
+    ]);
+    // Built the way doPayment() builds the reference it sends.
+    $expectedReference = substr(trim(self::sanitizeToAscii($contribution['invoice_id'] ?? '')), 0, 50);
+    if ((string) $transaction->InvoiceReference !== $expectedReference) {
+      Civi::log()->warning('eWAY return refused: the transaction is for another invoice (contribution {id})', ['id' => $contributionID]);
+      throw new CRM_Core_Exception('The eWAY transaction does not belong to this contribution.');
+    }
+
+    if (isset($transaction->TotalAmount) && is_numeric($transaction->TotalAmount)
+      && (int) $transaction->TotalAmount !== (int) round(((float) $contribution['total_amount']) * 100)) {
+      Civi::log()->warning('eWAY return refused: the transaction amount differs from the contribution (contribution {id})', ['id' => $contributionID]);
+      throw new CRM_Core_Exception('The eWAY transaction does not match the amount of this contribution.');
+    }
+  }
+
+  /**
    * Validate contribution on successful response.
    *
    * @param $eWayAccessCode
@@ -370,6 +419,12 @@ class CRM_eWAYRecurring_Utils {
     $transactionID = $accessCodeResponse['transactionID'];
     $transactionResponse = $accessCodeResponse['transactionResponse'];
     $eWayClient = $accessCodeResponse['eWayClient'];
+
+    // The access code comes from the address the visitor's browser came back with, so check that eWAY's transaction
+    // really is the one for this contribution before anything is completed or failed.
+    if (!$transactionNotProcessedYet) {
+      self::assertTransactionIsForContribution($transactionResponse, $contributionID);
+    }
 
     if (!$transactionNotProcessedYet) {
       if (!$hasTransactionFailed) {

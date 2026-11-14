@@ -43,6 +43,11 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
       return ['status' => 400];
     }
 
+    // The id comes from the address: it must be a plain number and name an eWAY processor.
+    if (!ctype_digit((string) $paymentProcessorID) || !CRM_eWAYRecurring_Utils::isEwayProcessor((int) $paymentProcessorID)) {
+      return ['status' => 400];
+    }
+
     $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [
       'id' => $paymentProcessorID,
       'sequential' => 1,

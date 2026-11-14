@@ -262,6 +262,137 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
     $this->assertEmpty($reloaded['trxn_id']);
   }
 
+  /**
+   * The access code comes from the address the visitor's browser returned with, so the transaction must be the one
+   * made for this contribution: its InvoiceReference is the contribution's invoice id (DEF-47).
+   *
+   * @testPlan PU-D7
+   */
+  public function testATransactionForAnotherInvoiceIsRefusedAndChangesNothing(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $this->http->respond('getTransaction', Responses::transactionFound([
+      'TransactionID' => 777,
+      'TotalAmount' => 1000,
+      'InvoiceReference' => 'some-other-invoice',
+    ]));
+
+    try {
+      CRM_eWAYRecurring_Utils::validateContribution('AC0001', $contribution, $processor);
+      $this->fail('Expected the transaction to be refused.');
+    }
+    catch (CRM_Core_Exception $e) {
+      $this->assertStringContainsString('does not belong to this contribution', $e->getMessage());
+    }
+
+    $reloaded = Fixture::reloadContribution($contribution['id']);
+    $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', $reloaded['contribution_status_id']));
+    $this->assertEmpty($reloaded['trxn_id']);
+  }
+
+  /**
+   * @testPlan PU-D7
+   */
+  public function testADeclinedTransactionForAnotherInvoiceDoesNotFailThisContribution(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $this->http->respond('getTransaction', Responses::transactionFound([
+      'TransactionID' => 778,
+      'TransactionStatus' => FALSE,
+      'ResponseMessage' => 'D4401',
+      'InvoiceReference' => 'some-other-invoice',
+    ]));
+
+    $this->expectException(CRM_Core_Exception::class);
+    try {
+      CRM_eWAYRecurring_Utils::validateContribution('AC0001', $contribution, $processor);
+    }
+    finally {
+      $reloaded = Fixture::reloadContribution($contribution['id']);
+      $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', $reloaded['contribution_status_id']));
+    }
+  }
+
+  /**
+   * @testPlan PU-D7
+   */
+  public function testATransactionForTheRightInvoiceButAnotherAmountIsRefused(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    // The contribution is for 10.00 (1000 cents): eWAY approved one dollar against its invoice.
+    $this->http->respond('getTransaction', Responses::transactionFound([
+      'TransactionID' => 779,
+      'TotalAmount' => 100,
+      'InvoiceReference' => $contribution['invoice_id'],
+    ]));
+
+    try {
+      CRM_eWAYRecurring_Utils::validateContribution('AC0001', $contribution, $processor);
+      $this->fail('Expected the transaction to be refused.');
+    }
+    catch (CRM_Core_Exception $e) {
+      $this->assertStringContainsString('does not match the amount', $e->getMessage());
+    }
+    $reloaded = Fixture::reloadContribution($contribution['id']);
+    $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', $reloaded['contribution_status_id']));
+  }
+
+  /**
+   * @testPlan PU-D7
+   */
+  public function testATransactionForThisInvoiceAndAmountCompletesTheContribution(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $this->http->respond('getTransaction', Responses::transactionFound([
+      'TransactionID' => 780,
+      'TotalAmount' => 1000,
+      'InvoiceReference' => $contribution['invoice_id'],
+      'InvoiceNumber' => substr($contribution['invoice_id'], 0, 12),
+    ]));
+
+    CRM_eWAYRecurring_Utils::validateContribution('AC0001', $contribution, $processor);
+
+    $reloaded = Fixture::reloadContribution($contribution['id']);
+    $this->assertSame('Completed', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', $reloaded['contribution_status_id']));
+  }
+
+  /**
+   * The return page leaves the verification queue row waiting when eWAY has no result yet, so the verification job
+   * still settles it later (DEF-50).
+   *
+   * @testPlan PU-D11
+   */
+  public function testTheReturnPageLeavesTheQueueRowWaitingWhenEwayHasNoResultYet(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $this->http->respond('getTransaction', Responses::transactionNotProcessedYet());
+    $payment = new CRM_Core_Payment_eWAYRecurring('live', $processor);
+
+    $payment->validateContribution('AC0001', ['id' => $contribution['id'], 'is_test' => 0], 'qf', $processor);
+
+    $row = civicrm_api3('EwayContributionTransactions', 'getsingle', ['access_code' => 'AC0001']);
+    $this->assertEquals(CRM_eWAYRecurring_Utils::STATUS_IN_QUEUE, $row['status']);
+  }
+
+  /**
+   * Only this extension's payment processors are eWAY processors (DEF-48).
+   *
+   * @testPlan PU-D12
+   */
+  public function testOnlyAnEwayProcessorIsAnEwayProcessor(): void {
+    $eway = Fixture::processor();
+    $other = \Civi\Api4\PaymentProcessor::create(FALSE)
+      ->setValues([
+        'payment_processor_type_id:name' => 'Dummy',
+        'name' => 'Other processor ' . bin2hex(random_bytes(3)),
+        'domain_id' => CRM_Core_Config::domainID(),
+        'is_active' => 1,
+        'is_test' => 0,
+      ])
+      ->execute()
+      ->first()['id'];
+
+    $this->assertTrue(CRM_eWAYRecurring_Utils::isEwayProcessor((int) $eway['id']));
+    $this->assertFalse(CRM_eWAYRecurring_Utils::isEwayProcessor((int) $other));
+    $this->assertFalse(CRM_eWAYRecurring_Utils::isEwayProcessor(99999999));
+    $this->assertNull(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById($other));
+  }
+
   // ---------------------------------------------------------------------------
   // Recurring: token and schedule
   // ---------------------------------------------------------------------------

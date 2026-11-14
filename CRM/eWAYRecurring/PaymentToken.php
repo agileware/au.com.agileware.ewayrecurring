@@ -41,15 +41,15 @@ class CRM_eWAYRecurring_PaymentToken {
           'id' => $data,
           'return' => ["iso_code"],
         ]);
-        $country = array_shift($country['values']);
-        $billingDetails['billing_country'] = $country['iso_code'];
+        $country = array_shift($country['values']) ?: [];
+        $billingDetails['billing_country'] = $country['iso_code'] ?? '';
       }
       elseif (strpos($key, 'billing_state_province_id') !== FALSE) {
         $country = civicrm_api3('StateProvince', 'get', [
           'id' => $data,
         ]);
-        $country = array_shift($country['values']);
-        $billingDetails['billing_state_province'] = $country['name'];
+        $country = array_shift($country['values']) ?: [];
+        $billingDetails['billing_state_province'] = $country['name'] ?? '';
       }
     }
     $requiredBillingFields = [
@@ -321,6 +321,10 @@ class CRM_eWAYRecurring_PaymentToken {
    * @throws \CRM_Core_Exception
    */
   public static function getPaymentProcessorById($id) {
+    // Only this extension's own processors: another type has no eWAY credentials to build a client from.
+    if (!ctype_digit((string) $id) || !CRM_eWAYRecurring_Utils::isEwayProcessor((int) $id)) {
+      return NULL;
+    }
     $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [
       'id' => $id,
       'sequential' => 1,
