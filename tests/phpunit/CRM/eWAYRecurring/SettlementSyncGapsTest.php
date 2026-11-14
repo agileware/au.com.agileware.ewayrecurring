@@ -284,7 +284,9 @@ class CRM_eWAYRecurring_SettlementSyncGapsTest extends \PHPUnit\Framework\TestCa
    */
   public function testTheApiReconcilesAnEligibleContributionThroughTheInjectedClient(): void {
     $processor = Fixture::processor(FALSE, ['user_name' => 'm1-key', 'password' => 'm1-pass']);
-    $contributionId = $this->completedContribution($processor['id'], 'M1_ELIGIBLE', 100.00, 0.00, '-1 day');
+    // Twelve hours back: inside the one day window with room to spare (a date of exactly one day back is on the
+    // cutoff itself, which the sync works out a moment later, so it can fall just outside).
+    $contributionId =$this->completedContribution($processor['id'], 'M1_ELIGIBLE', 100.00, 0.00, '-12 hours');
     $this->submitSettingsForm([
       'eway_settlement_processors' => [(string) $processor['id']],
       'eway_settlement_window_days' => '1',
