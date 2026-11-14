@@ -312,3 +312,63 @@ export function makeNextPaymentDue(recurId: number): void {
       ->execute();
   `);
 }
+
+/**
+ * Give a recurring contribution a retry date relative to now (strtotime text, for example '-5 hours'), worked out on the
+ * server. The System Status check counts a Failed record only once its retry date is more than four hours old.
+ */
+export function setRetryDate(recurId: number, when: string): void {
+  evaluate(`
+    \\Civi\\Api4\\ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', ${Number(recurId)})
+      ->addWhere('is_test', 'IN', [FALSE, TRUE])
+      ->addValue('failure_retry_date', date('Y-m-d H:i:s', strtotime(${php(when)})))
+      ->execute();
+  `);
+}
+
+/** Make a recurring contribution a test-mode one (the System Status check and the Failed list leave those out). */
+export function makeTestRecord(recurId: number): void {
+  api4('ContributionRecur', 'update', { where: [['id', '=', recurId], ['is_test', 'IN', [false, true]]], values: { is_test: true } });
+}
+
+/** Retry dates as they were, by recurring contribution id (null for none), so they can be put back. */
+export type SavedRetryDates = Record<number, string | null>;
+
+/**
+ * Make every Failed recurring contribution on the site look as if it failed a moment ago, so the System Status check
+ * (which counts Failed records whose retry date is more than four hours old) does not see it. Earlier cases leave Failed
+ * records behind. Returns the original dates for restoreRetryDates().
+ */
+export function setFailedRecordsAside(): SavedRetryDates {
+  const out = evaluate(`
+    $saved = [];
+    $dao = CRM_Core_DAO::executeQuery('SELECT id, failure_retry_date FROM civicrm_contribution_recur WHERE contribution_status_id = %1', [1 => [CRM_eWAYRecurring_Utils::contribution_status_id('Failed', TRUE), 'Integer']]);
+    while ($dao->fetch()) {
+      $saved[(int) $dao->id] = $dao->failure_retry_date ?: NULL;
+    }
+    if ($saved) {
+      CRM_Core_DAO::executeQuery('UPDATE civicrm_contribution_recur SET failure_retry_date = NOW() WHERE id IN (' . implode(',', array_keys($saved)) . ')');
+    }
+    echo json_encode((object) $saved);
+  `);
+  return JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+}
+
+/** Put back the retry dates setFailedRecordsAside() took. */
+export function restoreRetryDates(saved: SavedRetryDates): void {
+  if (!Object.keys(saved).length) {
+    return;
+  }
+  evaluate(`
+    $saved = json_decode(${php(JSON.stringify(saved))}, TRUE);
+    foreach ($saved as $id => $date) {
+      if ($date === NULL) {
+        CRM_Core_DAO::executeQuery('UPDATE civicrm_contribution_recur SET failure_retry_date = NULL WHERE id = %1', [1 => [(int) $id, 'Integer']]);
+      }
+      else {
+        CRM_Core_DAO::executeQuery('UPDATE civicrm_contribution_recur SET failure_retry_date = %1 WHERE id = %2', [1 => [$date, 'String'], 2 => [(int) $id, 'Integer']]);
+      }
+    }
+  `);
+}

@@ -82,3 +82,14 @@ export async function latestJobResult(page: Page, name: string): Promise<string>
 export function jobLogCount(name: string): number {
   return api4<{ id: number }>('JobLog', 'get', { select: ['id'], where: [['job_id', '=', jobIdByName(name)]] }).length;
 }
+
+/** How many saved eWAY cards are missing their expiry date or masked number, which is what the fill-in job looks for. */
+export function cardsWithoutDetails(): number {
+  return api4<{ id: number }>('PaymentToken', 'get', {
+    select: ['id'],
+    where: [
+      ['payment_processor_id.payment_processor_type_id.name', '=', 'eWay_Recurring'],
+      ['OR', [['expiry_date', 'IS NULL'], ['masked_account_number', 'IS NULL']]],
+    ],
+  }).length;
+}

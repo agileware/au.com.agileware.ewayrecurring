@@ -20,7 +20,7 @@ import {
   recurringViewUrl,
   RECURRING_VIEW_CORE_NOISE,
 } from '../../fixtures/recurring-screens';
-import { JOB, jobRow, latestJobResult, openJobs, runJobFromScreen } from '../../fixtures/scheduled-jobs';
+import { cardsWithoutDetails, JOB, jobRow, latestJobResult, openJobs, runJobFromScreen } from '../../fixtures/scheduled-jobs';
 
 /**
  * PW-B-jobs: the four scheduled jobs the extension adds, as an administrator sees them on CiviCRM's Scheduled Jobs
@@ -114,13 +114,7 @@ test.describe('scheduled jobs: run from the screen', () => {
     expect(before.expiry_date ?? null).toBeNull();
 
     // How many cards the job has to fill in on this site: ours, and any other one an earlier case left without details.
-    const waiting = api4<{ id: number }>('PaymentToken', 'get', {
-      select: ['id'],
-      where: [
-        ['payment_processor_id.payment_processor_type_id.name', '=', 'eWay_Recurring'],
-        ['OR', [['expiry_date', 'IS NULL'], ['masked_account_number', 'IS NULL']]],
-      ],
-    }).length;
+    const waiting = cardsWithoutDetails();
     expect(waiting).toBeGreaterThanOrEqual(1);
 
     // eWAY knows the card. A card expires at the end of its month, and eWAY gives the year as two digits.

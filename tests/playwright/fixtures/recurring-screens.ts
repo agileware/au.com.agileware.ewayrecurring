@@ -76,8 +76,36 @@ export function cancelRecurringUrl(record: Pick<RecurringRecord, 'recurId' | 'co
 }
 
 /**
+ * Open the Failed Recurring Contributions list (a Search Kit page) and wait until it has asked the server for its rows and
+ * drawn them, so a case can also check that a record is not on it.
+ */
+export async function openFailedList(page: Page): Promise<void> {
+  const rows = page.waitForResponse((response) => response.request().method() === 'POST' && /ajax(\/|%2F)api4$/.test(response.url()));
+  await page.goto(adminUrl('contribute/failedrecurring', { reset: 1 }));
+  await expect(page.getByRole('heading', { name: 'Failed Recurring Contributions' }).first()).toBeVisible();
+  await rows;
+  await page.waitForLoadState('networkidle');
+}
+
+/** A recurring contribution's row on the Failed Recurring Contributions list, found by the id in its ID column. */
+export function failedListRow(page: Page, recurId: number): Locator {
+  return page.locator('tbody tr').filter({
+    has: page.locator('[data-field-name="id"]').filter({ hasText: new RegExp(`^\\s*${recurId}\\s*$`) }),
+  });
+}
+
+/**
  * Core's own "Recurring Contribution" page prints "Undefined array key invoice_id" twice for every recurring record,
  * whatever the processor (a template reads a key the page never sets). That is CiviCRM's, not this extension's, so the
  * cases that open the page allow it.
  */
 export const RECURRING_VIEW_CORE_NOISE = /Undefined array key "invoice_id"/;
+
+/**
+ * The contact's tabs load their lists through Search Kit, and a list still loading when the next page is opened has its
+ * request cancelled by the browser. That is the test moving on, not a failure of the page.
+ */
+export const SEARCH_ABORTED = /SearchDisplay%2Frun \(net::ERR_ABORTED\)/;
+
+/** Both of the above, as one pattern (test.use() reads a list whose second item is an object as a pair). */
+export const SCREEN_NOISE = new RegExp(`${RECURRING_VIEW_CORE_NOISE.source}|${SEARCH_ABORTED.source}`);
