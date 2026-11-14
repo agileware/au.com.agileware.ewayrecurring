@@ -217,6 +217,8 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
       $validated = &Civi::$statics[__FUNCTION__ . '::validated'];
       if(!isset($validated[$invoiceID])) {
         CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $invoiceID);
+        // Remember it, so the page asks eWAY once per invoice.
+        $validated[$invoiceID] = TRUE;
       }
       // fixme CIVIEWAY-144 temporary fix, remove this if the issue is solved in core
       if (!$form->_priceSetId || CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $form->_priceSetId, 'is_quick_config')) {
