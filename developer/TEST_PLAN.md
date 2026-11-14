@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **281**. Done: **160**. In progress: **11**. Blocked: **0**. To do: **105**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **281**. Done: **160**. In progress: **19**. Blocked: **0**. To do: **97**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -89,7 +89,7 @@ Cases defined: **281**. Done: **160**. In progress: **11**. Blocked: **0**. To d
 | PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 5 | 0 | 0 | 0 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
 | PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
-| PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 5 | 0 | 8 | 0 | Phase 0 infra, S1 stub |
+| PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 13 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F2 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
 | PW-F3 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
 | PW-F4 | Playwright | `specs/frontend/` | 7 | 0 | 0 | 0 | 7 | 0 | Phase 0 infra, S1 stub |
@@ -117,7 +117,7 @@ run date in the change log.
 | Playwright group | WordPress | Drupal | Joomla | Standalone |
 | --- | --- | --- | --- | --- |
 | Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | full (GitHub and local) | none | none | none |
-| Frontend (PW-F1 to PW-F6) | partial (PW-F1 green on GitHub and locally) | none | none | none |
+| Frontend (PW-F1 to PW-F6) | partial (all 13 PW-F1 cases green on GitHub) | none | none | none |
 | Backend (PW-B-*) | none | none | none | none |
 | Security (PW-S) | none | none | none | none |
 | Sandbox (PW-X) | none | n/a | n/a | n/a |
@@ -140,7 +140,7 @@ Tests that already existed before this plan (not part of the case counts above):
 | Update billing, retry and recovery of Failed records | Covered by PHPUnit | PU-N5 to PU-N9, with the donor-path fixes DEF-13 and DEF-14. |
 | Upgrade from 2.8.1 | Covered in CI | `tests/upgrade/` and PU-L, 57 checks green on GitHub. |
 | Hooks, settings form, permissions, Search Kit action | Covered by PHPUnit | PU-H, PU-I, PU-J and PU-O are done. The browser side (`js/eway.js`, the Search Kit screens) is only reachable with Playwright. |
-| Front end | Started | Playwright PW-F1 (once-off contribution page) has five cases green on WordPress, on GitHub and locally. The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
+| Front end | Started | Playwright PW-F1 (once-off contribution page) has all 13 cases green on WordPress, on GitHub. The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
 | CI | PHPUnit, upgrade and Playwright | `phpunit-tests.yml`, `upgrade-tests.yml` and `frontend-tests.yml` call the shared workflows in `agileware/ci-workflows`. They run on pushes to master, on pull requests and on demand. Playwright runs on WordPress only. |
 | Coverage config | Restricted | `phpunit.xml.dist` includes only `CRM/` and `api/` (the generated DAO files are excluded). |
 
@@ -153,7 +153,7 @@ log in section 8. This section is a summary and goes stale: when you finish a su
 
 | # | Feature (from [user docs](../docs/README.md)) | Main code | Headless suites | Playwright suites | Coverage now |
 | --- | --- | --- | --- | --- | --- |
-| FEAT-1 | Once-off payment via Responsive Shared Page | `CRM_Core_Payment_eWAYRecurring::doPayment`, `VerifyPayment`, `Utils::validateContribution` | PU-B, PU-C, PU-D | PW-F1 | Headless: good (PU-B, PU-C, PU-D done). Front end: PW-F1 five of thirteen cases, WordPress |
+| FEAT-1 | Once-off payment via Responsive Shared Page | `CRM_Core_Payment_eWAYRecurring::doPayment`, `VerifyPayment`, `Utils::validateContribution` | PU-B, PU-C, PU-D | PW-F1 | Headless: good (PU-B, PU-C, PU-D done). Front end: PW-F1 all thirteen cases green on WordPress (`wip` until the other CMSs run) |
 | FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | Headless: good (PU-D done). Front end: none |
 | FEAT-3 | Recurring processing by cron, with retry of failures | `ProcessTrait::process_recurring_payments` and helpers | PU-F | PW-B-cron | Headless: good (PU-F, 26 of 28). Front end: none |
 | FEAT-4 | Saved-card ("stored credit card") back-office payments | `doPayment` back-office branch, `js/eway.js`, `PaymentToken::createToken/saveToken` | PU-B, PU-G | PW-B-backoffice | Headless: good (PU-B and PU-G done). Front end: none |
@@ -444,6 +444,7 @@ branch the status reads `Fixed on `release-3.0.0``; change it to the release num
 | DEF-32 | Fixed on `release-3.0.0` (testability) | `EwaySettlement.Sync` API, `CRM_eWAYRecurring_SettlementSync` | The API and the scheduled job build their own sync with a real HTTP client, so a scoped call with an eligible contribution could only be tested against the real gateway. `SettlementSync::setHttpClientFactory()` now lets a test replace the client the sync builds when none is passed (NULL in production). | PU-M1 |
 | DEF-33 | Intended (not a defect) | `updateSubscriptionBillingInfo()`, `PaymentToken::createToken()` | Adding a card makes no authorisation call with the card issuer, so a bad card is only found at the next charge (which then goes through the retry and Failed path). The extension was never meant to check a card when it is added, so this is a missing feature, not a defect. It is planned as feature FR-3 in [FEATURES.md](FEATURES.md), with what eWAY's documentation offers (an `Authorise` pre-authorisation on a token) and the research notes. Kept as a record so the ID is not reused. | PW-X-05 |
 | DEF-34 | Intended (not a defect) | `js/eway.js`, `PaymentToken` API permissions | The donor update-billing page loads the stored card list through the PaymentToken API, which needs a staff permission, so a donor with only "make online contributions" would see "No cards found." The function is not offered to donors today: a donor-facing update-card page is the planned feature FR-1 (see [FEATURES.md](FEATURES.md)), which will give donors a way to read only their own cards. Kept as a record so the ID is not reused, and so FR-1 starts from it. | PW-F4-07 |
+| DEF-35 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_validateForm()` | The hook read the `entity_id` of the managed record for the processor type with `->first()['entity_id']`, on every form on the site. Where that record is missing (a site whose processor type pre-dates managed entities) the read is on null and prints "Warning: Trying to access array offset on null" to the donor, on any form that re-displays after a validation error. Found by the first PW-F1-02 server-side run on a local site. The hook now looks the processor type up by name and only on the processor admin form. | PU-H5, PW-F1-02 |
 
 ---
 
@@ -762,18 +763,18 @@ stay `wip` until Drupal, Joomla and Standalone have run them too (section 0.1 re
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
 | PW-F1-01 | wip | all | Page renders with no card fields (card entry happens on eWAY); processor selectable and pre-selected when the only one |
-| PW-F1-02 | todo | all | Required billing fields are enforced client and server side before leaving the site |
+| PW-F1-02 | wip | all | Required billing fields are enforced client and server side before leaving the site **Found:** the server only enforces email and first and last name; street, city, state and postcode are not required server-side (CiviCRM core behaviour), so only the browser enforces them |
 | PW-F1-03 | wip | all | Confirm page shows the correct amount, billing address and email, and a Continue button (there is no "Make Contribution" wording) |
 | PW-F1-04 | wip | all | Continue redirects to the stub hosted page, which shows the right amount, invoice reference and customer name; the extension asked eWAY for that amount and a return address on the thank you step (eWAY sends the donor back to the thank you step, which checks the payment as it loads) |
 | PW-F1-05 | wip | all | Approve on the hosted page: land on Thank You, contribution is Completed in DB with `trxn_id`, queue row status Success, receipt flag respected, contact has a token only for recurring (none for once-off check) |
 | PW-F1-06 | wip | all | Decline on the hosted page: friendly "payment was declined" message with the eWAY text, contribution Failed, no token created, form can be resubmitted |
-| PW-F1-07 | todo | all | Hosted page "Cancel": back on the contribution form with data kept; browser Back after Confirm; double submit; re-posting the Thank You URL shows the "already completed" message instead of charging twice (covers DEF-2) |
-| PW-F1-08 | todo | all | Customer never returns to the site: contribution stays Pending, then `EwayContributionTransactions.validate` completes it (see PW-F5) |
-| PW-F1-09 | todo | all | Non-ASCII names, addresses and descriptions (accents, apostrophes, emoji) complete and arrive at the stub sanitised |
-| PW-F1-10 | todo | all | Test-mode contribution page (`mode=test`) uses the test processor and marks the contribution `is_test` |
-| PW-F1-11 | todo | all | Zero-amount (free price option) completes without any call to eWAY |
-| PW-F1-12 | todo | all | Mobile viewport (375 px) completes the journey; no horizontal overflow |
-| PW-F1-13 | todo | all | A declined payment and the thank-you page show their messages visibly inside the CMS theme (Astra, Olivero, Cassiopeia, Standalone): not hidden, unstyled or pushed off screen |
+| PW-F1-07 | wip | all | Hosted page "Cancel": back on the contribution form with data kept; browser Back after Confirm; double submit; re-posting the Thank You URL shows the "already completed" message instead of charging twice (covers DEF-2) **Found:** re-opening the Thank You URL after paying shows CiviCRM's "session has expired" and a fresh form (no second charge); the "Payment already completed" message is what a donor sees going Back to Confirm after paying (CiviCRM answers with an HTTP 500 error page, which the test expects). Back from the hosted page then Continue shows core's raw "Duplicate error" message, safe but unfriendly (observation, not a defect). The DEF-2 branch of `doPayment()` cannot be reached through the UI because core's duplicate-invoice check fires first |
+| PW-F1-08 | wip | all | Customer never returns to the site: contribution stays Pending, then `EwayContributionTransactions.validate` completes it (see PW-F5) The stub answers by method and order, not access code, so the test parks other waiting queue rows first (`setOtherQueueRowsAside`); PW-F5 needs the same |
+| PW-F1-09 | wip | all | Non-ASCII names, addresses and descriptions (accents, apostrophes, emoji) complete and arrive at the stub sanitised |
+| PW-F1-10 | wip | all | Test-mode contribution page (`mode=test`) uses the test processor and marks the contribution `is_test` Test mode on CiviCRM is `action=preview`, not `mode=test` |
+| PW-F1-11 | wip | all | Zero-amount (free price option) completes without any call to eWAY |
+| PW-F1-12 | wip | all | Mobile viewport (375 px) completes the journey; no horizontal overflow **Found:** on a fresh CI site the donation form is about 450px wide on a 375px screen (CiviCRM core's billing fieldset inside Astra; the extension adds no CSS). The journey and the confirm and thank-you steps fit and are tested; a second test pins the form width with `test.fail()` until it is fixed (not an extension defect) |
+| PW-F1-13 | wip | all | A declined payment and the thank-you page show their messages visibly inside the CMS theme (Astra, Olivero, Cassiopeia, Standalone): not hidden, unstyled or pushed off screen WordPress and Astra only so far |
 
 **PW-F2 recurring contribution** (`contribution-recurring.spec.ts`)
 
@@ -1046,6 +1047,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PW-F1 completed for WordPress: PW-F1-02 and 07 to 13 written by a Playwright agent on the local site (snapshot, run, restore, all checked) and green on GitHub (28 tests passed, workflow run on `17b4f72`). All 13 PW-F1 cases are `wip` (CMS column is all). Three CI-only differences were handled: the first click on the amount radio could be dropped at phone width (the helper now retries until it sticks); CiviCRM answers the "payment already completed" refusal with an HTTP 500 page, which PW-F1-07 now expects; and on a fresh CI site core's billing fieldset inside Astra is about 450px wide on a 375px screen, so PW-F1-12 is split into the journey (passes) and a form-width test marked `test.fail()` until that is fixed (not an extension defect). DEF-35 found and fixed (the validate hook's null read, covered by PU-H5). PHPUnit green at 431 tests. 97 cases to do, all Playwright. |
 | 2026-11-14 | Known gaps logged and fixed: DEF-28 (back-office card ownership, processor and expiry check), DEF-29 and DEF-30 (two unreachable branches in `doPayment()` removed), DEF-31 (`sanitizeToAscii("0")` kept), DEF-32 (settlement sync client injectable, with a new PU-M1 test of a scoped call through the API). DEF-33 (no issuer authorisation when a card is added) was logged and then reclassified as intended, because it is a new feature (FR-3) and not a defect. DEF-34 (a donor cannot list their own cards) was logged and then reclassified as intended, because the function is not offered to donors and FR-1 is the feature that adds it. PHPUnit green on GitHub at `fcf5227` (430 tests). |
 | 2026-11-14 | PU-K1 to K3 done. `VerifyPayment::run()` now reads the request and calls a new `resolve()`, which returns `['redirect' => URL]` or `['status' => 400]`; `run()` sends the 400 header and `die()` or the redirect. No second seam was needed: the failure redirect inside `validateEwayContribution()` is the framework's exit exception in tests, which `PagesTest` catches. PHPUnit green on GitHub at `b0696f7` (423 tests). 160 cases done, none blocked. |
 | 2026-11-14 | PHPUnit round: 79 cases written by three parallel agents on separate test files and made green on GitHub (PHPUnit 412 tests, upgrade 57 checks, both green on `release-3.0.0` at `1ae8113`): PU-A (nine more), PU-B (all but B12 already done), PU-C, PU-F25 and F26, PU-G, PU-H, PU-I, PU-J, PU-L1, L3 to L5, PU-M, PU-N1 to N4, PU-O. 157 cases done. The first run failed 22 tests, which found DEF-20 and DEF-21 and confirmed DEF-27; the rest were test fixes. Defects found and fixed along the way: DEF-19 to DEF-27. Cases reworded because the code under test is dead or changed: PU-B2 (the comma amount never reaches the conversion), PU-B4 (the `cvv_backoffice_required` branch is unreachable), PU-C1 and C2 (the UpdateBilling variants went with `VerifyUpdateToken`), PU-M1 (a scoped call would reach the real gateway). PU-K1 to K3 stay blocked: the refactor would extract a `resolve()` method from `VerifyPayment::run()`, and the failure redirect in `validateContribution()` needs a second seam. |
