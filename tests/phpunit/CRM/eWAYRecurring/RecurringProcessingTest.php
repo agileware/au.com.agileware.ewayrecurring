@@ -471,6 +471,36 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
+   * A declined charge whose answer carries no ResponseMessage (null) must not raise a PHP deprecation: the job
+   * split the message with explode(), and PHP 8.1 deprecates passing null to it (DEF-17).
+   *
+   * @testPlan PU-F28
+   */
+  public function testDeclinedChargeWithNoResponseMessageRaisesNoDeprecation(): void {
+    [$processor, $recur] = $this->dueRecurring();
+    $declined = ['ResponseMessage' => NULL] + Responses::paymentDeclined('D4401', self::nextTransactionId());
+    $this->http->respond('postTransaction', $declined);
+
+    $deprecations = [];
+    set_error_handler(function ($level, $message) use (&$deprecations) {
+      if ($level === E_DEPRECATED || $level === E_USER_DEPRECATED) {
+        $deprecations[] = $message;
+      }
+      return TRUE;
+    });
+    try {
+      $this->runCron($processor);
+    }
+    finally {
+      restore_error_handler();
+    }
+
+    $this->assertSame([], $deprecations);
+    $charge = Fixture::reloadContribution($this->charges($recur)[0]['id']);
+    $this->assertSame('Failed', $this->contributionStatus($charge));
+  }
+
+  /**
    * When the last permitted retry fails, the recurring contribution is marked
    * Failed (DEF-3). Nothing charges it again, it appears in the Failed Recurring
    * Contributions list and the system status check, and Reactivate resets it.

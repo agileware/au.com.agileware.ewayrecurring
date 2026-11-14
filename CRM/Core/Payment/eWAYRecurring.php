@@ -16,6 +16,14 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 
   public $_mode = 'live';
 
+  /**
+   * Whether the contribution being validated is a test one. CiviCRM core reads it when it builds some return
+   * addresses and validateContribution() sets it; declared here because PHP 8.2 deprecates creating it on the fly.
+   *
+   * @var bool
+   */
+  public $_is_test = FALSE;
+
   protected $eWayClient;
 
   public static function getInstance(&$paymentProcessor) {
@@ -253,15 +261,15 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     $eWayCustomer = [
         'Reference' => substr((isset($params['contactID'])) ? 'Civi-' . $params['contactID'] : '',0,16),
         // Referencing eWay customer with CiviCRM id if we have.
-        'FirstName' => substr($params['first_name'],0,50),
-        'LastName' => substr($params['last_name'],0,50),
-        'Street1' => substr(self::getBillingParam('street_address', $params),0,50),
-        'City' => substr(self::getBillingParam('city', $params),0,50),
-        'State' => substr(self::getBillingParam('state_province', $params),0,50),
-        'PostalCode' => substr(self::getBillingParam('postal_code', $params),0,30),
+        'FirstName' => substr((string) $params['first_name'],0,50),
+        'LastName' => substr((string) $params['last_name'],0,50),
+        'Street1' => substr((string) self::getBillingParam('street_address', $params),0,50),
+        'City' => substr((string) self::getBillingParam('city', $params),0,50),
+        'State' => substr((string) self::getBillingParam('state_province', $params),0,50),
+        'PostalCode' => substr((string) self::getBillingParam('postal_code', $params),0,30),
         'Country' => $params['country'],
         // Email is not accessible for updateSubscriptionBillingInfo method.
-        'Email' => substr(self::getBillingParam('email', $params),0,50)
+        'Email' => substr((string) self::getBillingParam('email', $params),0,50)
     ];
 
     if (isset($params['subscriptionId']) && !empty($params['subscriptionId'])) {
@@ -524,7 +532,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       } else {
         $errorMessage = implode(', ', array_map(
             '\Eway\Rapid::getMessage',
-            explode(', ', $eWAYResponse->ResponseMessage))
+            explode(', ', (string) $eWAYResponse->ResponseMessage))
         );
         $this->paymentFailed($params, $errorMessage);
       }

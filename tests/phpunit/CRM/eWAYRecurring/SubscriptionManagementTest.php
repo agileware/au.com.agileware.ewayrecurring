@@ -149,6 +149,33 @@ class CRM_eWAYRecurring_SubscriptionManagementTest extends \PHPUnit\Framework\Te
     $this->assertEquals($token['id'], $after['payment_token_id']);
   }
 
+  /**
+   * A donor with no state or no email address is common. The code that builds the customer for eWAY cut those
+   * values with substr(), and PHP 8.1 deprecates passing null to it, so a notice could reach the page (DEF-18).
+   *
+   * @testPlan PU-N9
+   */
+  public function testUpdatingBillingWithNoStateOrEmailRaisesNoDeprecation(): void {
+    [$processor, $recur, $contactId] = $this->failedRecurring();
+    $token = Fixture::token($contactId, $processor['id'], ['token' => 'NODEPREC0001']);
+
+    $deprecations = [];
+    set_error_handler(function ($level, $message) use (&$deprecations) {
+      if ($level === E_DEPRECATED || $level === E_USER_DEPRECATED) {
+        $deprecations[] = $message;
+      }
+      return TRUE;
+    });
+    try {
+      $this->assertTrue($this->updateBilling($processor, $recur, $token['id']));
+    }
+    finally {
+      restore_error_handler();
+    }
+
+    $this->assertSame([], $deprecations);
+  }
+
   // ---------------------------------------------------------------------------
   // Which saved card may be chosen (DEF-14)
   // ---------------------------------------------------------------------------

@@ -235,7 +235,7 @@ class CRM_eWAYRecurring_Utils {
             $transactionNotProcessedYet = TRUE;
           } elseif (!$transactionResponse->TransactionStatus) {
             $hasTransactionFailed = TRUE;
-            $transactionMessages = implode(', ', array_map('\Eway\Rapid::getMessage', explode(', ', $transactionResponse->ResponseMessage)));
+            $transactionMessages = implode(', ', array_map('\Eway\Rapid::getMessage', explode(', ', (string) $transactionResponse->ResponseMessage)));
             $transactionResponseError = 'Your payment was declined: ' . $transactionMessages;
           }
         }

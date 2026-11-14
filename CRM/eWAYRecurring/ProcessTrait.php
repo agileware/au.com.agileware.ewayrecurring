@@ -198,7 +198,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
         $responseErrors = $this->getEWayResponseErrors($eWayResponse);
 
         if (!$eWayResponse->TransactionStatus) {
-          $responseMessages = array_map('\Eway\Rapid::getMessage', explode(', ', $eWayResponse->ResponseMessage));
+          $responseMessages = array_map('\Eway\Rapid::getMessage', explode(', ', (string) $eWayResponse->ResponseMessage));
           $responseErrors = array_merge($responseMessages, $responseErrors);
         }
 
