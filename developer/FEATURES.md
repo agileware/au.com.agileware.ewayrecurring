@@ -46,6 +46,7 @@ documentation (that lives in `docs/`).
 | ID | Feature | Status | Target release | Test plan |
 | --- | --- | --- | --- | --- |
 | [FR-1](#fr-1-donor-facing-update-my-stored-card-page) | Donor-facing "update my stored card" page | `planned` | to be decided | Group to be added once decisions D1 to D5 are settled; supporting cases listed below |
+| [FR-2](#fr-2-upgrade-step-mark-exhausted-recurring-contributions-failed) | Upgrade step: mark exhausted recurring contributions Failed | `planned` | 3.0.0 | PU-L6 to PU-L8, UP-10 |
 
 ---
 
@@ -206,10 +207,118 @@ New cases will be added to the test plan once decisions D1 to D5 are settled. Th
 
 ---
 
+## FR-2 Upgrade step: mark exhausted recurring contributions Failed
+
+| | |
+| --- | --- |
+| Status | `planned` |
+| Raised | 2026-11-14 |
+| Target release | 3.0.0 |
+
+### Summary
+
+When 3.0.0 is installed over an earlier release, find the recurring contributions that the old retry
+behaviour left stuck and mark them Failed, so they appear in the Failed Recurring Contributions list
+and the System Status check, and so anything that recovers Failed records (Reactivate, or a site's
+own update-card page) can recover them.
+
+### Why
+
+Up to 2.8.2, when a recurring contribution used up its retries it kept the status In Progress, with
+`failure_count` at the retry limit and a retry date set. Neither cron list selects such a record:
+the normal list only takes records with no retry date, and the retry list only takes records below
+the limit. The Failed Recurring list, the System Status check and the Reactivate action all look for
+the status Failed, so they never see it. The record stays stuck, and the donor is never charged again,
+with nothing on screen to say so.
+
+The fix for this (DEF-3 in the test plan) marks a record Failed once its retries are used up, but only
+from then on. It does not touch records that were already stuck when the site upgraded. Without a data
+step, those donors stay stuck after the upgrade, including on sites whose own update-card page resets
+Failed records, because that reset finds nothing to reset.
+
+### Proposed behaviour
+
+- A new revision, `upgrade_30000`, in `CRM_eWAYRecurring_Upgrader`.
+- It selects recurring contributions that use an eWAY recurring payment processor, have the status In
+  Progress, have a retry date, and have `failure_count` at or above the retry limit saved in the
+  setting `eway_recurring_contribution_max_retry` when the step runs.
+- It sets their status to Failed and changes nothing else: the failure count, retry date and next
+  scheduled date stay as they were.
+- It can be run again safely (a second run finds nothing to change).
+- It writes the number of records changed, and their ids, to the CiviCRM log, and shows the number
+  in the upgrade output.
+- It sends no email and creates no activity.
+
+After the upgrade the System Status check starts reporting these records, because each one's retry
+date is already more than four hours old. That is intended: it is the first time anyone sees them.
+
+### Risks
+
+- **Hooks and rules.** Changing the status through the API fires the usual hooks, and CiviRules or
+  similar tools may have rules on recurring contribution changes. A bulk change could send many emails
+  or create many log rows. Writing the status directly in SQL avoids that but also skips the
+  logging tables and any hook a site relies on (decision U1).
+- **A sudden count.** A site with many stuck records will see a large number in System Status and
+  in the Failed list on the day it upgrades. Release notes should say so.
+- **Recovery is not automatic.** Marking a record Failed does not charge it. Staff (Reactivate) or a
+  site's own update-card page still have to recover it. What happens to its schedule date on
+  recovery is decision D3 in FR-1.
+
+### Checking a site by hand
+
+Before upgrading, this lists the records the step would change. Replace the two placeholders with
+the eWAY processor's id and the saved retry limit:
+
+```sql
+SELECT cr.id, cr.contact_id, cr.failure_count, cr.failure_retry_date
+FROM civicrm_contribution_recur cr
+WHERE cr.payment_processor_id = <processor id>
+  AND cr.failure_count >= <retry limit>
+  AND cr.failure_retry_date IS NOT NULL
+  AND cr.contribution_status_id = (
+    SELECT ov.value FROM civicrm_option_value ov
+    JOIN civicrm_option_group og ON og.id = ov.option_group_id
+    WHERE og.name = 'contribution_recur_status' AND ov.name = 'In Progress');
+```
+
+### Decisions still open
+
+| # | Status | Question | Notes |
+| --- | --- | --- | --- |
+| U1 | Open | Apply the change through the API (hooks and rules fire, logging records it) or with direct SQL (silent)? | Check whether the sites that will upgrade have rules on recurring contribution changes. Silent is safer for the first run; the API is more conventional |
+| U2 | Open | Include test-mode records? | The System Status check ignores them. Proposed: leave them alone |
+| U3 | Open | Include records still Pending? | The retry list only selects In Progress, so a Pending record that failed is stuck in the same way. Such records are rare (the cron only charges a recurring contribution that already has a Completed contribution), so proposed: leave them alone |
+| U4 | Open | Also repair the other stuck state: In Progress, retry date set, `failure_count` 0? | Left by an old update-billing page that reset the count but not the date. Neither list selects it. A repair would clear the retry date so the normal list charges it on the next run, which charges the missed payment straight away |
+| U5 | Open | Offer a preview (an API action that lists what would change) so staff can check before upgrading? | The SQL above is the minimum |
+| U6 | Open | Use the retry limit saved at upgrade time, or treat any record with failures and a retry date as exhausted? | Saved limit proposed. A site that lowered the limit would see more records marked |
+
+### Acceptance criteria
+
+- [ ] An upgrade from 2.8.1 marks every stuck record Failed and nothing else (UP-10).
+- [ ] Records that must not change are unchanged: below the limit, no retry date, other statuses,
+      other processors, and test records unless U2 says otherwise (PU-L7).
+- [ ] Running the step twice changes nothing more (PU-L8).
+- [ ] No email is sent and no activity is created by the step (PU-L8).
+- [ ] The count appears in the upgrade output and the log.
+- [ ] The release notes describe the new System Status message and the Failed list entries.
+
+### Test coverage
+
+| ID | What it covers |
+| --- | --- |
+| PU-L6 | The step marks exhausted In Progress records Failed and leaves their other fields alone |
+| PU-L7 | Records that must not change |
+| PU-L8 | Idempotent, uses the saved limit, reports the count, no mail or activities |
+| UP-10 | The same through a real upgrade from the baseline release |
+| PU-F14, PU-F15 | The DEF-3 behaviour for records that become exhausted after the upgrade |
+
+---
+
 ## 2. Change log
 
 Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 added: an upgrade step that marks recurring contributions left stuck by releases up to 2.8.2 as Failed, planned for 3.0.0, with six open decisions (U1 to U6). |
 | 2026-11-14 | File created with FR-1, the donor-facing update-my-stored-card page, as `planned`. Nine open decisions recorded. |

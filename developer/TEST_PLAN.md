@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **263**. Done: **56**. In progress: **1**. Blocked: **3**. To do: **198**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **267**. Done: **56**. In progress: **1**. Blocked: **3**. To do: **202**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -83,11 +83,11 @@ Cases defined: **263**. Done: **56**. In progress: **1**. Blocked: **3**. To do:
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
 | PU-J | PHPUnit | `SettingsFormTest` | 7 | 0 | 0 | 0 | 7 | 0 | none |
 | PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 3 | 0 | 3 | page refactor (PU-K1 to K3); PU-K4 to K6 dropped with the deleted page |
-| PU-L | PHPUnit | `SchemaAndUpgradeTest` | 5 | 1 | 0 | 0 | 4 | 0 | none |
+| PU-L | PHPUnit | `SchemaAndUpgradeTest` | 8 | 1 | 0 | 0 | 7 | 0 | none |
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 0 | 0 | 0 | 4 | 0 | none |
 | PU-N | PHPUnit | `SubscriptionManagementTest` | 8 | 4 | 0 | 0 | 4 | 0 | none |
 | PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 0 | 0 | 0 | 5 | 0 | none |
-| UP | Upgrade (CI) | `tests/upgrade/` | 9 | 0 | 0 | 0 | 8 | 1 | none (shared upgrade workflow exists); UP-07 dropped |
+| UP | Upgrade (CI) | `tests/upgrade/` | 10 | 0 | 0 | 0 | 9 | 1 | none (shared upgrade workflow exists); UP-07 dropped |
 | PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 0 | 0 | 13 | 0 | Phase 0 infra, S1 stub |
 | PW-F2 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
 | PW-F3 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
@@ -624,6 +624,9 @@ version with seeded data are covered by the `UP` suite below.
 | PU-L3 | todo | Each `upgrade_*` step is idempotent when run twice |
 | PU-L4 | todo | `upgrade_20601` rewrites legacy class names on processor type and live processors only |
 | PU-L5 | todo | DAO and BAO metadata (`entityType.php`) match the table |
+| PU-L6 | todo | `upgrade_30000` marks a recurring contribution Failed when it is for an eWAY processor, In Progress, has a retry date and has `failure_count` at or above the configured retry limit (the stuck state left by releases up to 2.8.2); its failure count, retry date and schedule date are unchanged (FR-2) |
+| PU-L7 | todo | `upgrade_30000` leaves alone: a record below the limit, a record with no retry date, records that are Completed, Cancelled or already Failed, other processors' records, and test records unless decision U2 says otherwise (FR-2) |
+| PU-L8 | todo | `upgrade_30000` is idempotent (a second run changes nothing), uses the retry limit saved at the time it runs, reports the number of records changed, and does not send mail or create activities (FR-2) |
 
 ### PU-M `SettlementSync` gaps (add to existing class or a sibling)
 
@@ -667,19 +670,20 @@ non-zero on any problem. The elections extension is the reference implementation
 (`tests/upgrade/ci-upgrade-test.sh`, `seed-v1.php`, `verify-v2.php`, `upgrade-from-v1.sh`, and an
 `upgrade-tests.yml` that passes `FROM_REF`). The database upgrade is independent of the CMS, so
 this suite runs on WordPress only. Pick `FROM_REF` as the last release the upgrade must support
-(decision 9: tag `2.8.1`); each `FROM_REF` is one workflow job. Note that between 2.8.1 and 2.8.2 the extension changed only the menu XML (`is_ajax` flags on `createtoken` and `savetoken`), and the upgrader has no step after `upgrade_20601`. From the 2.8.1 baseline the suite is therefore chiefly a guard that an in-place upgrade keeps data, settings and managed entities and rebuilds the menu, and it will exercise real upgrade steps only once a release adds one. A second, older baseline (2.6.1) would exercise real upgrade steps (`upgrade_20300` and `upgrade_20601`) and the switch of upgrader class; that case, UP-07, was dropped as not needed.
+(decision 9: tag `2.8.1`); each `FROM_REF` is one workflow job. Note that between 2.8.1 and 2.8.2 the extension changed only the menu XML (`is_ajax` flags on `createtoken` and `savetoken`), and the upgrader has no step after `upgrade_20601` until `upgrade_30000` is added (FR-2; UP-10). From the 2.8.1 baseline the suite is therefore chiefly a guard that an in-place upgrade keeps data, settings and managed entities and rebuilds the menu, and it will exercise real upgrade steps only once a release adds one. A second, older baseline (2.6.1) would exercise real upgrade steps (`upgrade_20300` and `upgrade_20601`) and the switch of upgrader class; that case, UP-07, was dropped as not needed.
 
 | ID | Status | Case |
 | --- | --- | --- |
 | UP-01 | todo | Upgrading from `FROM_REF` with `cv ext:upgrade-db` succeeds, no upgrade is left pending, and the stored schema version equals the latest upgrader step (also settles DEF-8) |
 | UP-02 | todo | A seeded eWAY processor (live and test, credentials, class name, active flag) is unchanged after the upgrade |
-| UP-03 | todo | Seeded recurring contributions in each state, payment tokens and `civicrm_eway_contribution_transactions` rows (including `is_email_receipt`, `tries`, `failed_message`) keep their values, and the foreign keys still exist |
+| UP-03 | todo | Seeded recurring contributions in each state (except the stuck ones that UP-10 covers), payment tokens and `civicrm_eway_contribution_transactions` rows (including `is_email_receipt`, `tries`, `failed_message`) keep their values, and the foreign keys still exist |
 | UP-04 | todo | Managed scheduled jobs: a job an administrator had disabled or rescheduled stays that way (the `update: never` jobs); the Settlement Sync job is added disabled; the "eWay Recurring Payments" job (`update: always`) is reconciled |
 | UP-05 | todo | Saved settings (retries, delay, receipts, window, processor allowlist) keep their values, and settings introduced after `FROM_REF` take their defaults |
 | UP-06 | todo | Managed Search Kit entities (Failed Recurring Contributions saved search, display, navigation item) are created or updated, and a locally modified copy is left alone (`update: unmodified`) |
 | UP-07 | n/a | **Dropped 2026-11-14: not needed.** Originally: A second job with `FROM_REF: 2.6.1` (decision 9): seed a processor with the legacy class name `au.com.agileware.ewayrecurring`, upgrade, and check it is rewritten to `Payment_eWAYRecurring` on the type and on live processors only (`upgrade_20601`; the current step skips test processors). Also covers the move from the legacy `CRM_eWAYRecurring_Upgrader` to `AutomaticUpgrader` (switched between 2.7.0 and 2.7.5).. Kept for the record; it would need a second job with `FROM_REF: 2.6.1`, and was judged not worth the cost. The legacy class-name rewrite (`upgrade_20601`) and the switch of upgrader class are therefore not covered by an automated upgrade test |
 | UP-08 | todo | After the upgrade the scheduled-job APIs (`Job.run_payment_cron`, `EwayContributionTransactions.validate`, `EwayRecurring.fillTokensMeta`) run without error on the seeded data (nothing due, so no gateway call) |
 | UP-09 | todo | The routes `civicrm/ewayrecurring/createtoken` and `savetoken` carry the `is_ajax` flags added after 2.8.1 (true and false respectively) once the menu is rebuilt by the upgrade, so a plain GET navigation to `createtoken` is refused (CIVI-SA-2026-49) |
+| UP-10 | todo | Seed recurring contributions in the stuck state left by `FROM_REF` (In Progress, retry date set, `failure_count` at the retry limit) alongside ones that must not change; after the upgrade the stuck ones are Failed, appear in the Failed Recurring Contributions list and are counted by System Status once their retry date is more than four hours old, and the others are untouched (FR-2) |
 
 ### Suite level
 
@@ -987,6 +991,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Planned an upgrade step, `upgrade_30000` (feature FR-2 in [FEATURES.md](FEATURES.md)), that marks recurring contributions left stuck by releases up to 2.8.2 (In Progress, retry date set, failure count at the limit) as Failed. New cases PU-L6 to PU-L8 and UP-10; UP-03 excludes the stuck records. 267 cases. |
 | 2026-11-14 | Statuses brought up to date after CI passed on `release-3.0.0`: every case with a tagged test is `done` (PU-A5, PU-B12, PU-D, PU-E, PU-F, PU-G12, PU-L2, PU-N5 to N8) except PU-G9, which is `wip` because some of its paths are not yet tested. DEF-1 to DEF-12 are now `Fixed on release-3.0.0` (DEF-3 awaiting maintainer check). PU-G8 and PU-G10 are `todo`, not `blocked`: JSON output throws under the test framework, so no `die()` refactor is needed. The test that was tagged PU-G8 was retagged to the new case PU-G12, because it checked the contact reference, not the dedupe rule. Case text that described pre-fix behaviour was rewritten. |
 | 2026-11-14 | Link to the new [FEATURES.md](FEATURES.md) added to the header. |
 | 2026-11-14 | PW-F4 reworded as the staff-side update billing form (donors do not use it; sites that want donor self-service build their own page that replaces the stored card in place). New cases for the extension's side of that arrangement: PU-F25, PU-F26, PU-G11, PW-B-cron-08. 262 cases. |
