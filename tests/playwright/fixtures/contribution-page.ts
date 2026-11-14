@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { api4, evaluate, evaluateJson } from './civi';
 import { frontUrl } from './cms';
 import { responses, STUB_HOST } from './eway-stub';
@@ -111,7 +111,13 @@ async function chooseOption(page: Page, selector: string, label: string): Promis
 
 /** Choose a fixed amount and fill in the donor's details. Leaves the page ready to submit. */
 export async function fillDonation(page: Page, amount: number, donor: Donor = DEFAULT_DONOR): Promise<void> {
-  await page.getByRole('radio', { name: new RegExp(`\\$${amount}\\b`) }).check();
+  // The price set's script can redraw the radio buttons just after the page loads (seen on a slower CI site, at
+  // phone width), which drops the first click. Try again until the choice sticks.
+  const radio = page.getByRole('radio', { name: new RegExp(`\\$${amount}\\b`) });
+  await expect(async () => {
+    await radio.check();
+    await expect(radio).toBeChecked({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
   await page.locator('#email-5').fill(donor.email);
   await page.locator('#billing_first_name').fill(donor.firstName);
   await page.locator('#billing_last_name').fill(donor.lastName);
