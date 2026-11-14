@@ -4,9 +4,12 @@ Browser tests for the eWay Recurring extension. The plan, case IDs and status ar
 [developer/TEST_PLAN.md](../../developer/TEST_PLAN.md) (sections 2.3 to 2.5 and 5).
 
 What exists so far is the scaffold, six infrastructure checks (`specs/infrastructure/`, cases `PW-INF-01` to
-`PW-INF-06`) and the first donor journey, the once-off contribution page (`specs/frontend/`, cases `PW-F1-01`, `03`,
-`04`, `05` and `06`). The rest of the journeys (`specs/frontend/`, `specs/backend/`, `specs/security/`,
-`specs/sandbox/`) are still to be written.
+`PW-INF-06`) and the donor journey for the once-off contribution page (`specs/frontend/`, group `PW-F1`): the happy
+path and the decline (`contribution-once-off.spec.ts`), required billing details
+(`contribution-once-off-validation.spec.ts`), cancelling, going back, double clicks and the donor who never returns
+(`contribution-once-off-interruptions.spec.ts`), and the variants: non-ASCII text, test mode, a free option, a phone
+screen and the CMS theme (`contribution-once-off-variants.spec.ts`). The rest of the journeys (`specs/frontend/`,
+`specs/backend/`, `specs/security/`, `specs/sandbox/`) are still to be written.
 
 ## How it works
 
@@ -42,7 +45,8 @@ The setup scripts run inside the site, as the web user, from the extension's fol
 | Drupal, Joomla, Standalone | `setup-accounts-<cms>.sh` (planned) | Not written yet. `setup-common.sh` is shared and CMS independent |
 
 `setup-common.sh` installs the stub extension into the site's extensions folder and runs `seed-data.php`
-(eWAY and non-eWAY processors, a donor with a saved card, outbound mail redirected to the database).
+(eWAY and non-eWAY processors, a donor with a saved card, three once-off contribution pages (plain, accented title,
+free option), outbound mail redirected to the database).
 The seed grows as specs are written.
 
 On the shared GitHub workflow the extension under test is bind mounted into the extensions folder, so Docker creates
@@ -92,7 +96,9 @@ snapshot, deploy, run, restore.
 ```
 fixtures/
   cms.ts                  CMS, frontUrl(), adminUrl(), appendQuery(), login()
-  contribution-page.ts    the seeded once-off page: find it, fill it in, move through its steps, read the results
+  contribution-page.ts    the seeded once-off pages: find them, fill them in, move through the steps, read the results,
+                          run the verification job
+  visibility.ts           checks that a message really shows inside the theme (size, position, contrast, not covered)
   civi.ts                 cv api4 / ev / scr wrappers
   eway-stub.ts            scripted responses, the request log, the fake hosted page's HTML, response builders
   hosted-page-server.ts   serves the fake hosted page for the run
@@ -108,6 +114,6 @@ fixtures/
 ddev-exec.sh             runs a command inside a DDEV site, for CIVI_EXEC_PREFIX
 specs/
   infrastructure/         checks of the above
-  frontend/               PW-F1 so far (contribution-once-off.spec.ts)
+  frontend/               PW-F1 so far (contribution-once-off*.spec.ts)
   backend/ security/ sandbox/    still to be written
 ```
