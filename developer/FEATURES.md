@@ -47,6 +47,7 @@ documentation (that lives in `docs/`).
 | --- | --- | --- | --- | --- |
 | [FR-1](#fr-1-donor-facing-update-my-stored-card-page) | Donor-facing "update my stored card" page | `planned` | to be decided | Group to be added once decisions D1 to D5 are settled; supporting cases listed below |
 | [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `in progress` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
+| [FR-3](#fr-3-check-a-new-card-with-the-issuer-when-it-is-added) | Check a new card with the issuer when it is added | `idea` | to be decided | Group to be added once decisions C1 to C6 are settled; PW-X-05 is the first step |
 
 ---
 
@@ -359,12 +360,96 @@ WHERE cr.payment_processor_id = <processor id>
 
 ---
 
+## FR-3 Check a new card with the issuer when it is added
+
+| | |
+| --- | --- |
+| Status | `idea` |
+| Raised | 2026-11-14 |
+| Target release | To be decided (after 3.0.0) |
+| Related | DEF-33 in [TEST_PLAN.md](TEST_PLAN.md), decision D4 of FR-1 |
+
+### Summary
+
+When a card is added to a recurring contribution (the staff Update Billing form today, and the donor page
+if FR-1 is built), ask the card issuer whether the card can be used, so a bad card is found while the
+person is still there to fix it.
+
+### Why
+
+Today the extension saves the card as an eWAY token and makes no authorisation call. Nothing asks the
+bank whether the card is live or can take payments. A mistyped, cancelled or blocked card is first found
+at the next scheduled charge. That charge fails, the retry logic runs, the record is marked Failed once
+the retries are used up, and staff have to notice and reactivate it. A card added in good faith can go
+a whole billing period before anyone knows it does not work. This is logged as DEF-33.
+
+### What eWAY's documentation says (read 2026-11-14, first pass)
+
+Read from the [Rapid API reference](https://eway.io/api-v3/) and search summaries of eWAY's help
+articles. The reading was incomplete, see the last point.
+
+- There is no dedicated "verify this card" request.
+- There is a pre-authorisation. Setting the request's `Method` to `Authorise` "will authorise and hold an
+  amount on the customer's card without charging it". The hold can later be captured or voided.
+- A help article (not readable in full) says an authorisation can be run against a saved token by passing
+  the token id with `Method` set to `Authorise`, and that pre-authorisation is a way to check card details
+  before taking payment.
+- Creating a token (`CreateTokenCustomer`) requires `TotalAmount` of 0 and processes no payment. The
+  pages read do not say whether the issuer is contacted at that point.
+- The response's `Verification` object (CVN, address, email and so on) is documented as unused. No
+  response field or code was found that reports an issuer check on token creation.
+- Query Customer returns the masked card number and expiry from eWAY's store. It does not appear to ask
+  the issuer. An `IsActive` field is mentioned but its meaning is unconfirmed.
+- Not read: the last part of the API reference (probably the response and error code tables), the
+  full text of the help articles, and anything on whether Authorise works on each connection method
+  (Responsive Shared Page, Transparent Redirect, Direct) or accepts a zero or one dollar amount.
+
+### Design options
+
+| Option | What it does | Cost and risk |
+| --- | --- | --- |
+| A. Authorise and void | After the token is created, send an `Authorise` for a small amount against it, then void it. A decline is shown to the person at once and the card is not saved. | May count as a billable eWAY transaction (to be checked). The donor may see a brief hold. Some cards may decline a small authorisation yet be valid. Adds a new way for adding a card to fail |
+| B. Rely on eWAY | If the sandbox shows eWAY already checks the card when the token is created, do nothing and document it. | No code. Needs the sandbox result (PW-X-05) to be sure |
+| C. Warn only | Run the authorisation but treat a decline as a warning, save the card anyway. | Less disruptive, but the problem card is still saved |
+
+### Decisions still open
+
+| # | Status | Question | Notes |
+| --- | --- | --- | --- |
+| C1 | Open | Is a check wanted at all, or is finding a bad card at the first charge acceptable? | |
+| C2 | Open | Which option: A, B or C? | Needs the sandbox result first |
+| C3 | Open | What amount, and is it voided straight away? | Check eWAY's fee for an authorisation and for a void |
+| C4 | Open | Does it apply to the staff Update Billing form, the donor page (FR-1), or both? | FR-1 decision D4 is the same question for the donor page |
+| C5 | Open | What does the person see on a decline, and is the eWAY response message shown or a general message? | Messages are translated from eWAY codes elsewhere in the extension |
+| C6 | Open | Does Authorise work on the connection methods this extension uses, and is a zero or one dollar amount accepted? | Finish reading the API reference and the help articles, then confirm in the sandbox |
+
+### First steps (when picked up)
+
+1. Finish reading the API reference (response and error codes) and the help articles, and check eWAY's fee
+   for an authorisation and a void.
+2. Write the sandbox case PW-X-05: add a card eWAY's test cards mark as declined, and record what eWAY
+   says at token creation and at the first charge. This decides option B.
+3. Settle C1 to C6 here, then add the test cases to [TEST_PLAN.md](TEST_PLAN.md).
+
+### Acceptance criteria
+
+To be written once the options are decided.
+
+### Test coverage
+
+| ID | What it covers |
+| --- | --- |
+| PW-X-05 | The real sandbox: what happens when a card eWAY will decline is added, at token creation and at the first charge |
+
+---
+
 ## 2. Change log
 
 Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-3 added as `idea`: check a new card with the issuer when it is added (DEF-33), with what eWAY's documentation says, three options and six open decisions (C1 to C6). Not scheduled. |
 | 2026-11-14 | FR-2 upgrade tests UP-10 and UP-11 written (`tests/upgrade/`) and passed a local rehearsal; waiting for a GitHub run. |
 | 2026-11-14 | FR-2 tests PU-L6 to PU-L10 passing in CI. UP-10 and UP-11 still to be written; FR-2 stays `in progress` until they are done. |
 | 2026-11-14 | FR-2 built on `release-3.0.0`: `upgrade_30000` and `markStuckRecurringContributionsFailed()` added to the upgrader, with tests PU-L6 to PU-L10 (`wip` until CI passes). UP-10 and UP-11 not written yet. Status `in progress`. |
