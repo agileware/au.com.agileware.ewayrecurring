@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import users from './test-users.json';
 import { CMS, login } from './cms';
+import { startHostedPageServer } from './hosted-page-server';
 
 /**
  * Log each persona in once and save the session, so specs start already signed in.
@@ -31,8 +32,10 @@ export function credentials(persona: string): { username: string; password: stri
 
 export const ALL_PERSONAS = ['admin', 'finance', 'tokenviewer', 'limited'];
 
-export default async function globalSetup(config: FullConfig): Promise<void> {
+export default async function globalSetup(config: FullConfig): Promise<() => Promise<void>> {
   mkdirSync(GENERATED, { recursive: true });
+  // The fake eWAY hosted payment page, for the whole run.
+  const hostedPage = await startHostedPageServer();
   const wanted = (process.env.PERSONAS || ALL_PERSONAS.join(',')).split(',').map((p) => p.trim()).filter(Boolean);
   const baseURL = config.projects[0].use.baseURL as string;
 
@@ -50,7 +53,13 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
       await context.storageState({ path: statePath(persona) });
       await context.close();
     }
+  } catch (error) {
+    hostedPage.close();
+    throw error;
   } finally {
     await browser.close();
   }
+  return async () => {
+    hostedPage.close();
+  };
 }

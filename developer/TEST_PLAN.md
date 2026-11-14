@@ -68,16 +68,16 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **278**. Done: **75**. In progress: **6**. Blocked: **3**. To do: **189**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **281**. Done: **75**. In progress: **14**. Blocked: **3**. To do: **184**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PU-A | PHPUnit | `ProcessorBasicsTest` | 10 | 1 | 0 | 0 | 9 | 0 | none |
+| PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 1 | 1 | 0 | 9 | 0 | none |
 | PU-B | PHPUnit | `DoPaymentTest` | 17 | 1 | 0 | 0 | 16 | 0 | none (S1 done) |
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 0 | 0 | 0 | 3 | 0 | none |
 | PU-D | PHPUnit | `ValidateContributionTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 27 | 25 | 0 | 0 | 2 | 0 | none (S1 done) |
+| PU-F | PHPUnit | `RecurringProcessingTest` | 28 | 25 | 1 | 0 | 2 | 0 | none (S1 done) |
 | PU-G | PHPUnit | `PaymentTokenTest` | 12 | 2 | 0 | 0 | 10 | 0 | none (S1 done) |
 | PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 2 | 0 | 0 | 11 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 0 | 0 | 0 | 4 | 0 | none |
@@ -85,11 +85,11 @@ Cases defined: **278**. Done: **75**. In progress: **6**. Blocked: **3**. To do:
 | PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 3 | 0 | 3 | page refactor (PU-K1 to K3); PU-K4 to K6 dropped with the deleted page |
 | PU-L | PHPUnit | `SchemaAndUpgradeTest` | 10 | 6 | 0 | 0 | 4 | 0 | none |
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 0 | 0 | 0 | 4 | 0 | none |
-| PU-N | PHPUnit | `SubscriptionManagementTest` | 8 | 4 | 0 | 0 | 4 | 0 | none |
+| PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 4 | 1 | 0 | 4 | 0 | none |
 | PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 0 | 0 | 0 | 5 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
 | PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
-| PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 0 | 0 | 13 | 0 | Phase 0 infra, S1 stub |
+| PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 5 | 0 | 8 | 0 | Phase 0 infra, S1 stub |
 | PW-F2 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
 | PW-F3 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
 | PW-F4 | Playwright | `specs/frontend/` | 7 | 0 | 0 | 0 | 7 | 0 | Phase 0 infra, S1 stub |
@@ -117,7 +117,7 @@ run date in the change log.
 | Playwright group | WordPress | Drupal | Joomla | Standalone |
 | --- | --- | --- | --- | --- |
 | Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | full (GitHub and local) | none | none | none |
-| Frontend (PW-F1 to PW-F6) | none | none | none | none |
+| Frontend (PW-F1 to PW-F6) | partial (PW-F1 run locally, not yet in CI) | none | none | none |
 | Backend (PW-B-*) | none | none | none | none |
 | Security (PW-S) | none | none | none | none |
 | Sandbox (PW-X) | none | n/a | n/a | n/a |
@@ -216,7 +216,7 @@ Mirrors the sibling repos. Everything lives under `tests/playwright/`.
 ```
 tests/playwright/
   package.json                  scripts: test, test:headed, test:ui, report, seed
-  playwright.config.ts          chromium; CI: 1 worker, 60s timeout, retries 1, trace on failure
+  playwright.config.ts          chromium; one worker (the stub is shared), CI: 60s timeout, retries 1, trace on failure
   tsconfig.json
   README.md
   fixtures/
@@ -224,7 +224,7 @@ tests/playwright/
     global-setup.ts             logs each persona in once per CMS and saves the session (storageState)
     base.ts                     personas as pre-authenticated pages, problem collector, cms-skip helper
     civi.ts                     cv api4 / cv ev / cv scr wrappers via CIVI_EXEC_PREFIX and CIVI_CV
-    eway-stub.ts                scripts the stub and serves the fake hosted page via page.route()
+    eway-stub.ts                scripts the stub and logs what it was asked; hosted-page-server.ts serves the fake hosted page
     test-users.json             usernames, passwords, roles (single source of truth)
     test-data.json              names of seeded processors, pages, contacts, tokens
     setup-environment.sh        WordPress: roles, users, pages; then common steps below
@@ -271,11 +271,13 @@ two things to fake:
    approved", "declined with V6012", "customer token 9123456 has card 4444 ... 1111 expiring
    12/2031").
 2. *Browser to eWAY hosted page*: the `SharedPaymentUrl` the fake returns points at a reserved
-   fake host (for example `https://eway-stub.test/pay?AccessCode=...`). Playwright answers
-   requests to that host itself with `page.route()`, serving a small page with a card form and
-   "Pay" / "Cancel" buttons that sends the browser on to the `RedirectUrl` / `CancelUrl` with the
-   `AccessCode` appended, as eWAY's page does. Because Playwright serves it, the hosted-page stub
-   is identical on every CMS and needs nothing installed on the site.
+   fake host (for example `http://eway-stub.test:4580/pay?AccessCode=...`). The browser is told to
+   resolve that host to the machine running the tests (`--host-resolver-rules`), and a small web
+   server started by `global-setup.ts` answers with a page with a card form and "Pay" / "Cancel"
+   buttons that sends the browser on to the `RedirectUrl` / `CancelUrl` with the `AccessCode`
+   appended, as eWAY's page does. It is identical on every CMS and needs nothing installed on the
+   site. (Playwright's `page.route()` was tried first and does not work: it does not see the
+   redirect from the site to another host, which is how the extension sends the donor there.)
 
 A separate `sandbox` project runs one happy-path journey against the **real** eWAY sandbox
 hosted page (card `4444333322221111`) to catch drift between the stub and reality. It needs
@@ -417,6 +419,9 @@ branch the status reads `Fixed on `release-3.0.0``; change it to the release num
 | DEF-13 | Fixed on `release-3.0.0` | `updateSubscriptionBillingInfo()` and `VerifyUpdateToken` | Found while planning the DEF-3 Playwright cases, from reading the code only. Core's Update Billing form (the staff form, reached from the contact's Recurring Contributions tab) saves the new token and billing address but does not reset `failure_count`, `failure_retry_date` or a Failed status, so a Failed record stays Failed after the card is updated until staff use Reactivate. The code that does reset them, `VerifyUpdateToken` (its comment says updating billing details should fix failed contributions), is never reached: its URL is only built when `getSuccessfulPaymentReturnUrl()` is given a recurring record, and its only caller never passes one. If it were reached it would reset the count but leave the retry date set, which stops the record being picked by either cron list. **Decision (2026-11-14):** the donor path should recover a Failed record. Expected: updating billing on a Failed record sets it to In Progress, `failure_count` 0 and clears `failure_retry_date`, leaving the schedule date alone (the same result as Reactivate). Not yet decided: whether to delete the unused `VerifyUpdateToken` page, and what a record that is still being retried should do (today it keeps retrying, now with the new token). | PU-N5, PW-F4-06 **Fix:** `updateSubscriptionBillingInfo()` now sets a Failed record to In Progress with `failure_count` 0 and the retry date cleared, leaving the schedule date; `VerifyUpdateToken`, its route and the dead `UpdateBilling` branches in the return-URL functions were deleted. | PU-N5, PW-F4-06 |
 | DEF-14 | Fixed on `release-3.0.0` | `updateSubscriptionBillingInfo()` | Found while answering whether an updated card is verified; from reading the code only. The token id comes from the request (`contact_payment_token`) and is looked up by id alone: nothing checks that the token belongs to the recurring record's contact, belongs to the same payment processor, or has not expired. The browser script only offers the contact's own unexpired tokens, but the server does not enforce it. A user who can open the form for their own recurring record could post another contact's token id and have that card charged by the cron. Token ids are sequential. Two related observations, not defects: adding a card makes no authorisation call with the issuer (a bad card is found at the next charge, PW-X-05), and the stored-card list is loaded with the PaymentToken API, which needs staff permission, so a donor with only "make online contributions" may see "No cards found." (PW-F4-07). | PU-N6, PU-N7, PW-S-05 **Fix:** the chosen card is now loaded and checked before anything is saved: it must exist, belong to the recurring record's contact and processor, and not be expired, otherwise the update is refused and nothing changes (the billing address used to be saved before the card was even looked up). |
 | DEF-15 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_enable()` | The enable hook updates the processor type through APIv4 with permission checks on, so enabling the extension with nobody logged in (`cv ext:enable`, an installer or a deployment script) fails the whole install with "Authorization failed". Found when the upgrade test installed release 2.8.1 with `cv`; present in 2.8.1 and 2.8.2. The fix turns the permission check off for that call. Installing from the admin screens was never affected. | PU-H3, PU-H13, UP-01 |
+| DEF-16 | Fixed on `release-3.0.0` | `CRM_Core_Payment_eWAYRecurring::validateContribution()` | The method sets `$this->_is_test`, which the class never declared. PHP 8.2 deprecates creating a property on the fly, and the notice printed on the donor's thank you page wherever PHP errors are displayed. Core also reads the property in some return-address code, where it could be undefined. Found by the first PW-F1 run, which fails a test on PHP output. The class now declares it, defaulting to false. | PU-A6, PW-F1-05 |
+| DEF-17 | Fixed on `release-3.0.0` | `ProcessTrait::process_recurring_payments()`, `Utils::validateEwayAccessCode()`, `CRM_Core_Payment_eWAYRecurring::doPayment()` | A declined answer without a ResponseMessage is split with `explode(', ', null)`, which PHP 8.1 deprecates. Seen in the PHPUnit output. The three calls now cast the message to a string, which is what older PHP did. | PU-F28 |
+| DEF-18 | Fixed on `release-3.0.0` | `CRM_Core_Payment_eWAYRecurring::getEWayClientDetailsArray()` | The customer sent to eWAY is built with `substr()` on the billing street, city, state, postcode and email, any of which can be null (a donor with no state or email is common); PHP 8.1 deprecates that. Seen in the PHPUnit output of the update billing tests. The values are cast to strings. | PU-N9 |
 
 ---
 
@@ -433,6 +438,7 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 | PU-A3 | todo | `getPaymentFormFieldsMetadata()` shape: select is required, class `eway_credit_card_field`, button `onclick` calls `CRM.eway.addCreditCard()` |
 | PU-A4 | todo | `getBillingAddressFields()` maps each field with the billing location id |
 | PU-A5 | done | `getInstance()` caches per `domain/id`, returns the same object twice, and sets `_mode` correctly for live and test processors (DEF-1, fixed: a live processor used to get mode `test`) |
+| PU-A6 | wip | The test-mode flag `_is_test` is a declared property of the payment class (DEF-16, fixed: PHP 8.2 printed a deprecation about creating it on the fly on the donor's thank you page) |
 | PU-A6 | todo | `supportsBackOffice()` true; `getEditableRecurringScheduleFields()` returns the six documented fields |
 | PU-A7 | todo | `__serialize()` omits `eWayClient` and `instances`, and the object survives `serialize()` after a client was created |
 | PU-A8 | todo | `Utils::sanitizeToAscii()` data provider: empty, null, plain ASCII, accented Latin (transliterated), emoji, CJK, control characters, very long string |
@@ -541,6 +547,7 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-F25 | todo | A recurring contribution whose payment token row was changed in place (new `token` value, `expiry_date` and `masked_account_number` cleared, which is how a website-built update-card page replaces a card) is charged with the new token value, and `payment_token_id` is unchanged |
 | PU-F26 | todo | A Failed recurring contribution reset the way such a page resets it (In Progress, `failure_count` 0, retry date cleared) is charged on the first run on or after its schedule date: not before when the schedule date was moved into the future, and on the next run when the schedule was restarted from today (the two schedule choices a site can make) |
 | PU-F27 | done | A recurring contribution cancelled while it is being retried (failures above 0, retry date due) is not retried, makes no gateway call and is left untouched, while one that is still being retried is charged in the same run (CIVIEWAY-125) |
+| PU-F28 | wip | A declined charge whose answer has no ResponseMessage raises no PHP deprecation (DEF-17, fixed: the message was split with explode() on null) |
 
 ### PU-G `PaymentTokenTest`
 
@@ -657,6 +664,7 @@ version with seeded data are covered by the `UP` suite below.
 | PU-N6 | done | A card that belongs to a different contact, or that does not exist, is refused with a payment processor exception; the token, status, retry state and billing address are all left unchanged (DEF-14, fixed) |
 | PU-N7 | done | A card saved for a different payment processor is refused, changing nothing (DEF-14, fixed) |
 | PU-N8 | done | An expired card is refused, changing nothing (DEF-14, fixed) |
+| PU-N9 | wip | Updating billing for a donor with no state or no email address raises no PHP deprecation (DEF-18, fixed: the customer builder cut those values with substr() on null) |
 
 ### PU-O `FailedRecurringSearchTest`
 
@@ -731,12 +739,12 @@ stay `wip` until Drupal, Joomla and Standalone have run them too (section 0.1 re
 
 | ID | Status | CMS | Case |
 | --- | --- | --- | --- |
-| PW-F1-01 | todo | all | Page renders with no card fields (card entry happens on eWAY); processor selectable and pre-selected when the only one |
+| PW-F1-01 | wip | all | Page renders with no card fields (card entry happens on eWAY); processor selectable and pre-selected when the only one |
 | PW-F1-02 | todo | all | Required billing fields are enforced client and server side before leaving the site |
-| PW-F1-03 | todo | all | Confirm page shows the correct amount, billing address, and an eWAY "Make Contribution" style button |
-| PW-F1-04 | todo | all | Submit redirects to the stub hosted page, which shows the right amount, invoice reference and customer details read-only |
-| PW-F1-05 | todo | all | Approve on the hosted page: land on Thank You, contribution is Completed in DB with `trxn_id`, queue row status Success, receipt flag respected, contact has a token only for recurring (none for once-off check) |
-| PW-F1-06 | todo | all | Decline on the hosted page: friendly "payment was declined" message with the eWAY text, contribution Failed, no token created, form can be resubmitted |
+| PW-F1-03 | wip | all | Confirm page shows the correct amount, billing address and email, and a Continue button (there is no "Make Contribution" wording) |
+| PW-F1-04 | wip | all | Continue redirects to the stub hosted page, which shows the right amount, invoice reference and customer name; the extension asked eWAY for that amount and a return address on the thank you step (eWAY sends the donor back to the thank you step, which checks the payment as it loads) |
+| PW-F1-05 | wip | all | Approve on the hosted page: land on Thank You, contribution is Completed in DB with `trxn_id`, queue row status Success, receipt flag respected, contact has a token only for recurring (none for once-off check) |
+| PW-F1-06 | wip | all | Decline on the hosted page: friendly "payment was declined" message with the eWAY text, contribution Failed, no token created, form can be resubmitted |
 | PW-F1-07 | todo | all | Hosted page "Cancel": back on the contribution form with data kept; browser Back after Confirm; double submit; re-posting the Thank You URL shows the "already completed" message instead of charging twice (covers DEF-2) |
 | PW-F1-08 | todo | all | Customer never returns to the site: contribution stays Pending, then `EwayContributionTransactions.validate` completes it (see PW-F5) |
 | PW-F1-09 | todo | all | Non-ASCII names, addresses and descriptions (accents, apostrophes, emoji) complete and arrive at the stub sanitised |
@@ -970,7 +978,7 @@ moves money would be under test.
 - Every case in scope is `done` here, tagged in the test, and the section 0.1 counts are refreshed.
 - [TESTING.md](TESTING.md) updated; `tests/playwright/README.md` written (same structure as the sibling
   repos); [LOCAL_DEV.md](LOCAL_DEV.md) extended with the Playwright commands.
-- Suspected defects (DEF-1 to DEF-15) in scope each either fixed with an agreed change, or pinned by a
+- Suspected defects (DEF-1 to DEF-18) in scope each either fixed with an agreed change, or pinned by a
   characterisation test with a comment that names the open question.
 
 ---
@@ -1016,6 +1024,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PW-F1 started: `specs/frontend/contribution-once-off.spec.ts` with PW-F1-01, 03, 04, 05 and 06 (`wip`: all pass on the local WordPress site, not yet in CI). The seed now creates a once-off contribution page with an eWAY processor and a price set. The scaffold changed under it: the fake hosted page is served by a small local web server with the fake host mapped to this machine, because Playwright's page.route() does not see the redirect from the site to the hosted page; the tests run on one worker always, since the stub is shared. The collector, which fails a test on PHP output, found three real defects the first time it ran against the thank you page: DEF-16 (`_is_test` created on the fly, printed on the donor's thank you page), DEF-17 and DEF-18 (null passed to `explode()` and `substr()`), all fixed with tests PU-A6, PU-F28 and PU-N9. A fixed transaction id broke the second run (CiviCRM refuses a duplicate), so the specs use a fresh id each time. 281 cases. |
 | 2026-11-14 | Workflow triggers matched to the Elections and Event Locations repos: pushes to master, pull requests and on demand (they ran on every push before), for the PHPUnit, upgrade and frontend workflows. A branch gets CI when a pull request is open or when someone runs a workflow on demand, for example `gh workflow run upgrade-tests.yml --ref release-3.0.0` (tried and working: GitHub already knows the workflow from its earlier runs, and the run uses the file on that branch). Also prepared, on a local branch `playwright-writable-extensions-dir` of `ci-workflows` and not pushed, a one-step change that hands `wp-content/uploads/civicrm/ext` to www-data so a setup script can install a helper extension beside the one under test; once it is merged `setup-common.sh`'s fallback is no longer needed on GitHub (it stays for other hosts). |
 | 2026-11-14 | The Playwright workflow passes on GitHub: all six PW-INF checks green on a fresh WordPress site, through the extensions-folder fallback. Infrastructure is `full` for WordPress in the CMS table; PW-INF-01 to 06 stay `wip` because their CMS column is all and Drupal, Joomla and Standalone have not run them. |
 | 2026-11-14 | The fallback's first version failed on GitHub too: the CI site's `extensionsDir` is an absolute path, not the `[civicrm.files]/ext` placeholder the script assumed. `fixtures/extension-dir.php` now swaps a trailing `/ext` for `/ext-playwright` in either form (and in the URL setting), and stops with the raw values if they do not fit. Tried locally with absolute settings like CI's and the fallback forced: all six PW-INF checks pass. |

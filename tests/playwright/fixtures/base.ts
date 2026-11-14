@@ -23,7 +23,17 @@ const PHP_OUTPUT = /(Warning|Notice|Deprecated|Fatal error|Parse error):\s|Undef
  * Known noise that is not the extension's: Chrome complaining about an unload handler somewhere in CiviCRM or the
  * CMS admin. Add to this list only for something outside this extension.
  */
-const IGNORED = [/Permissions policy violation: unload is not allowed/];
+const IGNORED: RegExp[] = [/Permissions policy violation: unload is not allowed/];
+
+/**
+ * Extra problems to ignore on a site that has other extensions or plugins making noise, from the environment
+ * variable IGNORE_PROBLEMS: regular expressions separated by two bars, for example
+ *   IGNORE_PROBLEMS='scheduledccrecipients||some-other-extension'
+ * For local sites only. The CI site has nothing but this extension, so it ignores nothing extra.
+ */
+for (const pattern of (process.env.IGNORE_PROBLEMS || '').split('||').map((p) => p.trim()).filter(Boolean)) {
+  IGNORED.push(new RegExp(pattern));
+}
 
 /** Requests whose failure is a problem. */
 const WATCHED_REQUESTS = /\/civicrm\/(ajax|ewayrecurring)\/|civicrm%2F(ajax|ewayrecurring)%2F|q=civicrm\/(ajax|ewayrecurring)\//;
@@ -33,8 +43,12 @@ export class ProblemCollector {
 
   constructor(private readonly allowed: RegExp[]) {}
 
-  private record(problem: string): void {
-    if (![...IGNORED, ...this.allowed].some((pattern) => pattern.test(problem))) {
+  /**
+   * Note a problem unless an ignore pattern matches it. The patterns are tried against `detail`, which can be
+   * longer than the `problem` text that is reported, so a file name late in a PHP message still matches.
+   */
+  private record(problem: string, detail: string = problem): void {
+    if (![...IGNORED, ...this.allowed].some((pattern) => pattern.test(detail))) {
       this.found.push(problem);
     }
   }
@@ -67,12 +81,13 @@ export class ProblemCollector {
     const text = await page.locator('body').innerText({ timeout: 2000 }).catch(() => '');
     const match = PHP_OUTPUT.exec(text);
     if (match) {
-      this.record(`PHP output on ${page.url()}: ${text.slice(Math.max(0, match.index - 40), match.index + 120).replace(/\s+/g, ' ')}`);
+      const context = (length: number) => text.slice(Math.max(0, match.index - 40), match.index + length).replace(/\s+/g, ' ');
+      this.record(`PHP output on ${page.url()}: ${context(120)}`, context(400));
     }
   }
 
   assertNone(): void {
-    expect(this.found, `Problems seen while the test ran:\n${this.found.join('\n')}`).toEqual([]);
+    expect(this.found, `Problems seen while the test ran:\n${this.found.map((problem) => `- ${problem}`).join('\n')}`).toEqual([]);
   }
 }
 

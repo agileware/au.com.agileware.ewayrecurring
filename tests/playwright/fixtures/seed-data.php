@@ -2,9 +2,9 @@
 /**
  * Seed data for the Playwright tests. Run with `cv scr`; safe to run again.
  *
- * It grows as specs are written. Today it creates what the infrastructure checks need: a live and a test eWAY
- * processor with dummy credentials (the stub answers for them), a non-eWAY processor for contrast, a donor with
- * a saved card, and outbound mail redirected to the database so tests can read what would have been sent.
+ * It grows as specs are written. It creates a live and a test eWAY processor with dummy credentials (the stub
+ * answers for them), a non-eWAY processor for contrast, a donor with a saved card, a once-off contribution page
+ * that takes eWAY payments, and outbound mail redirected to the database so tests can read what would have been sent.
  *
  * Names come from test-data.json so specs and the seed cannot drift.
  */
@@ -88,6 +88,59 @@ if (!$hasToken) {
       'created_date' => 'now',
     ])
     ->execute();
+}
+
+// A once-off contribution page that takes eWAY payments: a price set of fixed amounts, no recurring option,
+// the confirm step on, and no receipt email. Created once; the page is found by its title.
+$page = $data['pages']['onceOff'];
+$existingPage = civicrm_api3('ContributionPage', 'get', ['title' => $page['title'], 'options' => ['limit' => 1]]);
+if (empty($existingPage['count'])) {
+  $pageId = (int) civicrm_api3('ContributionPage', 'create', [
+    'title' => $page['title'],
+    'financial_type_id' => 'Donation',
+    'is_active' => 1,
+    'is_monetary' => 1,
+    'currency' => 'AUD',
+    'payment_processor' => [$liveId],
+    'amount_block_is_active' => 1,
+    'is_allow_other_amount' => 0,
+    'is_pay_later' => 0,
+    'is_confirm_enabled' => 1,
+    'is_email_receipt' => 0,
+    'is_recur' => 0,
+    'intro_text' => '<p>Playwright once-off donation page.</p>',
+    'thankyou_title' => 'Thank you for your donation',
+    'thankyou_text' => '<p>Your donation has been received.</p>',
+  ])['id'];
+
+  $priceSetId = (int) civicrm_api3('PriceSet', 'create', [
+    'name' => 'playwright_once_off_amounts',
+    'title' => 'Playwright once-off amounts',
+    'extends' => 2,
+    'financial_type_id' => 'Donation',
+    'is_active' => 1,
+  ])['id'];
+  $fieldId = (int) civicrm_api3('PriceField', 'create', [
+    'price_set_id' => $priceSetId,
+    'name' => 'amount',
+    'label' => 'Donation amount',
+    'html_type' => 'Radio',
+    'is_display_amounts' => 1,
+    'is_required' => 1,
+    'is_active' => 1,
+  ])['id'];
+  foreach ($page['amounts'] as $weight => $amount) {
+    civicrm_api3('PriceFieldValue', 'create', [
+      'price_field_id' => $fieldId,
+      'name' => 'amount_' . $amount,
+      'label' => '$' . $amount,
+      'amount' => $amount,
+      'weight' => $weight + 1,
+      'is_active' => 1,
+      'financial_type_id' => 'Donation',
+    ]);
+  }
+  CRM_Price_BAO_PriceSet::addTo('civicrm_contribution_page', $pageId, $priceSetId);
 }
 
 // Outbound mail goes to the database instead of being sent (CiviCRM's "redirect to database" option).

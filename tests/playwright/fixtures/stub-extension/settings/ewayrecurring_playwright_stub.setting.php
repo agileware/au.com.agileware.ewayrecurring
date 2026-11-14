@@ -25,4 +25,14 @@ return [
     'title' => 'eWAY stub: requests received',
     'description' => 'Test support only.',
   ],
+  'ewayrecurring_stub_hosted_base' => [
+    'name' => 'ewayrecurring_stub_hosted_base',
+    'type' => 'String',
+    'default' => 'http://eway-stub.test:4580',
+    'add' => '5.51',
+    'is_domain' => 1,
+    'is_contact' => 0,
+    'title' => 'eWAY stub: where the fake hosted page is served',
+    'description' => 'Test support only.',
+  ],
 ];

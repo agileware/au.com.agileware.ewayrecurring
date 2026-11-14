@@ -14,7 +14,7 @@ use Eway\Rapid\Service\Http\Response as EwayResponse;
  * test fails loudly when the code makes a gateway call it did not expect.
  *
  * In a response, the string {{hosted_url}} becomes the address of the fake hosted payment page for that request,
- * carrying the RedirectUrl, CancelUrl and display details so the page served by Playwright can act on them.
+ * carrying the RedirectUrl, CancelUrl and display details so the page the tests serve can act on them.
  */
 class Http extends EwayHttp {
 
@@ -23,6 +23,8 @@ class Http extends EwayHttp {
   private const LOG = 'ewayrecurring_stub_log';
 
   private const HOST = 'eway-stub.test';
+
+  private const HOSTED_BASE = 'ewayrecurring_stub_hosted_base';
 
   /**
    * The AccessCode of the response being built.
@@ -89,7 +91,9 @@ class Http extends EwayHttp {
     $customer = $data['Customer'] ?? [];
     $name = trim(($customer['FirstName'] ?? '') . ' ' . ($customer['LastName'] ?? ''));
     $cents = $data['Payment']['TotalAmount'] ?? NULL;
-    return 'https://' . self::HOST . '/pay?' . http_build_query([
+    // The tests serve the fake hosted page from a small local server and say where in this setting.
+    $base = rtrim(\Civi::settings()->get(self::HOSTED_BASE) ?: 'http://' . self::HOST . ':4580', '/');
+    return $base . '/pay?' . http_build_query([
       'AccessCode' => $this->lastAccessCode,
       'RedirectUrl' => $data['RedirectUrl'] ?? '',
       'CancelUrl' => $data['CancelUrl'] ?? '',

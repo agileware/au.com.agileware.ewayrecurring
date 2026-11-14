@@ -1,4 +1,3 @@
-import type { BrowserContext, Page } from '@playwright/test';
 import { getSetting, setSettings } from './civi';
 import testData from './test-data.json';
 
@@ -9,12 +8,20 @@ import testData from './test-data.json';
  *    answers from a queue kept in a CiviCRM setting, and logs what it was asked. This file writes that queue and
  *    reads that log.
  * 2. Browser to eWAY's hosted payment page. The shared payment URL the stub returns points at a reserved fake
- *    host. Playwright answers requests to that host itself, with a small page whose Pay and Cancel buttons send
- *    the browser on to the RedirectUrl or CancelUrl with the AccessCode appended, as eWAY's page does.
+ *    host, eway-stub.test, on a port this run listens on. The browser is told to resolve that host to this
+ *    machine (launchOptions in playwright.config.ts), and hosted-page-server.ts answers with a small page whose
+ *    Pay and Cancel buttons send the browser on to the RedirectUrl or CancelUrl with the AccessCode appended, as
+ *    eWAY's page does. (Playwright's page.route() cannot be used: it does not see a redirect from the site to
+ *    another host, which is how the extension sends the donor there.)
  */
 export const STUB_HOST: string = testData.stub.hostedHost;
+/** The port the fake hosted page is served on. */
+export const HOSTED_PORT = Number(process.env.EWAY_STUB_PORT || 4580);
+/** The address of the fake hosted page, as the stub puts it in the shared payment URL. */
+export const HOSTED_BASE = `http://${STUB_HOST}:${HOSTED_PORT}`;
 const QUEUE_SETTING = 'ewayrecurring_stub_queue';
 const LOG_SETTING = 'ewayrecurring_stub_log';
+const HOSTED_BASE_SETTING = 'ewayrecurring_stub_hosted_base';
 
 /** The methods of eWAY's HTTP service the stub answers. */
 export type EwayMethod =
@@ -47,9 +54,9 @@ export interface LoggedRequest {
 }
 
 export class EwayStub {
-  /** Empty the queue and the log. Call at the start of a test. */
+  /** Empty the queue and the log, and say where the fake hosted page is. Call at the start of a test. */
   reset(): void {
-    setSettings({ [QUEUE_SETTING]: [], [LOG_SETTING]: [] });
+    setSettings({ [QUEUE_SETTING]: [], [LOG_SETTING]: [], [HOSTED_BASE_SETTING]: HOSTED_BASE });
   }
 
   /** Queue a response for one eWAY method. Each call takes the next queued response, in order. */
@@ -63,18 +70,6 @@ export class EwayStub {
   requests(method?: EwayMethod): LoggedRequest[] {
     const log = getSetting<LoggedRequest[]>(LOG_SETTING) || [];
     return method ? log.filter((entry) => entry.method === method) : log;
-  }
-
-  /**
-   * Serve the fake hosted payment page to this page or browser context.
-   *
-   * The page reads AccessCode, RedirectUrl, CancelUrl and a few display details from its own address, which the
-   * stub's PHP side puts there when it creates the shared page.
-   */
-  async serveHostedPage(target: Page | BrowserContext): Promise<void> {
-    await target.route(`**://${STUB_HOST}/**`, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: hostedPageHtml() });
-    });
   }
 }
 

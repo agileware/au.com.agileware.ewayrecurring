@@ -3,9 +3,9 @@
 Browser tests for the eWay Recurring extension. The plan, case IDs and status are in
 [developer/TEST_PLAN.md](../../developer/TEST_PLAN.md) (sections 2.3 to 2.5 and 5).
 
-What exists so far is the scaffold and six infrastructure checks (`specs/infrastructure/`, cases `PW-INF-01` to
-`PW-INF-06`). They prove the test site, the personas, the fake eWAY and the helpers work, so the journeys that
-follow can build on them. The journeys themselves (`specs/frontend/`, `specs/backend/`, `specs/security/`,
+What exists so far is the scaffold, six infrastructure checks (`specs/infrastructure/`, cases `PW-INF-01` to
+`PW-INF-06`) and the first donor journey, the once-off contribution page (`specs/frontend/`, cases `PW-F1-01`, `03`,
+`04`, `05` and `06`). The rest of the journeys (`specs/frontend/`, `specs/backend/`, `specs/security/`,
 `specs/sandbox/`) are still to be written.
 
 ## How it works
@@ -16,9 +16,12 @@ follow can build on them. The journeys themselves (`specs/frontend/`, `specs/bac
   - Server to eWAY calls: `fixtures/stub-extension/` is a small CiviCRM extension that replaces eWAY's HTTP service
     (through `CRM_eWAYRecurring_Utils::setHttpServiceFactory()`) with one that answers from a queue kept in a CiviCRM
     setting. `fixtures/eway-stub.ts` writes that queue and reads the log of what the extension asked.
-  - Browser to eWAY's hosted payment page: the shared payment URL the stub returns points at `eway-stub.test`.
-    Playwright answers that host itself (`stub.serveHostedPage(page)`) with a page whose Pay and Cancel buttons send
-    the browser back to the site with the access code appended, as eWAY's page does.
+  - Browser to eWAY's hosted payment page: the shared payment URL the stub returns points at
+    `http://eway-stub.test:4580`. The browser resolves that host to this machine (`--host-resolver-rules` in
+    `playwright.config.ts`) and `fixtures/hosted-page-server.ts`, started by `global-setup.ts`, answers with a page
+    whose Pay and Cancel buttons send the browser back to the site with the access code appended, as eWAY's page does.
+    Set `EWAY_STUB_PORT` if 4580 is taken. (`page.route()` does not work for this: it does not see the redirect from
+    the site to another host.)
 - **Personas.** `admin`, `finance`, `tokenviewer` and `limited` are logged in once by `fixtures/global-setup.ts`
   and used as pre-authenticated pages (`adminPage`, `financePage`, ...). `anonPage` is a visitor who is not signed in.
 - **Problems fail the test.** The shared `test` in `fixtures/base.ts` fails any test that sees an uncaught page error,
@@ -72,6 +75,8 @@ npx playwright test
 | `CIVI_CV` | The cv command. Default `cv` (the Joomla development site uses `jcv`) |
 | `CIVI_EXEC_PREFIX` | The command that runs something where CiviCRM is, such as `docker exec ... <container>`. Split on spaces, so no quoted arguments. Empty when cv runs on this machine |
 | `CIVI_EXEC_CWD` | The folder to run the prefix from (for tools that need to be started from a project folder) |
+| `IGNORE_PROBLEMS` | Regular expressions, separated by two bars, for problems to ignore on a local site that has other extensions making noise (for example a PHP warning from another extension). Leave it unset on CI |
+| `EWAY_STUB_PORT` | The port the fake hosted page is served on. Default 4580 |
 | `PERSONAS` | Comma separated personas to sign in, for a site where not all of them exist (default all four) |
 | `WP_CLEAN_URLS` | `0` for a WordPress site without pretty permalinks |
 
@@ -85,17 +90,21 @@ small wrapper script that quotes each argument.
 ```
 fixtures/
   cms.ts                  CMS, frontUrl(), adminUrl(), appendQuery(), login()
+  contribution-page.ts    the seeded once-off page: find it, fill it in, move through its steps, read the results
   civi.ts                 cv api4 / ev / scr wrappers
-  eway-stub.ts            scripted responses, the request log, the fake hosted page, response builders
+  eway-stub.ts            scripted responses, the request log, the fake hosted page's HTML, response builders
+  hosted-page-server.ts   serves the fake hosted page for the run
   global-setup.ts         signs each persona in once
   base.ts                 test with personas, stub and the problem collector
   test-users.json         personas (single source of truth)
   test-data.json          names of the seeded records
   setup-environment.sh    WordPress accounts, then setup-common.sh
   setup-common.sh         stub extension and seed, every CMS
+  extension-dir.php       works out the writable extensions folder used when the usual one is root-owned
   seed-data.php           idempotent seed, run with cv scr
   stub-extension/         test-support CiviCRM extension (never install it on a real site)
 specs/
   infrastructure/         checks of the above
-  frontend/ backend/ security/ sandbox/    still to be written
+  frontend/               PW-F1 so far (contribution-once-off.spec.ts)
+  backend/ security/ sandbox/    still to be written
 ```

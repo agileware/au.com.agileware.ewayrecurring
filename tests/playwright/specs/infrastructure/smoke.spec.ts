@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/base';
 import { adminUrl } from '../../fixtures/cms';
 import { api4, evaluateJson } from '../../fixtures/civi';
-import { responses, STUB_HOST } from '../../fixtures/eway-stub';
+import { HOSTED_BASE, responses, STUB_HOST } from '../../fixtures/eway-stub';
 import testData from '../../fixtures/test-data.json';
 
 /**
@@ -97,7 +97,8 @@ test.describe('infrastructure', () => {
     `).url;
 
     const parsed = new URL(url);
-    expect(parsed.host).toBe(STUB_HOST);
+    expect(parsed.hostname).toBe(STUB_HOST);
+    expect(parsed.origin).toBe(HOSTED_BASE);
     expect(parsed.searchParams.get('AccessCode')).toBe('ACINFRA05');
     expect(parsed.searchParams.get('RedirectUrl')).toBe('https://site.test/return?x=1');
     expect(parsed.searchParams.get('CancelUrl')).toBe('https://site.test/cancel');
@@ -105,12 +106,11 @@ test.describe('infrastructure', () => {
     expect(parsed.searchParams.get('InvoiceReference')).toBe('INV-INFRA-05');
   });
 
-  test('PW-INF-06 the hosted page stub sends the browser back with the access code, whether or not the URL has a query', async ({ page, stub, baseURL }) => {
-    await stub.serveHostedPage(page);
+  test('PW-INF-06 the hosted page stub sends the browser back with the access code, whether or not the URL has a query', async ({ page, baseURL }) => {
     // The site's front page: a harmless page that exists on every CMS, unlike a made-up path that would 404.
     const back = `${baseURL}/`;
     const hosted = (extra: Record<string, string>) =>
-      `https://${STUB_HOST}/pay?` + new URLSearchParams({ AccessCode: 'ACINFRA06', Amount: '10.00', InvoiceReference: 'INV-6', Customer: 'Playwright Donor', ...extra }).toString();
+      `${HOSTED_BASE}/pay?` + new URLSearchParams({ AccessCode: 'ACINFRA06', Amount: '10.00', InvoiceReference: 'INV-6', Customer: 'Playwright Donor', ...extra }).toString();
 
     // A return URL with no query string gets ?AccessCode=
     await page.goto(hosted({ RedirectUrl: back, CancelUrl: back }));

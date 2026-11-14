@@ -5,12 +5,29 @@
     "dummy": "Playwright Dummy"
   },
   "contacts": {
-    "donor": { "firstName": "Playwright", "lastName": "Donor", "email": "playwright.donor@example.test" }
+    "donor": {
+      "firstName": "Playwright",
+      "lastName": "Donor",
+      "email": "playwright.donor@example.test"
+    }
   },
   "tokens": {
-    "valid": { "token": "912345678901", "masked": "444433XXXXXX1111" }
+    "valid": {
+      "token": "912345678901",
+      "masked": "444433XXXXXX1111"
+    }
   },
   "stub": {
     "hostedHost": "eway-stub.test"
+  },
+  "pages": {
+    "onceOff": {
+      "title": "Playwright once-off donation",
+      "amounts": [
+        10,
+        25,
+        50
+      ]
+    }
   }
 }
