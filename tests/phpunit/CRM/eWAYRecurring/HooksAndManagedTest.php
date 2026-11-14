@@ -96,6 +96,27 @@ class CRM_eWAYRecurring_HooksAndManagedTest extends \PHPUnit\Framework\TestCase 
     $this->assertTrue($this->processorTypeIsActive());
   }
 
+  /**
+   * Core switches a managed job off when the extension is disabled and does
+   * not switch it back on when the extension is enabled again, so the enable
+   * hook does (DEF-53). The settlement sync job is shipped off and stays off.
+   *
+   * @testPlan PU-H14
+   */
+  public function testEnablingSwitchesTheScheduledJobsBackOnButNotTheSettlementSync(): void {
+    $names = ['eWay Recurring Payments', 'eWay Transaction Verifications', 'eWay Recurring: fill missing tokens metadata'];
+    foreach (array_merge($names, ['eWay Settlement Sync']) as $name) {
+      civicrm_api3('Job', 'create', ['id' => $this->job($name)['id'], 'is_active' => 0]);
+    }
+
+    ewayrecurring_civicrm_enable();
+
+    foreach ($names as $name) {
+      $this->assertEquals(1, $this->job($name)['is_active'], "$name is on again.");
+    }
+    $this->assertEquals(0, $this->job('eWay Settlement Sync')['is_active'], 'The settlement sync job is left off.');
+  }
+
   // ---------------------------------------------------------------------------
   // Managed entities (PU-H1, PU-H2)
   // ---------------------------------------------------------------------------

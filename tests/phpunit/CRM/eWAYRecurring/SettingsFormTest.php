@@ -225,6 +225,61 @@ class CRM_eWAYRecurring_SettingsFormTest extends \PHPUnit\Framework\TestCase imp
     }
   }
 
+  public function notWholeNumberProvider(): array {
+    return [
+      'negative' => ['-1'],
+      'fraction' => ['2.5'],
+      'less than one' => ['0.5'],
+      'exponent' => ['1e2'],
+      'with a sign' => ['+3'],
+      'negative zero' => ['-0'],
+    ];
+  }
+
+  /**
+   * A count of retries or of days is a whole number of zero or more. The check
+   * used to be is_numeric(), which let all of these through to be saved as typed.
+   *
+   * @dataProvider notWholeNumberProvider
+   * @testPlan PU-J8
+   */
+  public function testRetriesAndTheDelayMustBeWholeNumbers(string $value): void {
+    $retries = $this->errorsFor($this->values(['eway_recurring_contribution_max_retry' => $value]));
+    $delay = $this->errorsFor($this->values(['eway_recurring_contribution_retry_delay' => $value]));
+
+    $this->assertSame(['eway_recurring_contribution_max_retry' => 'Retries should be a valid number'], $retries);
+    $this->assertSame(['eway_recurring_contribution_retry_delay' => 'Retry delay should be a valid number'], $delay);
+  }
+
+  /**
+   * Zero is allowed (no retries, or retry on the next run), and so are spaces
+   * around the number.
+   *
+   * @testPlan PU-J8
+   */
+  public function testZeroAndPaddedWholeNumbersAreAccepted(): void {
+    foreach (['0', '7', ' 5 '] as $value) {
+      $errors = $this->errorsFor($this->values([
+        'eway_recurring_contribution_max_retry' => $value,
+        'eway_recurring_contribution_retry_delay' => $value,
+      ]));
+      $this->assertSame([], $errors, "\"$value\" is a whole number.");
+    }
+  }
+
+  /**
+   * @testPlan PU-J8
+   */
+  public function testSpacesAroundANumberAreNotSaved(): void {
+    $this->submit($this->values([
+      'eway_recurring_contribution_max_retry' => ' 5 ',
+      'eway_recurring_contribution_retry_delay' => "7\t",
+    ]));
+
+    $this->assertSame('5', (string) \Civi::settings()->get('eway_recurring_contribution_max_retry'));
+    $this->assertSame('7', (string) \Civi::settings()->get('eway_recurring_contribution_retry_delay'));
+  }
+
   // ---------------------------------------------------------------------------
   // Saving
   // ---------------------------------------------------------------------------
@@ -380,6 +435,46 @@ class CRM_eWAYRecurring_SettingsFormTest extends \PHPUnit\Framework\TestCase imp
 
     $saved = CRM_eWAYRecurring_SettlementSync::normaliseProcessorIds(\Civi::settings()->get('eway_settlement_processors'));
     $this->assertSame([(int) $live['id']], $saved);
+  }
+
+  /**
+   * The page redirects back to itself, so it has to say that the save happened.
+   *
+   * @testPlan PU-J9
+   */
+  public function testSavingShowsAConfirmationMessage(): void {
+    CRM_Core_Session::singleton()->getStatus(TRUE);
+
+    $this->submit($this->values());
+
+    $messages = CRM_Core_Session::singleton()->getStatus(TRUE);
+    $this->assertCount(1, $messages);
+    $this->assertSame('success', $messages[0]['type']);
+    $this->assertStringContainsString('settings have been saved', $messages[0]['text']);
+  }
+
+  /**
+   * A refused submission is not a save: no confirmation, nothing stored.
+   *
+   * @testPlan PU-J9
+   */
+  public function testARefusedSubmissionShowsNoConfirmation(): void {
+    CRM_Core_Session::singleton()->getStatus(TRUE);
+
+    $this->errorsFor($this->values(['eway_recurring_contribution_max_retry' => 'abc']));
+
+    $this->assertSame([], CRM_Core_Session::singleton()->getStatus(TRUE));
+  }
+
+  /**
+   * The form keeps what was posted in a property. Created on the fly it is a
+   * PHP 8.2 deprecation, printed in front of the redirect on every save.
+   *
+   * @testPlan PU-J10
+   */
+  public function testTheSubmittedValuesPropertyIsDeclared(): void {
+    $this->assertTrue(property_exists(CRM_eWAYRecurring_Form_Settings::class, '_submittedValues'));
+    $this->assertTrue((new ReflectionProperty(CRM_eWAYRecurring_Form_Settings::class, '_submittedValues'))->isProtected());
   }
 
   // ---------------------------------------------------------------------------

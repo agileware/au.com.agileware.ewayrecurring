@@ -54,7 +54,34 @@ function ewayrecurring_civicrm_enable() {
                                  ->addValue('is_active', TRUE)
                                  ->addWhere('name', '=', 'eWay_Recurring')
                                  ->execute();
+  _ewayrecurring_reactivate_jobs();
   _ewayrecurring_civix_civicrm_enable();
+}
+
+/**
+ * Switch the extension's scheduled jobs back on after it has been disabled and enabled again.
+ *
+ * Disabling an extension makes core switch its managed jobs off. Enabling it again does not switch them back on:
+ * core reconciles the managed records after the enable has finished, when the extension no longer counts as being
+ * enabled, so a job is left as it is. Without this the recurring payments, the transaction verification and the
+ * token metadata jobs stayed off for good, and nothing said so. Only the jobs declared active are touched: the
+ * settlement sync job is shipped switched off and stays that way.
+ */
+function _ewayrecurring_reactivate_jobs() {
+  $entities = [];
+  ewayrecurring_civicrm_managed($entities);
+  $names = [];
+  foreach ($entities as $entity) {
+    if ($entity['entity'] === 'Job' && !empty($entity['params']['is_active'])) {
+      $names[] = $entity['params']['name'];
+    }
+  }
+  if ($names) {
+    \Civi\Api4\Job::update(FALSE)
+      ->addValue('is_active', TRUE)
+      ->addWhere('name', 'IN', $names)
+      ->execute();
+  }
 }
 
 /**
