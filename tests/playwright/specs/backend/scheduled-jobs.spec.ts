@@ -18,7 +18,7 @@ import {
   openRecurringTab,
   recurringRow,
   recurringViewUrl,
-  RECURRING_VIEW_CORE_NOISE,
+  SCREEN_NOISE,
 } from '../../fixtures/recurring-screens';
 import { cardsWithoutDetails, JOB, jobRow, latestJobResult, openJobs, runJobFromScreen } from '../../fixtures/scheduled-jobs';
 
@@ -168,7 +168,7 @@ test.describe('scheduled jobs: run from the screen', () => {
   });
 
   test.describe('recurring payments', () => {
-    test.use({ allowedProblems: [RECURRING_VIEW_CORE_NOISE] });
+    test.use({ allowedProblems: [SCREEN_NOISE] });
 
     test('PW-B-jobs-05 "eWay Recurring Payments" run from the screen charges a due recurring contribution: the new payment is on the contact and the schedule moves on', async ({ adminPage, stub }) => {
       const record = createRecurring({ label: 'jobs05', nextDue: '-1 day', amount: 15 });

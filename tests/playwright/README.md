@@ -13,8 +13,12 @@ screen and the CMS theme (`contribution-once-off-variants.spec.ts`). Recurring s
 follow, then the donor-facing update billing, verification queue and public endpoint groups (`PW-F4` to `PW-F6`). The
 back office has begun (`specs/backend/`): the settings page (`PW-B-settings`, `settings.spec.ts`), the payment
 processor admin screens and the extension being switched off and on (`PW-B-processor`, `payment-processor.spec.ts`)
-and who may read and change saved cards (`PW-B-permissions`, `token-permissions.spec.ts`). The rest of the back office,
-`specs/security/` and `specs/sandbox/` are still to be written.
+and who may read and change saved cards (`PW-B-permissions`, `token-permissions.spec.ts`). The scheduled jobs
+(`PW-B-jobs`, `scheduled-jobs.spec.ts`), what the recurring payments job does and what staff then see
+(`PW-B-cron`, `recurring-cron.spec.ts`), the System Status check (`PW-B-status`, `system-status.spec.ts`) and the
+Cancel and Update Recurring Contribution forms with a Failed record (`PW-B-recurforms`, `recurring-forms.spec.ts`)
+are written too. The failed recurring list and back-office saved-card payments, `specs/security/` and `specs/sandbox/`
+are still to be written.
 
 ## How it works
 
@@ -108,6 +112,9 @@ fixtures/
                           run the verification job
   event-registration.ts   the seeded events: find them, fill in the registration steps, read participants and the
                           contribution that pays for one
+  scheduled-jobs.ts      the Scheduled Jobs screen and job log: find a job's row, run it from the screen, read its log
+  recurring-screens.ts   the contact's Contributions, Recurring Contributions and Activities tabs, the recurring record's
+                          own page and forms, the Failed Recurring Contributions list
   backend.ts              back-office helpers: the settings page (open, submit, the select2 box, reset and read the
                           settings it owns), the Administer menu, and CRM.api4() called from a signed-in page
   visibility.ts           checks that a message really shows inside the theme (size, position, contrast, not covered)
@@ -127,6 +134,8 @@ ddev-exec.sh             runs a command inside a DDEV site, for CIVI_EXEC_PREFIX
 specs/
   infrastructure/         checks of the above
   frontend/               PW-F1 (contribution-once-off*.spec.ts), PW-F2 (contribution-recurring.spec.ts), PW-F3 (event-registration.spec.ts)
-  backend/                PW-B-settings (settings.spec.ts), PW-B-processor (payment-processor.spec.ts), PW-B-permissions (token-permissions.spec.ts)
+  backend/                PW-B-settings (settings.spec.ts), PW-B-processor (payment-processor.spec.ts), PW-B-permissions (token-permissions.spec.ts),
+                          PW-B-jobs (scheduled-jobs.spec.ts), PW-B-cron (recurring-cron.spec.ts), PW-B-status (system-status.spec.ts),
+                          PW-B-recurforms (recurring-forms.spec.ts)
   security/ sandbox/      still to be written
 ```

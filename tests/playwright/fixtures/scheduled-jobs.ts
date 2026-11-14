@@ -78,11 +78,6 @@ export async function latestJobResult(page: Page, name: string): Promise<string>
   return (await finished.innerText()).replace(/^\s*Summary\s*/, '').replace(/\s+/g, ' ').trim();
 }
 
-/** How many entries a job's log holds, so a case can tell that running the job added to it. */
-export function jobLogCount(name: string): number {
-  return api4<{ id: number }>('JobLog', 'get', { select: ['id'], where: [['job_id', '=', jobIdByName(name)]] }).length;
-}
-
 /** How many saved eWAY cards are missing their expiry date or masked number, which is what the fill-in job looks for. */
 export function cardsWithoutDetails(): number {
   return api4<{ id: number }>('PaymentToken', 'get', {
