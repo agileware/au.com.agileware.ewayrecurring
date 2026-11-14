@@ -39,6 +39,12 @@ in a suitable environment:
 phpunit9 --group e2e
 ```
 
+## Playwright tests
+
+`tests/playwright/` holds the browser tests, with a fake eWAY so no test calls the real gateway. See its
+[README](../tests/playwright/README.md) for how to run them. On GitHub they run through
+`.github/workflows/frontend-tests.yml`.
+
 ## Upgrade tests
 
 `tests/upgrade/` checks that a site can upgrade from an older release without losing or changing data.

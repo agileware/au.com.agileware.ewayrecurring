@@ -1,0 +1,16 @@
+{
+  "_comment": "Names of the records seed-data.php creates, so specs find them without hardcoding. The seed grows as specs are written.",
+  "processors": {
+    "live": "Playwright eWAY",
+    "dummy": "Playwright Dummy"
+  },
+  "contacts": {
+    "donor": { "firstName": "Playwright", "lastName": "Donor", "email": "playwright.donor@example.test" }
+  },
+  "tokens": {
+    "valid": { "token": "912345678901", "masked": "444433XXXXXX1111" }
+  },
+  "stub": {
+    "hostedHost": "eway-stub.test"
+  }
+}

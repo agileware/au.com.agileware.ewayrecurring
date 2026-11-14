@@ -1,0 +1,22 @@
+name: Playwright tests
+
+# Builds a WordPress and CiviCRM site with the extension, sets up the personas, the eWAY stub and the seed data
+# (tests/playwright/fixtures/setup-environment.sh), and runs the Playwright suite. See tests/playwright/README.md.
+#
+# The shared workflow builds WordPress only. Drupal, Joomla and Standalone are run against local sites until their
+# own workflows exist (developer/TEST_PLAN.md section 2.5).
+on:
+  push: {}
+  workflow_dispatch: {}
+
+jobs:
+  playwright:
+    uses: agileware/ci-workflows/.github/workflows/playwright-tests.yml@main
+    secrets:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    with:
+      EXTENSION_NAME: au.com.agileware.ewayrecurring
+      SETUP_SCRIPT: tests/playwright/fixtures/setup-environment.sh
+      # Pinned so the theme the layout cases run against cannot change by accident.
+      WP_THEME: astra

@@ -1,0 +1,21 @@
+{
+  "_comment": "Personas for the Playwright tests. The administrator is the site's own, from WP_ADMIN_USER and WP_ADMIN_PASS. The others are created by the setup script on throwaway test sites only. Capabilities use CiviCRM's permission names; each CMS setup script maps them (see TEST_PLAN.md 2.4 and 2.5).",
+  "finance": {
+    "username": "ewayfinance",
+    "password": "Eway-finance-Test-1!",
+    "email": "ewayfinance@example.test",
+    "capabilities": ["access CiviCRM", "access CiviContribute", "edit contributions", "view payment tokens", "edit payment tokens"]
+  },
+  "tokenviewer": {
+    "username": "ewayviewer",
+    "password": "Eway-viewer-Test-1!",
+    "email": "ewayviewer@example.test",
+    "capabilities": ["access CiviCRM", "view payment tokens"]
+  },
+  "limited": {
+    "username": "ewaylimited",
+    "password": "Eway-limited-Test-1!",
+    "email": "ewaylimited@example.test",
+    "capabilities": ["access CiviCRM"]
+  }
+}

@@ -43,3 +43,11 @@ no rebuild needed.
 ```bash
 docker compose down -v
 ```
+
+## Playwright tests
+
+The browser tests live in `tests/playwright/`. They need a site that has CiviCRM and this extension, and the
+setup script `tests/playwright/fixtures/setup-environment.sh` run inside it (WordPress), then
+`npx playwright test` from `tests/playwright` with `BASE_URL` and `CIVI_EXEC_PREFIX` set. The README in that
+folder lists every option, and how the fake eWAY works. The setup script changes the site (roles, users, a stub
+extension, seed data), so use a disposable site or take a database snapshot first.

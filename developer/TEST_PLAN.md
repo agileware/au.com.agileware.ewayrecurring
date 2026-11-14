@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **272**. Done: **75**. In progress: **0**. Blocked: **3**. To do: **189**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **278**. Done: **75**. In progress: **6**. Blocked: **3**. To do: **189**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -88,6 +88,7 @@ Cases defined: **272**. Done: **75**. In progress: **0**. Blocked: **3**. To do:
 | PU-N | PHPUnit | `SubscriptionManagementTest` | 8 | 4 | 0 | 0 | 4 | 0 | none |
 | PU-O | PHPUnit | `FailedRecurringSearchTest` | 5 | 0 | 0 | 0 | 5 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
+| PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Run locally on WordPress; waiting for a GitHub run and the other CMSs |
 | PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 0 | 0 | 13 | 0 | Phase 0 infra, S1 stub |
 | PW-F2 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
 | PW-F3 | Playwright | `specs/frontend/` | 6 | 0 | 0 | 0 | 6 | 0 | Phase 0 infra, S1 stub |
@@ -115,7 +116,7 @@ run date in the change log.
 
 | Playwright group | WordPress | Drupal | Joomla | Standalone |
 | --- | --- | --- | --- | --- |
-| Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | none | none | none | none |
+| Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | partial (ran locally, not yet in CI) | none | none | none |
 | Frontend (PW-F1 to PW-F6) | none | none | none | none |
 | Backend (PW-B-*) | none | none | none | none |
 | Security (PW-S) | none | none | none | none |
@@ -227,7 +228,7 @@ tests/playwright/
     test-users.json             usernames, passwords, roles (single source of truth)
     test-data.json              names of seeded processors, pages, contacts, tokens
     setup-environment.sh        WordPress: roles, users, pages; then common steps below
-    setup-accounts-drupal.sh    Drupal: roles and users with drush
+    setup-accounts-drupal.sh    Drupal: roles and users with drush (not written yet)
     setup-accounts-joomla.sh    Joomla: administrator, plus user groups, access rules and users
     setup-accounts-standalone.sh  Standalone: roles and users with cv
     setup-common.sh             every CMS: install stub extension, processor, outbound mail, seed
@@ -707,6 +708,21 @@ this suite runs on WordPress only. Pick `FROM_REF` as the last release the upgra
 Every spec uses the eWAY stub unless marked `@sandbox`. Each case is one `test()`. Cases that
 change shared fixtures create their own throwaway records, as the sibling suites do.
 
+### 5.0 Infrastructure, `specs/infrastructure/`
+
+Checks of the test machinery itself (the site, the personas, the fake eWAY and the helpers), so the specs that
+build on it can trust it. They are written and passed on a local WordPress site; they are `wip` until the
+Playwright workflow has passed on GitHub and the other CMSs have been run.
+
+| ID | Status | CMS | Case |
+| --- | --- | --- | --- |
+| PW-INF-01 | wip | all | The site is up and the administrator persona's saved session reaches the CiviCRM dashboard |
+| PW-INF-02 | wip | all | The extension and the stub extension are enabled, and the seeded live and test eWAY processors exist |
+| PW-INF-03 | wip | all | A response scripted through `stub.respond()` reaches the real extension code (`getEWayClient()` then `queryCustomer()`), and the call and its arguments are logged |
+| PW-INF-04 | wip | all | A gateway call nothing was queued for is logged as unexpected and throws, so a test fails loudly on one it did not expect |
+| PW-INF-05 | wip | all | The shared payment page address the stub returns (through the real SDK's `createTransaction()`) points at the fake hosted page and carries the access code, return and cancel addresses, amount and reference |
+| PW-INF-06 | wip | all | The fake hosted page sends the browser back with the access code appended, with `?` when the return address has no query string and `&` when it has, for Pay and for Cancel |
+
 ### 5.1 Front end (donors), `specs/frontend/`
 
 **PW-F1 once-off contribution page** (`contribution-once-off.spec.ts`)
@@ -929,7 +945,7 @@ Update the Status column as phases start and finish.
 
 | Phase | Status | Scope | Why this order |
 | --- | --- | --- | --- |
-| 0 | In progress (seam S1, PHPUnit fakes and fixture, coverage config done; Playwright scaffold and CI pinning not started) | Seam S1, `EwayFixture`, `FakeEwayHttp`, move SettlementSync helpers, fix coverage config. Playwright scaffold, **CMS-agnostic from the start**: package, config, `cms.ts`, `global-setup.ts`, `base.ts`, `civi.ts`, stub extension and `page.route()` hosted-page stub, setup scripts for all four CMSs (including the Joomla groups and access rules), `frontend-tests.yml` (WordPress), one smoke spec. | Everything else depends on these. Building `cms.ts` first means no spec ever hardcodes a WordPress path, which is far cheaper than retrofitting. Also proves the CI wiring early. |
+| 0 | In progress (seam S1, PHPUnit fakes and fixture, coverage config done; Playwright scaffold written and run locally on WordPress, the workflow added and not yet run on GitHub; the other CMSs' account scripts and CI pinning not started) | Seam S1, `EwayFixture`, `FakeEwayHttp`, move SettlementSync helpers, fix coverage config. Playwright scaffold, **CMS-agnostic from the start**: package, config, `cms.ts`, `global-setup.ts`, `base.ts`, `civi.ts`, stub extension and `page.route()` hosted-page stub, setup scripts for all four CMSs (including the Joomla groups and access rules), `frontend-tests.yml` (WordPress), one smoke spec. | Everything else depends on these. Building `cms.ts` first means no spec ever hardcodes a WordPress path, which is far cheaper than retrofitting. Also proves the CI wiring early. |
 | 1 | In progress (PU-D, PU-E and PU-F done and passing in CI; PU-B has only PU-B12; the Playwright suites are not started) | PU-B, PU-D, PU-E, PU-F, plus PW-F1, PW-F2, PW-F5, PW-B-cron | Money and schedule logic. A regression here charges or fails to charge real donors. |
 | 2 | In progress (PU-A5, PU-G9, PU-G12 and PU-N5 to N8 done or started; the rest and all the Playwright suites not started) | PU-A, PU-C, PU-G, PU-H, PU-I, PU-J, PU-N, PU-O, plus PW-B-settings, PW-B-failed, PW-B-recurforms, PW-B-jobs, PW-B-processor | Admin features and hook behaviour. |
 | 3 | In progress (PU-L2, PU-L6 to PU-L10 and the UP suite done; the rest not started) | PU-K, PU-L, PU-M, UP (adds `tests/upgrade/` and `upgrade-tests.yml`), plus PW-F3, PW-F4, PW-F6, PW-B-backoffice, PW-B-status, PW-B-permissions, PW-S | Remaining journeys, hardening, upgrade safety. |
@@ -998,6 +1014,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Playwright scaffold started in `tests/playwright/`: package and lockfile, config, `cms.ts` (all four CMSs, WordPress run), `civi.ts`, `eway-stub.ts`, `global-setup.ts`, `base.ts` with the problem collector, personas, a WordPress setup script, the shared setup and seed, and a test-support extension that fakes eWAY's HTTP service. `.github/workflows/frontend-tests.yml` added. New group PW-INF (6 cases, `wip`): all six passed against a local WordPress site with all four personas signed in. The collector found real browser noise on first run (an unload permissions-policy console error, now ignored) and flagged a made-up return path that returned 404. Not yet run on GitHub; the account scripts for Drupal, Joomla and Standalone are not written. 278 cases. |
 | 2026-11-14 | PU-G9 is `done`: CI passed with the new tests (PHPUnit green; the upgrade workflow repeated 57 passing checks and none failing). No case is `wip` now. |
 | 2026-11-14 | PU-G9 now covers every refusal path of `saveToken` (no `pp_id`, no access code, unknown processor added); `wip` until CI runs them. The no-`pp_id` exit uses `civiExit()` instead of `die()` so it can be tested. |
 | 2026-11-14 | The UP suite is `done`: the corrected upgrade workflow passed on GitHub with 57 checks and none failing (UP-01 to UP-06 and UP-08 to UP-11; UP-07 stays dropped). |
