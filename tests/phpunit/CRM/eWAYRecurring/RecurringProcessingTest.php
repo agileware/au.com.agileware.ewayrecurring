@@ -187,6 +187,34 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
+   * A recurring contribution that is cancelled while it is being retried must
+   * not be retried (CIVIEWAY-125: a failed transaction kept retrying after the
+   * contribution had been cancelled). It is the realistic case: it has
+   * failures and a retry date that is due. A record still being retried is
+   * charged in the same run, which shows the cancelled one was skipped on
+   * purpose rather than because nothing was due.
+   *
+   * @testPlan PU-F27
+   */
+  public function testARecurringContributionCancelledWhileBeingRetriedIsNotRetried(): void {
+    $processor = Fixture::processor();
+    [, $cancelled] = $this->dueRecurring(['contribution_status_id:name' => 'Cancelled', 'failure_count' => 2, 'failure_retry_date' => '-1 hour'], $processor);
+    [, $stillRetrying] = $this->dueRecurring(['failure_count' => 1, 'failure_retry_date' => '-1 hour'], $processor);
+    $this->approveNextCharge();
+
+    $this->assertSame([(int) $stillRetrying['id']], array_values(array_intersect([(int) $cancelled['id'], (int) $stillRetrying['id']], $this->retryIds($processor))));
+
+    $this->runCron($processor);
+
+    $this->assertCount(1, $this->http->callsTo('postTransaction'), 'Only the record still being retried is charged.');
+    $this->assertSame([], $this->charges($cancelled));
+    $this->assertCount(1, $this->charges($stillRetrying));
+    $after = Fixture::reloadRecurring($cancelled['id']);
+    $this->assertSame('Cancelled', $this->recurStatus($after));
+    $this->assertEquals(2, $after['failure_count'], 'The cancelled record is not touched.');
+  }
+
+  /**
    * @testPlan PU-F3
    */
   public function testRecurringContributionInRetryStateMovesToTheRetryList(): void {
