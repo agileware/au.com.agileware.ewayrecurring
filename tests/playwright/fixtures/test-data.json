@@ -28,6 +28,18 @@
         25,
         50
       ]
+    },
+    "nonAscii": {
+      "title": "Playwright café appeal for Zoë's friends",
+      "amounts": [
+        10,
+        25,
+        50
+      ]
+    },
+    "free": {
+      "title": "Playwright free registration",
+      "optionLabel": "Free"
     }
   }
 }

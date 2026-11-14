@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
-import { api4, evaluateJson } from './civi';
+import { api4, evaluate, evaluateJson } from './civi';
 import { frontUrl } from './cms';
+import { responses, STUB_HOST } from './eway-stub';
 import testData from './test-data.json';
 
 /**
@@ -31,16 +32,31 @@ export const DEFAULT_DONOR: Donor = {
   state: 'Australian Capital Territory',
 };
 
-/** The id of the seeded once-off contribution page. */
-export function onceOffPageId(): number {
+/** The id of a seeded contribution page, found by its title. */
+export function pageIdByTitle(title: string): number {
   const rows = api4<{ id: number }>('ContributionPage', 'get', {
     select: ['id'],
-    where: [['title', '=', testData.pages.onceOff.title]],
+    where: [['title', '=', title]],
   });
   if (!rows.length) {
-    throw new Error(`The seeded contribution page "${testData.pages.onceOff.title}" does not exist. Run the setup script.`);
+    throw new Error(`The seeded contribution page "${title}" does not exist. Run the setup script.`);
   }
   return rows[0].id;
+}
+
+/** The id of the seeded once-off contribution page. */
+export function onceOffPageId(): number {
+  return pageIdByTitle(testData.pages.onceOff.title);
+}
+
+/** The id of the seeded once-off page whose title has accented characters (it goes to eWAY in the description). */
+export function nonAsciiPageId(): number {
+  return pageIdByTitle(testData.pages.nonAscii.title);
+}
+
+/** The id of the seeded page whose only price option is free. */
+export function freePageId(): number {
+  return pageIdByTitle(testData.pages.free.title);
 }
 
 /** The address of a contribution page on the front end. */
@@ -54,6 +70,15 @@ export function pageUrl(pageId: number, query: Record<string, string | number> =
  */
 export function newTransactionId(): number {
   return Number(String(Date.now()).slice(-9)) * 10 + Math.floor(Math.random() * 10);
+}
+
+/**
+ * A donor with an email address no earlier run has used, so a test that counts records, or that needs a new contact,
+ * is not disturbed by what other tests left behind. The label shows in the address, which helps when reading the site.
+ */
+export function uniqueDonor(label: string, overrides: Partial<Donor> = {}): Donor {
+  const unique = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  return { ...DEFAULT_DONOR, email: `playwright.${label}.${unique}@example.test`, ...overrides };
 }
 
 /** A fresh access code, so tests do not share one. */
@@ -104,15 +129,30 @@ export async function reviewContribution(page: Page): Promise<void> {
   await page.locator('#_qf_Confirm_next-bottom').waitFor();
 }
 
-/** The contribution a donor's confirm step created, found by email address (the newest one). */
-export function latestContribution(email: string): Record<string, any> | undefined {
+/**
+ * The contribution a donor's confirm step created, found by email address (the newest one). Pass `isTest` to look
+ * only at live (false) or test-mode (true) contributions.
+ */
+export function latestContribution(email: string, isTest?: boolean): Record<string, any> | undefined {
+  const where: any[] = [['contact_id.email_primary.email', '=', email]];
+  if (isTest !== undefined) {
+    where.push(['is_test', '=', isTest]);
+  }
   const rows = api4('Contribution', 'get', {
     select: ['id', 'contribution_status_id:name', 'total_amount', 'trxn_id', 'invoice_id', 'is_test', 'contribution_page_id', 'contact_id', 'contribution_recur_id'],
-    where: [['contact_id.email_primary.email', '=', email]],
+    where,
     orderBy: { id: 'DESC' },
     limit: 1,
   });
   return rows[0];
+}
+
+/** How many contributions (live and test) a donor's email address has. */
+export function contributionCount(email: string): number {
+  return api4('Contribution', 'get', {
+    select: ['id'],
+    where: [['contact_id.email_primary.email', '=', email], ['is_test', 'IN', [false, true]]],
+  }).length;
 }
 
 /** The verification queue row for a contribution (the extension offers it through APIv3 only). */
@@ -121,4 +161,77 @@ export function queueRow(contributionId: number): Record<string, any> | undefine
     `echo json_encode(civicrm_api3('EwayContributionTransactions', 'get', ['contribution_id' => ${Number(contributionId)}])['values']);`,
   );
   return Object.values(values)[0];
+}
+
+/**
+ * Mark every verification queue row still waiting, except the one for `keepContributionId`, as failed.
+ *
+ * The verification job asks eWAY about every row that is still waiting, and the stub answers by method, in the order
+ * answers were queued, not by access code. Earlier tests leave their rows waiting (a donor who goes to the hosted
+ * page and never pays), so a test that runs the job must put those aside or the job asks about them too and takes
+ * the answers meant for its own row. Only the queue rows change; the contributions are left as they are.
+ */
+export function setOtherQueueRowsAside(keepContributionId: number): void {
+  evaluate(`
+    $rows = civicrm_api3('EwayContributionTransactions', 'get', ['status' => 0, 'options' => ['limit' => 0]])['values'];
+    foreach ($rows as $row) {
+      if ((int) $row['contribution_id'] !== ${Number(keepContributionId)}) {
+        civicrm_api3('EwayContributionTransactions', 'create', ['id' => $row['id'], 'status' => 2]);
+      }
+    }
+  `);
+}
+
+/** Run the verification job (the APIv3 call the scheduled job makes) and return its counts. */
+export function runVerificationJob(): Record<string, number> {
+  return evaluateJson<Record<string, number>>(
+    `echo json_encode(civicrm_api3('EwayContributionTransactions', 'validate', [])['values']);`,
+  );
+}
+
+/** True when the page is wider than its window, so the donor would have to scroll sideways. */
+export async function hasHorizontalOverflow(page: Page): Promise<boolean> {
+  return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+}
+
+/**
+ * Submit a QuickForm step the way a browser would if its script had not run: without the browser-side checks.
+ * A donor with scripting off, or a script that posts the form directly, gets this path, so the server has to refuse
+ * bad input itself. `buttonName` is the name of the step's submit button, for example `_qf_Main_upload`. Resolves
+ * once the next page has loaded.
+ */
+export async function submitWithoutBrowserValidation(page: Page, buttonName: string): Promise<void> {
+  // The new document will not have this mark, which is how the page change is noticed.
+  await page.evaluate(() => {
+    (window as any).__beforeSubmit = true;
+  });
+  await page.evaluate((name) => {
+    const button = document.querySelector(`[name="${name}"]`) as HTMLElement | null;
+    const form = (button ? button.closest('form') : document.querySelector('form.CRM_Contribute_Form_Contribution_Main')) as HTMLFormElement;
+    const field = document.createElement('input');
+    field.type = 'hidden';
+    field.name = name;
+    field.value = '1';
+    form.appendChild(field);
+    // The form's own submit() does not run the submit handlers, so the browser-side checks are skipped.
+    HTMLFormElement.prototype.submit.call(form);
+  }, buttonName);
+  await page.waitForFunction(() => !(window as any).__beforeSubmit);
+  await page.waitForLoadState('load');
+}
+
+/** On the confirm step, press Continue and wait for eWAY's hosted page (the fake one). */
+export async function continueToHostedPage(page: Page): Promise<void> {
+  await page.locator('#_qf_Confirm_next-bottom').click();
+  await page.waitForURL((url) => url.hostname === STUB_HOST);
+}
+
+/** eWAY's answer when it has no result for the access code yet: the donor has not paid, or eWAY is still working. */
+export function transactionNotProcessedYet(): Record<string, unknown> {
+  return responses.transactionFound({ TransactionID: '', TransactionStatus: false, ResponseCode: '', ResponseMessage: '', TokenCustomerID: '' });
+}
+
+/** eWAY's answer for an approved once-off payment of `amount` dollars, with a transaction id no earlier run used. */
+export function transactionApproved(amount: number): Record<string, unknown> {
+  return responses.transactionFound({ TransactionID: newTransactionId(), TransactionStatus: true, TotalAmount: Math.round(amount * 100), TokenCustomerID: '' });
 }
