@@ -5,7 +5,7 @@
 | Extension version | 2.8.2 |
 | Status last updated | 2026-11-14 |
 | Owner | Extension maintainers (update this file in the same pull request as any test change) |
-| Related | [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment) |
+| Related | [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment), [FEATURES.md](FEATURES.md) (planned features) |
 
 ## 0. About this document
 
@@ -985,6 +985,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Link to the new [FEATURES.md](FEATURES.md) added to the header. |
 | 2026-11-14 | PW-F4 reworded as the staff-side update billing form (donors do not use it; sites that want donor self-service build their own page that replaces the stored card in place). New cases for the extension's side of that arrangement: PU-F25, PU-F26, PU-G11, PW-B-cron-08. 262 cases. |
 | 2026-11-14 | DEF-13 and DEF-14 fixed on `release-3.0.0` and the unused `VerifyUpdateToken` page, route and dead return-URL branches deleted. New suite `SubscriptionManagementTest`: PU-N5 to PU-N8 (PU-N8, expired card, is new) are `wip` until CI passes. PU-K4 to K6 and PW-F6-02 dropped (`n/a`, the page is gone). PW-B-cron-06 and 07, PW-B-failed-11, PW-B-status-03, PW-B-recurforms-05 and PW-F4-06 are no longer `blocked`: the fixes they needed are on this branch. 258 cases. Fixed-status of DEF-1 to DEF-12 still to be updated. |
 | 2026-11-14 | DEF-14 added (suspected security issue: `updateSubscriptionBillingInfo()` accepts any token id, found from reading the code). New cases PU-N6 and PU-N7 (characterise it), PW-S-05 (tampered token id), PW-F4-07 (can a donor use the form at all) and PW-X-05 (adding a card is not verified with the issuer). 257 cases. |
