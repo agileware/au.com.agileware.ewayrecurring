@@ -8,7 +8,9 @@ What exists so far is the scaffold, six infrastructure checks (`specs/infrastruc
 path and the decline (`contribution-once-off.spec.ts`), required billing details
 (`contribution-once-off-validation.spec.ts`), cancelling, going back, double clicks and the donor who never returns
 (`contribution-once-off-interruptions.spec.ts`), and the variants: non-ASCII text, test mode, a free option, a phone
-screen and the CMS theme (`contribution-once-off-variants.spec.ts`). The rest of the journeys (`specs/frontend/`,
+screen and the CMS theme (`contribution-once-off-variants.spec.ts`). Recurring set-up on the contribution page
+(group `PW-F2`, `contribution-recurring.spec.ts`) and event registration (group `PW-F3`, `event-registration.spec.ts`)
+follow. The rest of the journeys (`specs/frontend/`,
 `specs/backend/`, `specs/security/`, `specs/sandbox/`) are still to be written.
 
 ## How it works
@@ -45,8 +47,9 @@ The setup scripts run inside the site, as the web user, from the extension's fol
 | Drupal, Joomla, Standalone | `setup-accounts-<cms>.sh` (planned) | Not written yet. `setup-common.sh` is shared and CMS independent |
 
 `setup-common.sh` installs the stub extension into the site's extensions folder and runs `seed-data.php`
-(eWAY and non-eWAY processors, a donor with a saved card, three once-off contribution pages (plain, accented title,
-free option), outbound mail redirected to the database).
+(eWAY and non-eWAY processors, a donor with a saved card, four contribution pages (plain once-off, accented title,
+free option, recurring), a paid event that takes up to two more people and a free event, outbound mail redirected to
+the database).
 The seed grows as specs are written.
 
 On the shared GitHub workflow the extension under test is bind mounted into the extensions folder, so Docker creates
@@ -98,6 +101,8 @@ fixtures/
   cms.ts                  CMS, frontUrl(), adminUrl(), appendQuery(), login()
   contribution-page.ts    the seeded once-off pages: find them, fill them in, move through the steps, read the results,
                           run the verification job
+  event-registration.ts   the seeded events: find them, fill in the registration steps, read participants and the
+                          contribution that pays for one
   visibility.ts           checks that a message really shows inside the theme (size, position, contrast, not covered)
   civi.ts                 cv api4 / ev / scr wrappers
   eway-stub.ts            scripted responses, the request log, the fake hosted page's HTML, response builders
@@ -114,6 +119,6 @@ fixtures/
 ddev-exec.sh             runs a command inside a DDEV site, for CIVI_EXEC_PREFIX
 specs/
   infrastructure/         checks of the above
-  frontend/               PW-F1 so far (contribution-once-off*.spec.ts)
+  frontend/               PW-F1 (contribution-once-off*.spec.ts), PW-F2 (contribution-recurring.spec.ts), PW-F3 (event-registration.spec.ts)
   backend/ security/ sandbox/    still to be written
 ```
