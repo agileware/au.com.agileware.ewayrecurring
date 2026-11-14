@@ -42,6 +42,11 @@ The setup scripts run inside the site, as the web user, from the extension's fol
 (eWAY and non-eWAY processors, a donor with a saved card, outbound mail redirected to the database).
 The seed grows as specs are written.
 
+On the shared GitHub workflow the extension under test is bind mounted into the extensions folder, so Docker creates
+that folder as root and the web user cannot add a second extension beside it. `setup-common.sh` notices that (or
+`PLAYWRIGHT_FORCE_EXT_FALLBACK=1`) and points CiviCRM's `extensionsDir` and `extensionsURL` at a writable sibling,
+`[civicrm.files]/ext-playwright`, holding links to the extensions already there plus the stub.
+
 On GitHub the WordPress site is built by the shared `playwright-tests` workflow in `agileware/ci-workflows`, which
 calls `setup-environment.sh` (see `.github/workflows/frontend-tests.yml`).
 
