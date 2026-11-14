@@ -46,7 +46,7 @@ documentation (that lives in `docs/`).
 | ID | Feature | Status | Target release | Test plan |
 | --- | --- | --- | --- | --- |
 | [FR-1](#fr-1-donor-facing-update-my-stored-card-page) | Donor-facing "update my stored card" page | `planned` | to be decided | Group to be added once decisions D1 to D5 are settled; supporting cases listed below |
-| [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `planned` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
+| [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `in progress` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
 
 ---
 
@@ -211,7 +211,7 @@ New cases will be added to the test plan once decisions D1 to D5 are settled. Th
 
 | | |
 | --- | --- |
-| Status | `planned` |
+| Status | `in progress` |
 | Raised | 2026-11-14 |
 | Target release | 3.0.0 |
 
@@ -246,9 +246,12 @@ needs at least one failure. It was left by the old update-billing page in releas
 which reset the count but not the date, or by a hand edit that did the same. No current code produces
 it, so there are probably few, but nothing ever picks them up.
 
-### Proposed behaviour
+### Behaviour
 
-- A new revision, `upgrade_30000`, in `CRM_eWAYRecurring_Upgrader`.
+Built on `release-3.0.0` (PU-L6 to PU-L10 written; UP-10 and UP-11 wait for the upgrade-test workflow).
+
+- A new revision, `upgrade_30000`, in `CRM_eWAYRecurring_Upgrader`. It calls
+  `markStuckRecurringContributionsFailed()`, which does the work and returns the ids changed.
 - Both rules apply only to recurring contributions that use an eWAY recurring payment processor, have
   the status In Progress (not Pending), and are not test-mode records. Both have a retry date.
 - **Rule 1** selects those with `failure_count` above 0 and at or above the retry limit saved in the
@@ -263,7 +266,7 @@ it, so there are probably few, but nothing ever picks them up.
 - The two rules never select the same record (one needs failures, the other none), and a second run
   finds nothing to change.
 - The step writes the number of records changed by each rule, and their ids, to the CiviCRM log, and
-  shows the numbers in the upgrade output.
+  shows the same message in the upgrade output.
 - It sends no email and creates no activity.
 
 After the upgrade the System Status check starts reporting the records from both rules, because each
@@ -362,6 +365,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | FR-2 built on `release-3.0.0`: `upgrade_30000` and `markStuckRecurringContributionsFailed()` added to the upgrader, with tests PU-L6 to PU-L10 (`wip` until CI passes). UP-10 and UP-11 not written yet. Status `in progress`. |
 | 2026-11-14 | FR-2 decision U5 settled: no new preview feature for 3.0.0. The two SQL checks (before upgrading) plus the step's log and upgrade output are the preview. All FR-2 decisions U1 to U6 are now decided; status stays `planned` until the step is built. |
 | 2026-11-14 | FR-2 decision U4 changed from option B to option C: Rule 2 marks records with a retry date and no failures Failed (no charge) instead of clearing the retry date. FR-2 text, risks, SQL check and acceptance criteria updated. Added the catch-up charge test result to FR-1 decision D3. |
 | 2026-11-14 | FR-2 decision U4 settled: the step also repairs records with a retry date and no failures (Rule 2) by clearing the retry date, so the next cron run charges them once. FR-2 renamed and reworked into two rules; added the Rule 2 risk (donors are charged), a second SQL check, and a guard that Rule 1 needs `failure_count` above 0. |
