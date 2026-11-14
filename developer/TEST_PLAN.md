@@ -135,11 +135,17 @@ Tests that already existed before this plan (not part of the case counts above):
 
 | Area | State | Notes |
 | --- | --- | --- |
-| Settlement Sync (`SettlementSync.php`, `EwaySettlement.Sync`) | Covered | See the table above. |
-| Everything else (payment processor class, recurring cron, verification queue, tokens, hooks, settings form, pages, Search Kit action, JS, permissions, upgrader) | **No automated tests** | This is where all the money movement and customer-facing behaviour lives. |
-| Front end | One legacy end-to-end class, not run in CI | Drives the real sandbox, parses HTML with regexes, embeds credentials. Replaced by the Playwright suite. |
-| CI | PHPUnit only | `phpunit-tests.yml` calls the shared `civicrm-phpunit-tests.yml`. No front-end or upgrade workflow yet. The shared `playwright-tests.yml` (WordPress only) and `civicrm-extension-upgrade-tests.yml` already exist in `agileware/ci-workflows`. |
-| Coverage config | Too broad | `phpunit.xml.dist` includes `./`, which pulls `vendor/`, `mixin/`, `tests/` and `*.civix.php` into coverage numbers. Restrict to `CRM/`, `api/`, `eWAYRecurring.php`. |
+| Settlement Sync (`SettlementSync.php`, `EwaySettlement.Sync`) | Covered | See the table above. Gaps are PU-M. |
+| Payment processor class, recurring cron, verification queue, upgrade steps | Largely covered by PHPUnit | PU-D, PU-E and PU-F are nearly all done. PU-B (`doPayment`), PU-C (return URLs) and most of PU-G (tokens) are still to do. |
+| Update billing, retry and recovery of Failed records | Covered by PHPUnit | PU-N5 to PU-N9, with the donor-path fixes DEF-13 and DEF-14. |
+| Upgrade from 2.8.1 | Covered in CI | `tests/upgrade/` and PU-L, 57 checks green on GitHub. |
+| Hooks, settings form, permissions, Search Kit action, JS | Mostly **not yet tested** | PU-H (two of thirteen done), PU-I, PU-J and PU-O are still to do. |
+| Front end | Started | Playwright PW-F1 (once-off contribution page) has five cases green on WordPress, on GitHub and locally. The other front-end groups are still to do. The legacy `E2ETest.php` (real sandbox, not run in CI) is still to be replaced and deleted. |
+| CI | PHPUnit, upgrade and Playwright | `phpunit-tests.yml`, `upgrade-tests.yml` and `frontend-tests.yml` call the shared workflows in `agileware/ci-workflows`. They run on pushes to master, on pull requests and on demand. Playwright runs on WordPress only. |
+| Coverage config | Restricted | `phpunit.xml.dist` includes only `CRM/` and `api/` (the generated DAO files are excluded). |
+
+For the exact state use the status summary in 0.1 (case counts per suite), the CMS table under it, and the change
+log in section 8. This section is a summary and goes stale: when you finish a suite, refresh it.
 
 ### Feature inventory and coverage
 
@@ -147,20 +153,20 @@ Tests that already existed before this plan (not part of the case counts above):
 
 | # | Feature (from [user docs](../docs/README.md)) | Main code | Headless suites | Playwright suites | Coverage now |
 | --- | --- | --- | --- | --- | --- |
-| FEAT-1 | Once-off payment via Responsive Shared Page | `CRM_Core_Payment_eWAYRecurring::doPayment`, `VerifyPayment`, `Utils::validateContribution` | PU-B, PU-C, PU-D | PW-F1 | None |
-| FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | None |
-| FEAT-3 | Recurring processing by cron, with retry of failures | `ProcessTrait::process_recurring_payments` and helpers | PU-F | PW-B-cron | None |
-| FEAT-4 | Saved-card ("stored credit card") back-office payments | `doPayment` back-office branch, `js/eway.js`, `PaymentToken::createToken/saveToken` | PU-B, PU-G | PW-B-backoffice | None |
-| FEAT-5 | Update billing details for a recurring contribution (staff form) | `updateSubscriptionBillingInfo` (`VerifyUpdateToken` was unreachable and has been deleted, DEF-13) | PU-N, PU-K | PW-F4 | None |
-| FEAT-6 | Pending transaction verification queue and job | `EwayContributionTransactions` API, `Utils::validatePendingTransactions` | PU-E | PW-F5 | None |
-| FEAT-7 | Token metadata backfill | `PaymentToken::fillTokensMeta`, `EwayRecurring.fillTokensMeta` | PU-G | PW-B-jobs | None |
+| FEAT-1 | Once-off payment via Responsive Shared Page | `CRM_Core_Payment_eWAYRecurring::doPayment`, `VerifyPayment`, `Utils::validateContribution` | PU-B, PU-C, PU-D | PW-F1 | Headless: partial (PU-D done, PU-B and PU-C to do). Front end: PW-F1 five of thirteen cases, WordPress |
+| FEAT-2 | Recurring set-up (token saved, schedule started) | `Utils::updateRecurringContribution`, `updateCustomerDetails` | PU-D | PW-F2 | Headless: partial (PU-D done). Front end: none |
+| FEAT-3 | Recurring processing by cron, with retry of failures | `ProcessTrait::process_recurring_payments` and helpers | PU-F | PW-B-cron | Headless: good (PU-F, 26 of 28). Front end: none |
+| FEAT-4 | Saved-card ("stored credit card") back-office payments | `doPayment` back-office branch, `js/eway.js`, `PaymentToken::createToken/saveToken` | PU-B, PU-G | PW-B-backoffice | Headless: partial (PU-G9, PU-G12 done; PU-B and the rest of PU-G to do). Front end: none |
+| FEAT-5 | Update billing details for a recurring contribution (staff form) | `updateSubscriptionBillingInfo` (`VerifyUpdateToken` was unreachable and has been deleted, DEF-13) | PU-N, PU-K | PW-F4 | Headless: good for the staff form (PU-N5 to PU-N9); PU-N1 to PU-N4 and PU-K to do. Front end: none |
+| FEAT-6 | Pending transaction verification queue and job | `EwayContributionTransactions` API, `Utils::validatePendingTransactions` | PU-E | PW-F5 | Headless: good (PU-E, 12 of 12). Front end: none |
+| FEAT-7 | Token metadata backfill | `PaymentToken::fillTokensMeta`, `EwayRecurring.fillTokensMeta` | PU-G | PW-B-jobs | None yet (the token cases PU-G9 and PU-G12 cover `saveToken`, not the backfill) |
 | FEAT-8 | Settlement Sync | `SettlementSync`, `EwaySettlement.Sync` | existing `SettlementSyncTest`, PU-M | PW-B-settings | Headless: good. Front end: none |
 | FEAT-9 | Settings form | `Form/Settings.php`, `settings/eWAYRecurring.setting.php` | PU-J | PW-B-settings | Partial (settings round trip only, via Settlement Sync tests) |
 | FEAT-10 | Failed Recurring Contributions listing and Reactivate action | `ang/`, `managed/`, `searchKitTasks` hook | PU-O | PW-B-failed | None |
-| FEAT-11 | System status check for stuck failures | `ewayrecurring_civicrm_check` | PU-H | PW-B-status | None |
-| FEAT-12 | Cancel / Update Subscription form behaviour | `buildForm` hook, `getEditableRecurringScheduleFields`, `eway.js` | PU-H, PU-N | PW-B-recurforms | None |
+| FEAT-11 | System status check for stuck failures | `ewayrecurring_civicrm_check` | PU-H | PW-B-status | None yet (PU-H to do; DEF-3 is fixed in code) |
+| FEAT-12 | Cancel / Update Subscription form behaviour | `buildForm` hook, `getEditableRecurringScheduleFields`, `eway.js` | PU-H, PU-N | PW-B-recurforms | None yet (PU-H and PU-N1 to PU-N4 to do) |
 | FEAT-13 | Permissions (`view/edit payment tokens`) | `APIWrapper::authorize` | PU-I | PW-B-permissions | None |
-| FEAT-14 | Managed entities, install, enable, upgrade | `ewayrecurring_civicrm_managed`, `Upgrader`, civix schema | PU-H, PU-L, UP | PW-B-jobs, PW-B-processor | None |
+| FEAT-14 | Managed entities, install, enable, upgrade | `ewayrecurring_civicrm_managed`, `Upgrader`, civix schema | PU-H, PU-L, UP | PW-B-jobs, PW-B-processor | Headless: good for install and upgrade (PU-L6 to PU-L10, PU-H13) and the upgrade workflow (UP, 10 of 11). Front end: none |
 | FEAT-15 | Payment processor admin validation | `ewayrecurring_civicrm_validateForm` | PU-H | PW-B-processor | None |
 
 ---
@@ -438,12 +444,12 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 | PU-A3 | todo | `getPaymentFormFieldsMetadata()` shape: select is required, class `eway_credit_card_field`, button `onclick` calls `CRM.eway.addCreditCard()` |
 | PU-A4 | todo | `getBillingAddressFields()` maps each field with the billing location id |
 | PU-A5 | done | `getInstance()` caches per `domain/id`, returns the same object twice, and sets `_mode` correctly for live and test processors (DEF-1, fixed: a live processor used to get mode `test`) |
-| PU-A6 | done | The test-mode flag `_is_test` is a declared property of the payment class (DEF-16, fixed: PHP 8.2 printed a deprecation about creating it on the fly on the donor's thank you page) |
 | PU-A6 | todo | `supportsBackOffice()` true; `getEditableRecurringScheduleFields()` returns the six documented fields |
 | PU-A7 | todo | `__serialize()` omits `eWayClient` and `instances`, and the object survives `serialize()` after a client was created |
 | PU-A8 | todo | `Utils::sanitizeToAscii()` data provider: empty, null, plain ASCII, accented Latin (transliterated), emoji, CJK, control characters, very long string |
 | PU-A9 | todo | `Utils::contribution_status_id()` for contribution and recurring variants |
 | PU-A10 | todo | `getEWayClientDetailsArray()`: field truncation (Reference 16, names 50, postcode 30), country given as ISO code, as name, as `country_id`, as billing location key, missing country throws 9007, `TokenCustomerID` included only when `subscriptionId` is set |
+| PU-A11 | done | The test-mode flag `_is_test` is a declared property of the payment class (DEF-16, fixed: PHP 8.2 printed a deprecation about creating it on the fly on the donor's thank you page) |
 
 ### PU-B `DoPaymentTest` (needs S1)
 
@@ -1024,6 +1030,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Plan housekeeping. Section 1 and the feature inventory's "Coverage now" column were out of date (they still said there were no tests and PHPUnit-only CI) and are rewritten from the case table. Found by the tagging check in section 0: the plan had two cases with the ID PU-A6. The test for the `_is_test` property (DEF-16) is now PU-A11 and its test is tagged to match; PU-A6 is again only `supportsBackOffice()` and is `todo`. Earlier change log lines that say PU-A6 mean this case, now PU-A11. No counts change. 281 cases. |
 | 2026-11-14 | Playwright re-run on GitHub after the country fix: all 11 cases green (six PW-INF, five PW-F1) on a fresh WordPress site, with no PHP output flagged. PW-F1-01, 03, 04, 05 and 06 stay `wip` because their CMS column is all and Drupal, Joomla and Standalone have not run them. 281 cases. |
 | 2026-11-14 | First GitHub run of the three workflows on `release-3.0.0` (started on demand): PHPUnit green (150 tests), upgrade green (57 checks, 0 failures), Playwright red for the new cases only. PU-A6, PU-F28 and PU-N9 are `done` (they ran in the green PHPUnit run). PW-F1-03 to 06 failed on GitHub because the fresh CI site has no default country, so the Country box stayed on "- select -" and the form refused to continue; the local site defaulted to Australia and hid it. `fillDonation()` now chooses the country and state explicitly. With the default country cleared locally all 11 Playwright cases pass; the fix is not yet pushed, so PW-F1 stays `wip` until a GitHub run is green. 281 cases. |
 | 2026-11-14 | PW-F1 started: `specs/frontend/contribution-once-off.spec.ts` with PW-F1-01, 03, 04, 05 and 06 (`wip`: all pass on the local WordPress site, not yet in CI). The seed now creates a once-off contribution page with an eWAY processor and a price set. The scaffold changed under it: the fake hosted page is served by a small local web server with the fake host mapped to this machine, because Playwright's page.route() does not see the redirect from the site to the hosted page; the tests run on one worker always, since the stub is shared. The collector, which fails a test on PHP output, found three real defects the first time it ran against the thank you page: DEF-16 (`_is_test` created on the fly, printed on the donor's thank you page), DEF-17 and DEF-18 (null passed to `explode()` and `substr()`), all fixed with tests PU-A6, PU-F28 and PU-N9. A fixed transaction id broke the second run (CiviCRM refuses a duplicate), so the specs use a fresh id each time. 281 cases. |

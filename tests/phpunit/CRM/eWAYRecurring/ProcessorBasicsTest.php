@@ -62,7 +62,7 @@ class CRM_eWAYRecurring_ProcessorBasicsTest extends \PHPUnit\Framework\TestCase 
    * never declared it, so PHP 8.2 printed "Creation of dynamic property CRM_Core_Payment_eWAYRecurring::$_is_test is
    * deprecated" on the donor's thank you page wherever errors are displayed (DEF-16).
    *
-   * @testPlan PU-A6
+   * @testPlan PU-A11
    */
   public function testTheTestModeFlagIsADeclaredProperty(): void {
     $property = new ReflectionProperty(CRM_Core_Payment_eWAYRecurring::class, '_is_test');
