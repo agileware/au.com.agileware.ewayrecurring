@@ -571,9 +571,11 @@ test.describe('create token', () => {
   test.describe('in a browser', () => {
     test.use({ allowedProblems: [/Failed to load resource: the server responded with a status of (403|500)|HTTP (403|500) from/] });
 
-    test('PW-F6-04 a visitor sent there in a browser sees "You do not have permission", not a form or a JSON answer', async ({ anonPage }) => {
+    test('PW-F6-04 a visitor sent there in a browser is refused, and sees neither a form nor a JSON answer', async ({ anonPage }) => {
       await anonPage.goto(routeUrl('createtoken', { contact_id: 1, pp_id: ewayId }));
-      await expect(anonPage.locator('body')).toContainText(/You do not have permission to access this page/);
+      // Either the permission refusal, or on a newer core its own guard for routes that are only for scripts
+      // ("Ajax requests can only be issued by javascript clients"), which is answered before the permission check.
+      await expect(anonPage.locator('body')).toContainText(/You do not have permission to access this page|Ajax requests can only be issued by javascript clients/);
     });
   });
 
