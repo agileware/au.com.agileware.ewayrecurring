@@ -376,6 +376,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       $payment_token = CRM_Utils_Request::retrieve('contact_payment_token', CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
       $payment_token = isset($params['contact_payment_token']) ? $params['contact_payment_token'] : $payment_token;
       $params['payment_token_id'] = $payment_token;
+      // An empty id is ignored by the API as a filter, so with one token on the site it would be charged.
+      if (empty($payment_token)) {
+        $this->paymentFailed($params, 'Please select a valid credit card token.');
+      }
       try {
         $result = civicrm_api3('PaymentToken', 'getsingle', [
           'sequential' => 1,

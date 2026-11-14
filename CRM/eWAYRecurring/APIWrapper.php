@@ -24,8 +24,6 @@ class CRM_eWAYRecurring_APIWrapper {
       || CRM_Core_Permission::check($requiredPermission, $event->getUserID())
     ) {
       $event->authorize();
-      // Without this, core's checks (which come next) still run, and for APIv3 they throw.
-      $event->stopPropagation();
     }
   }
 
