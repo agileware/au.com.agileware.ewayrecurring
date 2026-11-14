@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **281**. Done: **157**. In progress: **11**. Blocked: **3**. To do: **105**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **281**. Done: **160**. In progress: **11**. Blocked: **0**. To do: **105**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ Cases defined: **281**. Done: **157**. In progress: **11**. Blocked: **3**. To d
 | PU-H | PHPUnit | `HooksAndManagedTest` | 13 | 13 | 0 | 0 | 0 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 4 | 0 | 0 | 0 | 0 | none |
 | PU-J | PHPUnit | `SettingsFormTest` | 7 | 7 | 0 | 0 | 0 | 0 | none |
-| PU-K | PHPUnit | `PagesTest` | 6 | 0 | 0 | 3 | 0 | 3 | page refactor (PU-K1 to K3); PU-K4 to K6 dropped with the deleted page |
+| PU-K | PHPUnit | `PagesTest` | 6 | 3 | 0 | 0 | 0 | 3 | none (refactor done); PU-K4 to K6 dropped with the deleted page |
 | PU-L | PHPUnit | `SchemaAndUpgradeTest` | 10 | 10 | 0 | 0 | 0 | 0 | none |
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 4 | 0 | 0 | 0 | 0 | none |
 | PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 9 | 0 | 0 | 0 | 0 | none |
@@ -136,7 +136,7 @@ Tests that already existed before this plan (not part of the case counts above):
 | Area | State | Notes |
 | --- | --- | --- |
 | Settlement Sync (`SettlementSync.php`, `EwaySettlement.Sync`) | Covered | See the table above. Gaps are PU-M. |
-| Payment processor class, recurring cron, verification queue, upgrade steps | Covered by PHPUnit | PU-A to PU-J, PU-L to PU-O are done (green on GitHub, 412 tests). Only PU-K (the page refactor) is blocked. |
+| Payment processor class, recurring cron, verification queue, upgrade steps | Covered by PHPUnit | PU-A to PU-O are done (green on GitHub, 423 tests). Nothing is blocked. |
 | Update billing, retry and recovery of Failed records | Covered by PHPUnit | PU-N5 to PU-N9, with the donor-path fixes DEF-13 and DEF-14. |
 | Upgrade from 2.8.1 | Covered in CI | `tests/upgrade/` and PU-L, 57 checks green on GitHub. |
 | Hooks, settings form, permissions, Search Kit action | Covered by PHPUnit | PU-H, PU-I, PU-J and PU-O are done. The browser side (`js/eway.js`, the Search Kit screens) is only reachable with Playwright. |
@@ -414,7 +414,7 @@ branch the status reads `Fixed on `release-3.0.0``; change it to the release num
 | DEF-2 | Fixed on `release-3.0.0` | `doPayment()`, repeat-submit branch | `$priorAccessCode` is the access code **string**, but is then read as `$priorAccessCode['status']` and `['failed_message']`. That is never a valid lookup, so the "already succeeded / already failed" shortcuts cannot work and, on PHP 8, throw. | PU-B12, PW-F1-07 |
 | DEF-3 | Fixed on `release-3.0.0` | `ewayrecurring_civicrm_check()` and `get_scheduled_failed_contributions()` | The check and the Failed Recurring list look for recurring status `Failed`/`Failing`, but `mark_recurring_contribution_failed()` deliberately does not set that status (CIVIEWAY-125). It is not clear what ever moves a recurring contribution to Failed once retries are exhausted, so the status check and the "Failed" listing may never show the contributions they exist for. | PU-F14, PU-H12, PW-B-failed-02 **Update:** PU-F14 and PU-F15 confirm it, and show more: the code that restores a recurring contribution and records a success activity after retries is unreachable, because it needs status Failed while the retry list only selects In Progress. **Fix proposed on branch `release-3.0.0`:** it marks the record Failed when `failure_count` reaches the retry limit and makes the success-after-retry branch reachable. **Playwright:** the back office is where this shows, so PW-B-cron-06, PW-B-cron-07, PW-B-failed-11, PW-B-failed-12, PW-B-status-03 and PW-B-recurforms-05 cover it (the last checks the CIVIEWAY-125 "UI melts down" concern on real screens, which PHPUnit cannot). On the front end only PW-F4-06 applies: the update-billing page is the one place a donor touches a Failed record, and what it does there is DEF-13. The contribution page, event, verification queue and endpoint specs are not affected. |
 | DEF-4 | Fixed on `release-3.0.0` (defensive, not reproduced) | `Utils::validatePendingTransactions()` | `require_once 'vendor/autoload.php'` is relative to the current working directory, so it can fail when the job runs from another directory. | PU-E12 **Update:** PU-E12 runs the job from another directory and it succeeds in the test environment, so this may only fail where PHP's include path does not cover the extension. Low priority. |
-| DEF-5 | Fixed on `release-3.0.0` (no test: the page ends in `die()`) | `VerifyPayment::run()` | `$response` is undefined if the call throws; duplicated `catch (CRM_Core_Exception)` blocks. Harmless today but fragile. | PU-K3 |
+| DEF-5 | Fixed on `release-3.0.0` | `VerifyPayment::run()` | `$response` is undefined if the call throws; duplicated `catch (CRM_Core_Exception)` blocks. Harmless today but fragile. | PU-K3 |
 | DEF-6 | Fixed on `release-3.0.0` | `process_recurring_payments()` amount handling | `$amount_in_cents` is derived with a regex that strips the decimal point, which is only right for amounts with exactly two decimals ("10.5" would become 105 cents). | PU-F8 **Update:** the database stores amounts with exactly two decimals, so the only effect is a leading zero for amounts under a dollar ("099"). PU-F8. |
 | DEF-7 | Fixed on `release-3.0.0` (dead code removed) | `ProcessTrait::send_receipt_email` | Unused (the only call site is commented out). Dead code. | none, flag only |
 | DEF-8 | Fixed on `release-3.0.0` (robustness: a fresh install already ended at the newest step) | `ewayrecurring_civicrm_postInstall()` | Sets schema version 20200 while upgrade steps run to 20601. Check a fresh install does not replay or skip steps. | PU-L2 |
@@ -633,9 +633,9 @@ Playwright (PW-F6).
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-K1 | blocked | `VerifyPayment`: missing invoice id, processor id or component returns 400 |
-| PU-K2 | blocked | Unknown processor returns 400 |
-| PU-K3 | blocked | Approved: redirect to event Thank You (with `qfKey`) or contact summary; declined: failure redirect; exception path does not hit an undefined variable (DEF-5, fixed without a test: the page ends in `die()`) |
+| PU-K1 | done | `VerifyPayment`: missing invoice id, processor id or component returns 400 |
+| PU-K2 | done | Unknown processor returns 400 |
+| PU-K3 | done | Approved: redirect to event Thank You (with `qfKey`) or contact summary; declined: failure redirect; exception path does not hit an undefined variable (DEF-5, now covered: `run()` calls `resolve()`, which returns the outcome instead of ending in `die()`; the failure redirect is caught as the test framework's exit exception) |
 | PU-K4 | n/a | `VerifyUpdateToken`: no recurring id redirects to the CiviCRM home. **Dropped:** the page was unreachable and has been deleted (DEF-13) |
 | PU-K5 | n/a | `VerifyUpdateToken` approved path. **Dropped:** page deleted; the recovery it was meant to do is now in `updateSubscriptionBillingInfo()` and covered by PU-N5 (DEF-13) |
 | PU-K6 | n/a | `VerifyUpdateToken` declined path. **Dropped:** page deleted (DEF-13) |
@@ -1039,6 +1039,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | PU-K1 to K3 done. `VerifyPayment::run()` now reads the request and calls a new `resolve()`, which returns `['redirect' => URL]` or `['status' => 400]`; `run()` sends the 400 header and `die()` or the redirect. No second seam was needed: the failure redirect inside `validateEwayContribution()` is the framework's exit exception in tests, which `PagesTest` catches. PHPUnit green on GitHub at `b0696f7` (423 tests). 160 cases done, none blocked. |
 | 2026-11-14 | PHPUnit round: 79 cases written by three parallel agents on separate test files and made green on GitHub (PHPUnit 412 tests, upgrade 57 checks, both green on `release-3.0.0` at `1ae8113`): PU-A (nine more), PU-B (all but B12 already done), PU-C, PU-F25 and F26, PU-G, PU-H, PU-I, PU-J, PU-L1, L3 to L5, PU-M, PU-N1 to N4, PU-O. 157 cases done. The first run failed 22 tests, which found DEF-20 and DEF-21 and confirmed DEF-27; the rest were test fixes. Defects found and fixed along the way: DEF-19 to DEF-27. Cases reworded because the code under test is dead or changed: PU-B2 (the comma amount never reaches the conversion), PU-B4 (the `cvv_backoffice_required` branch is unreachable), PU-C1 and C2 (the UpdateBilling variants went with `VerifyUpdateToken`), PU-M1 (a scoped call would reach the real gateway). PU-K1 to K3 stay blocked: the refactor would extract a `resolve()` method from `VerifyPayment::run()`, and the failure redirect in `validateContribution()` needs a second seam. |
 | 2026-11-14 | Plan housekeeping. Section 1 and the feature inventory's "Coverage now" column were out of date (they still said there were no tests and PHPUnit-only CI) and are rewritten from the case table. Found by the tagging check in section 0: the plan had two cases with the ID PU-A6. The test for the `_is_test` property (DEF-16) is now PU-A11 and its test is tagged to match; PU-A6 is again only `supportsBackOffice()` and is `todo`. Earlier change log lines that say PU-A6 mean this case, now PU-A11. No counts change. 281 cases. |
 | 2026-11-14 | Playwright re-run on GitHub after the country fix: all 11 cases green (six PW-INF, five PW-F1) on a fresh WordPress site, with no PHP output flagged. PW-F1-01, 03, 04, 05 and 06 stay `wip` because their CMS column is all and Drupal, Joomla and Standalone have not run them. 281 cases. |
