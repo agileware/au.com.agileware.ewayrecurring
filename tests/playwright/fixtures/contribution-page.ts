@@ -59,6 +59,11 @@ export function freePageId(): number {
   return pageIdByTitle(testData.pages.free.title);
 }
 
+/** The id of the seeded recurring-enabled page (tick box, interval, unit and installments). */
+export function recurringPageId(): number {
+  return pageIdByTitle(testData.pages.recurring.title);
+}
+
 /** The address of a contribution page on the front end. */
 export function pageUrl(pageId: number, query: Record<string, string | number> = {}): string {
   return frontUrl('contribute/transact', { reset: 1, id: pageId, ...query });
@@ -90,7 +95,7 @@ export function newAccessCode(label: string): string {
  * Choose an option of a CiviCRM select box by its label. The visible control is a select2 widget over a hidden
  * select, so the select is set directly and the change event is raised the way CiviCRM listens for it.
  */
-async function chooseOption(page: Page, selector: string, label: string): Promise<void> {
+export async function chooseOption(page: Page, selector: string, label: string): Promise<void> {
   const select = page.locator(selector);
   await select.locator('option', { hasText: label }).first().waitFor({ state: 'attached' });
   await select.evaluate((el, wanted) => {
@@ -279,4 +284,91 @@ export function transactionNotProcessedYet(): Record<string, unknown> {
 /** eWAY's answer for an approved once-off payment of `amount` dollars, with a transaction id no earlier run used. */
 export function transactionApproved(amount: number): Record<string, unknown> {
   return responses.transactionFound({ TransactionID: newTransactionId(), TransactionStatus: true, TotalAmount: Math.round(amount * 100), TokenCustomerID: '' });
+}
+
+/** How a recurring contribution repeats: every `interval` `unit`s, optionally for a number of installments. */
+export interface Recurrence {
+  interval: number;
+  unit: 'week' | 'month' | 'year';
+  installments?: number;
+}
+
+/**
+ * Tick "I want to contribute this amount every ..." on the recurring page and fill in the interval, the unit and,
+ * when given, the number of installments. The three controls stay disabled until the box is ticked.
+ */
+export async function chooseRecurrence(page: Page, recurrence: Recurrence): Promise<void> {
+  await page.locator('#is_recur').check();
+  await page.locator('#frequency_interval').fill(String(recurrence.interval));
+  await chooseOption(page, '#frequency_unit', `${recurrence.unit}(s)`);
+  if (recurrence.installments !== undefined) {
+    await page.locator('#installments').fill(String(recurrence.installments));
+  }
+}
+
+/** The recurring contribution a donor's payment set up, found by email address (the newest one). */
+export function latestRecurring(email: string): Record<string, any> | undefined {
+  const rows = api4('ContributionRecur', 'get', {
+    select: [
+      'id', 'contact_id', 'amount', 'currency', 'frequency_unit', 'frequency_interval', 'installments',
+      'contribution_status_id:name', 'payment_processor_id', 'processor_id', 'payment_token_id', 'trxn_id',
+      'next_sched_contribution_date', 'failure_count', 'is_test',
+    ],
+    where: [['contact_id.email_primary.email', '=', email], ['is_test', 'IN', [false, true]]],
+    orderBy: { id: 'DESC' },
+    limit: 1,
+  });
+  return rows[0];
+}
+
+/** How many recurring contributions (live and test) a donor's email address has. */
+export function recurringCount(email: string): number {
+  return api4('ContributionRecur', 'get', {
+    select: ['id'],
+    where: [['contact_id.email_primary.email', '=', email], ['is_test', 'IN', [false, true]]],
+  }).length;
+}
+
+/** The saved cards (payment token rows) a contact has, oldest first. */
+export function tokensOf(contactId: number): Record<string, any>[] {
+  return api4('PaymentToken', 'get', {
+    select: ['id', 'token', 'masked_account_number', 'expiry_date', 'payment_processor_id', 'contact_id'],
+    where: [['contact_id', '=', contactId]],
+    orderBy: { id: 'ASC' },
+  });
+}
+
+/** A customer token no earlier run used, shaped like the ones eWAY issues (digits only). */
+export function newCustomerToken(): string {
+  return `9${String(newTransactionId()).padStart(11, '0')}`.slice(0, 12);
+}
+
+/** eWAY's answer for an approved payment of `amount` dollars that also saved the card under `customerToken`. */
+export function transactionApprovedWithCard(amount: number, customerToken: string): Record<string, unknown> {
+  return responses.transactionFound({
+    TransactionID: newTransactionId(),
+    TransactionStatus: true,
+    TotalAmount: Math.round(amount * 100),
+    TokenCustomerID: customerToken,
+  });
+}
+
+/** The site's own date today, as the PHP server sees it (it can differ from this machine's by a day). */
+export function serverToday(): string {
+  return evaluate("echo date('Y-m-d');");
+}
+
+/**
+ * The date the extension schedules the next payment for: today plus `interval` units, at midnight, written
+ * `YYYY-MM-DD 00:00:00`. Worked out here, not by asking the server, so the test does not just repeat the code.
+ * Months and years overflow the way PHP's strtotime does (31 January plus a month is the 3rd of March).
+ */
+export function expectedNextPayment(today: string, recurrence: Pick<Recurrence, 'interval' | 'unit'>): string {
+  const [year, month, day] = today.split('-').map(Number);
+  const next = {
+    week: () => Date.UTC(year, month - 1, day + 7 * recurrence.interval),
+    month: () => Date.UTC(year, month - 1 + recurrence.interval, day),
+    year: () => Date.UTC(year + recurrence.interval, month - 1, day),
+  }[recurrence.unit]();
+  return `${new Date(next).toISOString().slice(0, 10)} 00:00:00`;
 }

@@ -30,7 +30,7 @@
       ]
     },
     "nonAscii": {
-      "title": "Playwright café appeal for Zoë's friends",
+      "title": "Playwright caf\u00e9 appeal for Zo\u00eb's friends",
       "amounts": [
         10,
         25,
@@ -40,6 +40,28 @@
     "free": {
       "title": "Playwright free registration",
       "optionLabel": "Free"
+    },
+    "recurring": {
+      "title": "Playwright recurring donation",
+      "amounts": [
+        10,
+        25,
+        50
+      ],
+      "units": [
+        "week",
+        "month",
+        "year"
+      ]
+    }
+  },
+  "events": {
+    "paid": {
+      "title": "Playwright paid event",
+      "fee": 30
+    },
+    "free": {
+      "title": "Playwright free event"
     }
   }
 }
