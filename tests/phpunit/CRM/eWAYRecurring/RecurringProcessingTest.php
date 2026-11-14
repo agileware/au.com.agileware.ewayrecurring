@@ -1,6 +1,8 @@
 <?php
 
 use Civi\Api4\Activity;
+use Civi\Api4\ContributionRecur;
+use Civi\Api4\PaymentToken;
 use Civi\Test\CiviEnvBuilder;
 use Civi\Test\HeadlessInterface;
 use Civi\Test\HookInterface;
@@ -811,6 +813,125 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
     $reloaded = Fixture::reloadRecurring($recur['id']);
     $this->assertEquals(2, $reloaded['failure_count']);
     $this->assertNotEmpty($reloaded['failure_retry_date']);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Records changed by a website-built update card page
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Replace the card on a payment token row in place, the way a website-built update card page does: a new token
+   * value, with the expiry date and masked number cleared until the fill-metadata job refills them.
+   */
+  private function replaceCardInPlace(array $token, string $newToken): void {
+    PaymentToken::update(FALSE)
+      ->addWhere('id', '=', $token['id'])
+      ->addValue('token', $newToken)
+      ->addValue('expiry_date', NULL)
+      ->addValue('masked_account_number', NULL)
+      ->execute();
+  }
+
+  /**
+   * Reset a Failed recurring contribution the way an update card page does: In Progress, no failures, no retry date,
+   * and the schedule date the site chooses.
+   */
+  private function resetLikeAnUpdateCardPage(array $recur, string $nextSchedule): void {
+    ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', $recur['id'])
+      ->addValue('contribution_status_id:name', 'In Progress')
+      ->addValue('failure_count', 0)
+      ->addValue('next_sched_contribution_date', date('Y-m-d H:i:s', strtotime($nextSchedule)))
+      ->execute();
+    CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur', $recur['id'], 'failure_retry_date', '');
+  }
+
+  /**
+   * A card replaced in place on the same payment token row is charged with its new value, and the recurring record
+   * keeps pointing at the row.
+   *
+   * @testPlan PU-F25
+   */
+  public function testACardReplacedInPlaceOnTheTokenRowIsChargedWithTheNewToken(): void {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact();
+    $token = Fixture::token($contactId, $processor['id'], ['token' => 'OLDCARDTOKEN01']);
+    $recur = Fixture::recurring($contactId, $processor, ['token' => $token, 'processor_id' => 'LEGACY-IGNORED']);
+    Fixture::completedContributionFor($recur);
+    $this->replaceCardInPlace($token, 'NEWCARDTOKEN02');
+    $this->approveNextCharge();
+
+    $this->runCron($processor);
+
+    $this->assertCount(1, $this->http->callsTo('postTransaction'));
+    $this->assertSame('NEWCARDTOKEN02', $this->http->lastArgs('postTransaction')[0]['Customer']['TokenCustomerID']);
+    $this->assertEquals($token['id'], Fixture::reloadRecurring($recur['id'])['payment_token_id'], 'The record still points at the same token row.');
+    $this->assertSame('Completed', $this->contributionStatus(Fixture::reloadContribution($this->charges($recur)[0]['id'])));
+  }
+
+  /**
+   * A reset record whose schedule date was moved into the future is not charged before that date, and is charged on
+   * the first run after it.
+   *
+   * @testPlan PU-F26
+   */
+  public function testAResetFailedRecordWithAFutureScheduleDateWaitsForIt(): void {
+    [$processor, $recur] = $this->dueRecurring([
+      'contribution_status_id:name' => 'Failed',
+      'failure_count' => 3,
+      'failure_retry_date' => '-2 days',
+    ]);
+    $this->resetLikeAnUpdateCardPage($recur, '+3 days');
+
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+    $this->assertNotContains((int) $recur['id'], $this->retryIds($processor));
+    $this->runCron($processor);
+    $this->assertSame([], $this->http->requests, 'Nothing is charged before the schedule date.');
+    $this->assertSame([], $this->charges($recur));
+
+    // Time passes: the schedule date is now in the past.
+    ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', $recur['id'])
+      ->addValue('next_sched_contribution_date', date('Y-m-d H:i:s', strtotime('-1 hour')))
+      ->execute();
+    $this->assertContains((int) $recur['id'], $this->dueIds($processor));
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertCount(1, $this->http->callsTo('postTransaction'));
+    $charges = $this->charges($recur);
+    $this->assertCount(1, $charges);
+    $this->assertSame('Completed', $this->contributionStatus(Fixture::reloadContribution($charges[0]['id'])));
+    $this->assertSame('In Progress', $this->recurStatus(Fixture::reloadRecurring($recur['id'])));
+  }
+
+  /**
+   * A reset record whose schedule was restarted from today is charged on the next run, and only once that day.
+   *
+   * @testPlan PU-F26
+   */
+  public function testAResetFailedRecordRestartedFromTodayIsChargedOnTheNextRun(): void {
+    [$processor, $recur] = $this->dueRecurring([
+      'contribution_status_id:name' => 'Failed',
+      'failure_count' => 3,
+      'failure_retry_date' => '-2 days',
+    ]);
+    $this->resetLikeAnUpdateCardPage($recur, date('Y-m-d 00:00:00'));
+
+    $this->assertContains((int) $recur['id'], $this->dueIds($processor));
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertCount(1, $this->http->callsTo('postTransaction'));
+    $charges = $this->charges($recur);
+    $this->assertCount(1, $charges);
+    $this->assertSame('Completed', $this->contributionStatus(Fixture::reloadContribution($charges[0]['id'])));
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('In Progress', $this->recurStatus($after));
+    $this->assertEquals(0, $after['failure_count']);
+
+    $this->runCron($processor);
+    $this->assertCount(1, $this->charges($recur), 'It is not charged again the same day.');
   }
 
 }
