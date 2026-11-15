@@ -15,7 +15,8 @@ return [
         'url' => 'civicrm/contribute/failedrecurring',
         'icon' => 'crm-i fa-list-alt',
         'permission' => [
-          'edit contributions',
+          // The list reads the payment processor, which only an administrator may read (DEF-62).
+          'administer CiviCRM',
         ],
         'permission_operator' => 'AND',
         'parent_id.name' => 'Contributions',

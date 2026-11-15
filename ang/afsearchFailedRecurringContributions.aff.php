@@ -7,6 +7,7 @@ return [
   'icon' => 'fa-list-alt',
   'server_route' => 'civicrm/contribute/failedrecurring',
   'permission' => [
-    'edit contributions',
+    // The list reads the payment processor, which only an administrator may read (DEF-62).
+    'administer CiviCRM',
   ],
 ];

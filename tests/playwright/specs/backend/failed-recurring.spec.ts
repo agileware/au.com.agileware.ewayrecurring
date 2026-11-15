@@ -63,8 +63,6 @@ const REFUSAL_NOISE = /Cannot set response code|status of (403|500)|HTTP (403|50
 const REFUSAL_STATUS = [403, 500];
 /** The Reactivate dialog's update call (the list's own data and the dialog's label lookup are different calls). */
 const UPDATE_CALL = /ajax(\/|%2F)api4(\/|%2F)ContributionRecur(\/|%2F)update/;
-/** The list's own data request answers HTTP 500 for a user who is not an administrator (DEF-62). */
-const LIST_REFUSED = /HTTP 500 from .*ajax(\/|%2F)api4|status of 500/;
 /** test.use() reads a two item list as a value and its options, so more than one pattern is joined into one. */
 const either = (...patterns: RegExp[]) => new RegExp(patterns.map((pattern) => pattern.source).join('|'));
 
@@ -169,50 +167,41 @@ function notification(page: Page) {
 }
 
 test.describe('who can open the list', () => {
-  test.describe('the finance user', () => {
-    // The page opens but its list does not load for anyone short of an administrator (DEF-62).
-    test.use({ allowedProblems: [either(SCREEN_NOISE, LIST_REFUSED)] });
-
-    test('PW-B-failed-01 the Contributions menu offers the list to the finance user and opens its page', async ({ financePage }) => {
-      test.setTimeout(90_000);
-      await financePage.goto(adminUrl('contribute', { reset: 1 }));
-      const entry = await openMenuEntry(financePage, 'Contributions', 'Failed Recurring Contributions');
-      // It is a direct child of Contributions, and it goes to the list's address.
-      const parent = await entry.evaluate((a) => a.closest('ul')?.closest('li')?.querySelector(':scope > a')?.textContent?.trim());
-      expect(parent).toBe('Contributions');
-      expect(await entry.getAttribute('href')).toContain('civicrm%2Fcontribute%2Ffailedrecurring');
-      await entry.click();
-      await expect(financePage.getByRole('heading', { name: 'Failed Recurring Contributions' }).first()).toBeVisible();
-      expect(financePage.url()).toContain('failedrecurring');
-      // The status filter is there. (What the list does for this user is the next case.)
-      await expect(financePage.locator('.select2-search-choice')).toHaveText(['Failed', 'Failing']);
-    });
-
-    test('PW-B-failed-01 the list shows the Failed records to the finance user (DEF-62)', async ({ financePage }) => {
-      test.fail(true, 'DEF-62: the list joins the payment processor, which only an administrator may read, so the list request fails for finance staff');
-      test.setTimeout(90_000);
-      const record = failedRecord('failed01finance');
-      await openFailedList(financePage);
-      await expect(failedListRow(financePage, record.recurId)).toHaveCount(1);
-    });
-  });
-
+  // Only an administrator may open the list: it reads the payment processor, which holds the API credentials
+  // (DEF-62, fixed by requiring "administer CiviCRM" for the page and the menu entry).
   test.describe('refused users', () => {
     test.use({ allowedProblems: [either(SCREEN_NOISE, REFUSAL_NOISE)] });
 
-    test('PW-B-failed-01 the limited user is refused: no list, no rows, and no menu entry', async ({ limitedPage }) => {
-      const record = failedRecord('failed01limited');
-      const response = await limitedPage.goto(adminUrl('contribute/failedrecurring', { reset: 1 }));
-      expect(REFUSAL_STATUS, `HTTP status ${response?.status()}`).toContain(response?.status());
-      await expect(limitedPage.getByText('You do not have permission to access this page.')).toBeVisible();
-      await expect(limitedPage.locator('crm-search-display-table, table.table')).toHaveCount(0);
-      await expect(failedListRow(limitedPage, record.recurId)).toHaveCount(0);
+    test('PW-B-failed-01 the finance and limited users are refused: no list, no rows, and no menu entry', async ({ financePage, limitedPage }) => {
+      const record = failedRecord('failed01refused');
+      for (const [name, page] of [['finance', financePage], ['limited', limitedPage]] as const) {
+        const response = await page.goto(adminUrl('contribute/failedrecurring', { reset: 1 }));
+        expect(REFUSAL_STATUS, `${name}: HTTP status ${response?.status()}`).toContain(response?.status());
+        await expect(page.getByText('You do not have permission to access this page.'), name).toBeVisible();
+        await expect(page.locator('crm-search-display-table, table.table'), name).toHaveCount(0);
+        await expect(failedListRow(page, record.recurId), name).toHaveCount(0);
 
-      // The menu does not offer the entry to this user, under Contributions or anywhere else.
-      await limitedPage.goto(adminUrl('dashboard', { reset: 1 }));
-      await expect(limitedPage.locator('#civicrm-menu')).toBeVisible();
-      await expect(limitedPage.locator('#civicrm-menu a', { hasText: 'Failed Recurring Contributions' })).toHaveCount(0);
+        // The menu does not offer the entry to this user, under Contributions or anywhere else.
+        await page.goto(adminUrl('dashboard', { reset: 1 }));
+        await expect(page.locator('#civicrm-menu'), name).toBeVisible();
+        await expect(page.locator('#civicrm-menu a', { hasText: 'Failed Recurring Contributions' }), name).toHaveCount(0);
+      }
     });
+  });
+
+  test('PW-B-failed-01 the administrator is offered the list under Contributions and sees the Failed records', async ({ adminPage }) => {
+    test.setTimeout(90_000);
+    const record = failedRecord('failed01admin');
+    await adminPage.goto(adminUrl('contribute', { reset: 1 }));
+    const entry = await openMenuEntry(adminPage, 'Contributions', 'Failed Recurring Contributions');
+    // It is a direct child of Contributions, and it goes to the list's address.
+    const parent = await entry.evaluate((a) => a.closest('ul')?.closest('li')?.querySelector(':scope > a')?.textContent?.trim());
+    expect(parent).toBe('Contributions');
+    expect(await entry.getAttribute('href')).toContain('civicrm%2Fcontribute%2Ffailedrecurring');
+    await entry.click();
+    await expect(adminPage.getByRole('heading', { name: 'Failed Recurring Contributions' }).first()).toBeVisible();
+    await expect(adminPage.locator('.select2-search-choice')).toHaveText(['Failed', 'Failing']);
+    await expect(failedListRow(adminPage, record.recurId)).toHaveCount(1);
   });
 });
 
