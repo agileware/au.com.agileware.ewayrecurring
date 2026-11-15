@@ -147,6 +147,9 @@ test.describe('the form for a saved card', () => {
 
     // From the contact's Contributions tab, as staff do.
     await adminPage.goto(adminUrl('contact/view', { reset: 1, cid: donor.contactId, selectedChild: 'contribute' }));
+    // A status message left over from an earlier page (for example an error shown after a declined payment in an
+    // earlier test) can sit over the link and swallow the click, so clear any such notifications first.
+    await adminPage.evaluate(() => document.querySelectorAll('#crm-notification-container .ui-notify-message').forEach((n) => n.remove()));
     await adminPage.getByRole('link', { name: /Submit Credit Card Contribution/ }).first().click();
     await expect(adminPage.locator('.ui-dialog form#Contribution')).toBeVisible();
     const dialog = adminPage.locator('.ui-dialog');
