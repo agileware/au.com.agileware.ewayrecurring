@@ -37,14 +37,15 @@ trait CRM_eWAYRecurring_ProcessTrait {
         continue;
       }
 
-      // Re-check schedule time, in case contribution already processed.
-      $next_sched = CRM_Core_DAO::getFieldValue('CRM_Contribute_DAO_ContributionRecur',
+      // The date this payment is due. It is not moved until a charge succeeds: a failed charge leaves it
+      // alone, so the retries and a later recovery (new card, Reactivate) still know which payment is owed.
+      $due = CRM_Core_DAO::getFieldValue('CRM_Contribute_DAO_ContributionRecur',
         $contribution->id,
         'next_sched_contribution_date',
         'id',
         TRUE);
 
-      /* Get the number of Contributions already recorded for this Schedule. */
+      /* The contributions already recorded for this Schedule. */
       $mainContributions = civicrm_api3('Contribution', 'get', [
         'options' => ['limit' => 0],
         'sequential' => 1,
@@ -53,23 +54,20 @@ trait CRM_eWAYRecurring_ProcessTrait {
       ]);
 
       $mainContributions = $mainContributions['values'];
-      $ccount = count($mainContributions);
 
-      /* Schedule next contribution */
-      if (($contribution->installments <= 0) || ($contribution->installments > $ccount + 1)) {
-        $next_sched = date('Y-m-d 00:00:00', strtotime($next_sched . " +{$contribution->frequency_interval} {$contribution->frequency_unit}s"));
-      }
-      else {
-        $next_sched = NULL;
-        /* Mark recurring contribution as complteted*/
-        civicrm_api3(
-          'ContributionRecur', 'create',
-          [
-            'id' => $contribution->id,
-            'contribution_recur_status_id' => CRM_eWAYRecurring_Utils::contribution_status_id('Completed', TRUE),
-          ]
-        );
-      }
+      // A failed or cancelled attempt is not an installment that was paid, so it must not use one up: a retry
+      // of installment 2 of 3 would otherwise look like the last one.
+      $ccount = civicrm_api3('Contribution', 'getcount', [
+        'contribution_recur_id' => $contribution->id,
+        'contribution_status_id' => ['NOT IN' => [
+          CRM_eWAYRecurring_Utils::contribution_status_id('Failed'),
+          CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled'),
+        ]],
+      ]);
+
+      // The record is Completed only after this charge succeeds, never before it is attempted.
+      $isLastInstallment = ($contribution->installments > 0) && ($contribution->installments <= $ccount + 1);
+      $next_sched = $isLastInstallment ? NULL : $this->next_scheduled_date($due, (int) $contribution->frequency_interval, $contribution->frequency_unit);
 
       // Process payment
       // Whole cents, as a string: 10.50 is "1050" and 0.99 is "99".
@@ -83,11 +81,6 @@ trait CRM_eWAYRecurring_ProcessTrait {
       $eWayResponse = NULL;
 
       try {
-        if (!$contribution->failure_retry_date) {
-          // Only update the next schedule if we're not in a retry state.
-          $this->update_contribution_status($next_sched, $contribution);
-        }
-
         $mainContributions = $mainContributions[0];
         $new_contribution_record = [];
         if (empty($mainContributions['tax_amount'])) {
@@ -216,7 +209,6 @@ trait CRM_eWAYRecurring_ProcessTrait {
           if ($contribution->failure_count > 0) {
             // A recurring contribution that had failed was charged successfully on a retry. It is still
             // In Progress while it is being retried, so this cannot depend on it being marked Failed.
-            $this->update_contribution_status($next_sched, $contribution);
             CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
               $contribution->id,
               'contribution_status_id',
@@ -273,6 +265,17 @@ trait CRM_eWAYRecurring_ProcessTrait {
           $note->note = implode("\n", $responseErrors);
 
           $note->save();
+
+          // Creating the Failed contribution made core move the date on from the payment date. A failure must
+          // not move it.
+          $this->restore_schedule_date($contribution->id, $due);
+        }
+        else {
+          // The charge succeeded: this is the only place the schedule moves on. It is one interval after the
+          // date that was due (not after the payment date), and never a date in the past, so a record that was
+          // left Failed for several intervals is charged once, not once for every interval it missed. This is
+          // set last because core also moves the date when it records the payment.
+          $this->update_contribution_status($next_sched, $contribution);
         }
       }
       catch (Exception $e) {
@@ -311,6 +314,8 @@ trait CRM_eWAYRecurring_ProcessTrait {
         else {
           // Just mark it failed when eWay have no info about this at all
           $this->mark_recurring_contribution_failed($contribution);
+          // The Failed contribution above made core move the date on. A failure must not move it.
+          $this->restore_schedule_date($contribution->id, $due);
         }
 
         $note = new CRM_Core_BAO_Note();
@@ -328,6 +333,46 @@ trait CRM_eWAYRecurring_ProcessTrait {
     }
 
     $lock->release();
+  }
+
+  /**
+   * The date after a successful charge: one frequency interval on from the date that was due, stepping on by
+   * further intervals until it is after today (midnight, as the schedule dates are), so that months missed while a
+   * record was Failed are not charged as arrears.
+   *
+   * @param string|null $due
+   *   The date the charge was due. Empty means today.
+   * @param int $interval
+   * @param string $unit
+   *   day, week, month or year.
+   *
+   * @return string Y-m-d 00:00:00
+   */
+  protected function next_scheduled_date($due, int $interval, string $unit): string {
+    $interval = max(1, $interval);
+    $base = $due ? strtotime($due) : strtotime('today');
+    $today = strtotime('today');
+    // Each step is counted from the due date, not from the last step, so a month end does not drift.
+    $steps = 1;
+    do {
+      $next = strtotime(date('Y-m-d 00:00:00', $base) . ' +' . ($steps * $interval) . " {$unit}s");
+      $steps++;
+    } while ($next <= $today && $steps < 100000);
+
+    return date('Y-m-d 00:00:00', $next);
+  }
+
+  /**
+   * Put the schedule date back to what it was when the run started. CiviCRM core moves the date on when a
+   * contribution is recorded as Failed, and a failure must leave it alone.
+   */
+  protected function restore_schedule_date($recurId, $due) {
+    if ($due) {
+      CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
+        $recurId,
+        'next_sched_contribution_date',
+        CRM_Utils_Date::isoToMysql($due));
+    }
   }
 
   protected function update_contribution_status($next_sched, $contribution) {
@@ -421,8 +466,11 @@ trait CRM_eWAYRecurring_ProcessTrait {
     $ct = CRM_Contribute_BAO_Contribution::getTableName();
     $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
 
-    // Exclude contributions that have already been processed
-    $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`next_sched_contribution_date` AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
+    // Exclude contributions that have already been processed. A Failed or Cancelled contribution does not count:
+    // a failure leaves the schedule date where it was, so a record that failed and was then recovered (new card,
+    // Reactivate) still has a Failed contribution dated after its due date and must be charged.
+    $notCharged = $this->not_charged_status_ids();
+    $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`next_sched_contribution_date` AND `{$ct}`.`contribution_status_id` NOT IN ({$notCharged}) AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
 
     $scheduled_today->find();
 
@@ -433,6 +481,16 @@ trait CRM_eWAYRecurring_ProcessTrait {
     }
 
     return $scheduled_contributions;
+  }
+
+  /**
+   * The contribution statuses that mean a charge attempt took no money, as a list for SQL.
+   */
+  private function not_charged_status_ids() {
+    return implode(', ', [
+      (int) CRM_eWAYRecurring_Utils::contribution_status_id('Failed'),
+      (int) CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled'),
+    ]);
   }
 
   /**
@@ -464,8 +522,9 @@ trait CRM_eWAYRecurring_ProcessTrait {
     $ct = CRM_Contribute_BAO_Contribution::getTableName();
     $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = `contribution_recur_id`)");
 
-    // Exclude contributions that have already been processed
-    $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`failure_retry_date` AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
+    // Exclude contributions that have already been processed (a Failed or Cancelled one does not count)
+    $notCharged = $this->not_charged_status_ids();
+    $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`failure_retry_date` AND `{$ct}`.`contribution_status_id` NOT IN ({$notCharged}) AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
 
     $scheduled_today->find();
 

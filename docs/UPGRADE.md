@@ -10,6 +10,23 @@ This will avoid issues where existing Recurring Contributions cannot be viewed o
 Contributions tab will not load because when the previous
 Payment Processor is disabled.
 
+## 3.0.0
+
+### The next payment date no longer moves when a payment fails
+
+Earlier releases moved a recurring contribution's next payment date on one interval as soon as a
+payment was attempted, whether or not it succeeded. From 3.0.0 the date moves only after a charge
+succeeds, whether it is the first attempt or a retry. It moves one interval on from the date the
+payment was due, or to the first date after today if that has already passed.
+
+This means that a payment that fails and then succeeds on a retry no longer skips a period, and a
+recurring contribution that failed (for example because the card expired) and is then recovered, by
+updating its card or with Reactivate, is charged once by the next run of the scheduled job. The
+periods it missed while it was Failed are not charged as arrears.
+
+Recurring contributions that are already failing when you upgrade keep the date the earlier release
+gave them. The upgrade does not change any date.
+
 ## 2.0.0
 
 The 2.0.0 version introduces use of the eWay RapidAPI 3.1, which requires a

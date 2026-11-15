@@ -351,6 +351,7 @@ test.describe('recurring payments job: what staff see', () => {
   test('PW-B-cron-07 a charge that succeeds on a retry: the record stays In Progress throughout, the failures and retry date clear, and the success activity counts the retries', async ({ adminPage, stub }) => {
     test.setTimeout(150_000);
     const record = dueRecord('cron07');
+    const due = String(recurRow(record.recurId).next_sched_contribution_date);
 
     // Two failures. The record is In Progress, never Failed, after each (the default limit is three).
     runDeclined(stub, record);
@@ -370,7 +371,8 @@ test.describe('recurring payments job: what staff see', () => {
     expect(state['contribution_status_id:name']).toBe('In Progress');
     expect(state.failure_count).toBe(0);
     expect(state.failure_retry_date).toBeFalsy();
-    expect(String(state.next_sched_contribution_date) > '').toBe(true);
+    // The failures did not move the date: it is one month on from the day the payment was due (DEF-58).
+    expect(state.next_sched_contribution_date).toBe(expectedNextPayment(due.slice(0, 10), { interval: 1, unit: 'month' }));
     const contributions = contributionsOf(record.recurId);
     expect(contributions.map((c) => c['contribution_status_id:name'])).toEqual(['Completed', 'Failed', 'Failed', 'Completed']);
     expect(String(contributions[3].trxn_id)).toBe(String(transactionId));
@@ -388,15 +390,15 @@ test.describe('recurring payments job: what staff see', () => {
     await expect(failedListRow(adminPage, record.recurId)).toHaveCount(0);
   });
 
-  // The schedule after a charge that failed and then succeeded on a retry. The first failure already moves the next date one
-  // interval on (DEF-46), and the success moves it on from there, so a monthly record ends two months on and one
-  // payment is skipped. A record that is charged once, with no failure, moves one month on (PW-B-cron-01).
+  // The schedule after a charge that failed and then succeeded on a retry. A failure does not move the next date, only a
+  // successful charge does, and it moves one interval on from the date the payment was due, so no payment is skipped
+  // (DEF-46, DEF-58). A record that is charged once, with no failure, also moves one month on (PW-B-cron-01).
   test('PW-B-cron-07 the next date after a failure and a successful retry is one interval after the date the payment was due (DEF-58)', async ({ stub }) => {
-    test.fail(true, 'DEF-58: the failure and the success each move the schedule on, so it ends two intervals ahead');
     test.setTimeout(120_000);
     const record = dueRecord('cron07date');
     const due = String(recurRow(record.recurId).next_sched_contribution_date);
     runDeclined(stub, record);
+    expect(recurRow(record.recurId).next_sched_contribution_date, 'a failure leaves the date alone').toBe(due);
     makeRetryDue(record.recurId);
     runApproved(stub, record);
     expect(recurRow(record.recurId).next_sched_contribution_date).toBe(expectedNextPayment(due.slice(0, 10), { interval: 1, unit: 'month' }));

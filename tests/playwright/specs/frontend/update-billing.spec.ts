@@ -10,7 +10,6 @@ import {
   cardsOf,
   contributionsOf,
   createRecurring,
-  makeNextPaymentDue,
   makeRetryDue,
   maxRetries,
   recurRow,
@@ -483,9 +482,9 @@ test.describe('update billing details: the staff form', () => {
     const failed = recurRow(record.recurId);
     expect(failed['contribution_status_id:name']).toBe('Failed');
     expect(failed.failure_count).toBe(retries);
-    // The first run moved the schedule on one month; a failed charge does not bring it back.
+    // A failed charge does not move the schedule: the payment that failed is still the one that is owed (DEF-46).
     const scheduled = failed.next_sched_contribution_date;
-    expect(String(scheduled) > String(initial.next_sched_contribution_date)).toBe(true);
+    expect(scheduled).toBe(initial.next_sched_contribution_date);
     // Still charging the first card.
     expect(failed.payment_token_id).toBe(record.tokenId);
 
@@ -508,15 +507,7 @@ test.describe('update billing details: the staff form', () => {
     // The schedule date was left alone.
     expect(recovered.next_sched_contribution_date).toBe(scheduled);
 
-    // The record is not due until its date arrives, so the job does nothing today.
-    const contributionsBefore = contributionsOf(record.recurId).length;
-    stub.reset();
-    runRecurringJob();
-    expect(stub.requests('postTransaction')).toHaveLength(0);
-    expect(contributionsOf(record.recurId)).toHaveLength(contributionsBefore);
-
-    // When the date arrives, the next run charges the new card, once, and the payment completes.
-    makeNextPaymentDue(record.recurId);
+    // The date is still the day the payment was due, so the very next run charges the new card, once, and the payment completes.
     stub.reset();
     const transactionId = newTransactionId();
     stub.respond('postTransaction', responses.paymentApproved(transactionId));
@@ -530,6 +521,14 @@ test.describe('update billing details: the staff form', () => {
     const charged = recurRow(record.recurId);
     expect(charged['contribution_status_id:name']).toBe('In Progress');
     expect(charged.failure_count).toBe(0);
+    expect(charged.failure_retry_date).toBeFalsy();
+    // Only now does the date move: one month on from the day the payment was due.
+    expect(String(charged.next_sched_contribution_date) > String(scheduled)).toBe(true);
+
+    // The same day the job charges nothing more.
+    stub.reset();
+    runRecurringJob();
+    expect(stub.requests('postTransaction')).toHaveLength(0);
   });
 });
 

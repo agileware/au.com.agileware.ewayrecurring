@@ -46,6 +46,7 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   public function tearDown(): void {
+    unset($_REQUEST['crid'], $_REQUEST['contact_payment_token']);
     FakeHttp::uninstall();
     foreach (['eway_recurring_contribution_max_retry', 'eway_recurring_contribution_retry_delay', 'eway_recurring_keep_sending_receipts'] as $setting) {
       \Civi::settings()->revert($setting);
@@ -80,7 +81,21 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
     $processor = $processor ?? Fixture::processor();
     $contactId = Fixture::contact();
     $recur = Fixture::recurring($contactId, $processor, $values);
-    Fixture::completedContributionFor($recur);
+    // The seeded contribution is two months old, or older than a due date further back than that: a contribution
+    // received on or after the due date counts as the payment having been made.
+    $receiveDate = '-2 months';
+    if (!empty($values['next_sched_contribution_date'])) {
+      $receiveDate = date('Y-m-d H:i:s', min(strtotime('-2 months'), strtotime($values['next_sched_contribution_date'] . ' -1 month')));
+    }
+    Fixture::completedContributionFor($recur, $receiveDate);
+    if (!empty($values['next_sched_contribution_date'])) {
+      // Recording the Completed contribution makes core move a date that is under 48 hours after the contribution
+      // (two months ago), so an old due date has to be put back to be the one the test asked for.
+      ContributionRecur::update(FALSE)
+        ->addWhere('id', '=', $recur['id'])
+        ->addValue('next_sched_contribution_date', date('Y-m-d H:i:s', strtotime($values['next_sched_contribution_date'])))
+        ->execute();
+    }
     return [$processor, $recur];
   }
 
@@ -151,6 +166,105 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
     return array_map(function ($recur) {
       return (int) $recur->id;
     }, $payment->get_scheduled_failed_contributions());
+  }
+
+  /**
+   * The schedule date as stored, Y-m-d H:i:s.
+   */
+  private function scheduleOf(array $recur): string {
+    return date('Y-m-d H:i:s', strtotime(Fixture::reloadRecurring($recur['id'])['next_sched_contribution_date']));
+  }
+
+  /**
+   * What the schedule should be after a successful charge, worked out from the rule rather than from the code under
+   * test: the first of due + 1 interval, due + 2 intervals and so on that is after today (midnight).
+   */
+  private function firstDateAfterToday(string $due, int $interval, string $unit): string {
+    $today = strtotime('today');
+    for ($steps = 1; $steps < 10000; $steps++) {
+      $candidate = strtotime(date('Y-m-d', strtotime($due)) . ' +' . ($steps * $interval) . " {$unit}s");
+      if ($candidate > $today) {
+        return date('Y-m-d 00:00:00', $candidate);
+      }
+    }
+    $this->fail('No date found');
+  }
+
+  private function declineNextCharge(): void {
+    $this->http->respond('postTransaction', Responses::paymentDeclined('D4401', self::nextTransactionId()));
+  }
+
+  /**
+   * Make the retry date of a record that failed come due.
+   */
+  private function makeRetryDue(array $recur): void {
+    ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', $recur['id'])
+      ->addValue('failure_retry_date', date('Y-m-d H:i:s', strtotime('-1 hour')))
+      ->execute();
+  }
+
+  /**
+   * Use up the retries of a record, as the cron does: a decline, then a decline of each retry, until it is Failed.
+   */
+  private function runUntilFailed(array $processor, array $recur, int $maxRetries): void {
+    \Civi::settings()->set('eway_recurring_contribution_max_retry', $maxRetries);
+    for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+      $this->declineNextCharge();
+      $this->runCron($processor);
+      if ($attempt < $maxRetries) {
+        $this->makeRetryDue($recur);
+      }
+    }
+  }
+
+  /**
+   * Replace the card the way the Update Billing Details form does (DEF-13): it recovers a Failed record.
+   */
+  private function updateTheCard(array $processor, array $recur, string $tokenValue): void {
+    $token = Fixture::token($recur['contact_id'], $processor['id'], ['token' => $tokenValue]);
+    $_REQUEST['crid'] = $recur['id'];
+    $_REQUEST['contact_payment_token'] = $token['id'];
+    $params = [
+      'first_name' => 'Test',
+      'last_name' => 'Donor',
+      'street_address' => '99 New Street',
+      'city' => 'Sydney',
+      'postal_code' => '2000',
+      'country_id' => 1013,
+      'country' => 'AU',
+    ];
+    try {
+      $row = $processor;
+      $message = '';
+      $this->assertTrue((new CRM_Core_Payment_eWAYRecurring('live', $row))->updateSubscriptionBillingInfo($message, $params));
+    }
+    finally {
+      unset($_REQUEST['crid'], $_REQUEST['contact_payment_token']);
+    }
+  }
+
+  /**
+   * What the Reactivate action of the Failed Recurring Contributions list sends for each selected record.
+   */
+  private function reactivate(array $recur): void {
+    ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', $recur['id'])
+      ->setValues(['contribution_status_id:name' => 'In Progress', 'failure_count' => 0, 'failure_retry_date' => ''])
+      ->execute();
+  }
+
+  /**
+   * The contributions of a record other than the seeded one, as [status name => count].
+   */
+  private function chargeStatuses(array $recur): array {
+    $counts = [];
+    foreach ($this->charges($recur) as $charge) {
+      $name = $this->contributionStatus($charge);
+      $counts[$name] = ($counts[$name] ?? 0) + 1;
+    }
+    ksort($counts);
+    return $counts;
   }
 
   // ---------------------------------------------------------------------------
@@ -333,12 +447,12 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
-   * The extension moves the schedule on from the scheduled date before it
-   * charges. Then, for a Completed or Failed contribution, CiviCRM core
-   * replaces that date with the payment date plus one interval if the date is
-   * empty or less than 48 hours ahead (ContributionRecur::updateOnNewPayment).
-   * So the extension's own date survives for weekly and longer schedules, and
-   * a daily schedule always ends up one day after the payment.
+   * The schedule moves on after a successful charge: one interval from the date that was due (not from the payment
+   * date), stepping on by further intervals until the date is after today, so a record that is several intervals
+   * overdue is charged once and then waits for the first date in the future. CiviCRM core also moves the date when
+   * it records the payment (to the payment date plus one interval when the date is under 48 hours ahead,
+   * ContributionRecur::updateOnNewPayment), so the extension sets its own date last. A daily record therefore
+   * ends tomorrow, not one day after whatever core chose.
    *
    * @dataProvider scheduleProvider
    * @testPlan PU-F9
@@ -354,12 +468,7 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
 
     $this->runCron($processor);
 
-    $byExtension = strtotime($scheduled . " +{$interval} {$unit}s");
-    $expected = $byExtension <= strtotime('+48 hours')
-      ? date('Y-m-d 00:00:00', strtotime("+{$interval} {$unit}s"))
-      : date('Y-m-d 00:00:00', $byExtension);
-    $reloaded = Fixture::reloadRecurring($recur['id']);
-    $this->assertSame($expected, date('Y-m-d H:i:s', strtotime($reloaded['next_sched_contribution_date'])));
+    $this->assertSame($this->firstDateAfterToday($scheduled, $interval, $unit), $this->scheduleOf($recur));
   }
 
   /**
@@ -569,7 +678,8 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
    * @testPlan PU-F15
    */
   public function testSuccessfulRetryClearsTheFailuresAndRecordsASuccessActivity(): void {
-    [$processor, $recur] = $this->dueRecurring(['failure_count' => 2, 'failure_retry_date' => '-1 hour']);
+    $due = date('Y-m-d 00:00:00', strtotime('-1 day'));
+    [$processor, $recur] = $this->dueRecurring(['failure_count' => 2, 'failure_retry_date' => '-1 hour', 'next_sched_contribution_date' => $due]);
     $this->approveNextCharge();
 
     $this->runCron($processor);
@@ -580,6 +690,7 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
     $this->assertEquals(0, $reloaded['failure_count']);
     $this->assertEmpty($reloaded['failure_retry_date']);
     $this->assertSame('In Progress', $this->recurStatus($reloaded));
+    $this->assertSame(date('Y-m-d 00:00:00', strtotime($due . ' +1 month')), $this->scheduleOf($recur), 'One interval after the date that was due (DEF-58).');
     $activities = Activity::get(FALSE)
       ->addSelect('details')
       ->addWhere('activity_type_id:label', '=', 'eWay Transaction Succeeded')
@@ -932,6 +1043,454 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
 
     $this->runCron($processor);
     $this->assertCount(1, $this->charges($recur), 'It is not charged again the same day.');
+  }
+
+  // ---------------------------------------------------------------------------
+  // The schedule date: a failure does not move it, a success does (DEF-46, DEF-58)
+  //
+  // The date moves only after a successful charge, first attempt or retry, from the date that was due by one
+  // interval, stepping on until it is after today. So a record that failed and then succeeded keeps every month,
+  // and a record left Failed for months is charged once when it is recovered, not once for each month it missed.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Set the schedule date directly. Creating a Completed or Failed contribution for a record makes core move the
+   * date on, so a test that builds such a contribution puts the date back afterwards.
+   */
+  private function setSchedule(array $recur, string $date): void {
+    ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', $recur['id'])
+      ->addValue('next_sched_contribution_date', $date)
+      ->execute();
+  }
+
+  public function failureProvider(): array {
+    return [
+      'monthly, first attempt declined' => ['month', 1, [], 'decline'],
+      'monthly, retry declined' => ['month', 1, ['failure_count' => 1, 'failure_retry_date' => '-1 hour'], 'decline'],
+      'daily, first attempt declined' => ['day', 1, [], 'decline'],
+      'every 2 weeks, first attempt declined' => ['week', 2, [], 'decline'],
+      'yearly, first attempt declined' => ['year', 1, [], 'decline'],
+      'request refused by eWAY (an error, no transaction id)' => ['month', 1, [], 'refused'],
+      'no card token, eWAY is never called' => ['month', 1, ['token' => FALSE, 'processor_id' => ''], 'no token'],
+    ];
+  }
+
+  /**
+   * A failed charge leaves next_sched_contribution_date where it was, on every route to a failure: the date is the
+   * payment that is owed. It used to move one interval on at the start of the run, so a record that ended up Failed
+   * had skipped the payment it failed on (DEF-46). CiviCRM core also moves the date when a Failed contribution is
+   * recorded (to today plus one interval when the date is under 48 hours ahead), so the extension puts it back.
+   *
+   * @dataProvider failureProvider
+   * @testPlan PU-F29
+   */
+  public function testAFailedChargeDoesNotMoveTheScheduleDate(string $unit, int $interval, array $values, string $how): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-3 days'));
+    [$processor, $recur] = $this->dueRecurring($values + [
+      'frequency_unit' => $unit,
+      'frequency_interval' => $interval,
+      'next_sched_contribution_date' => $due,
+    ]);
+    if ($how === 'decline') {
+      $this->declineNextCharge();
+    }
+    elseif ($how === 'refused') {
+      $this->http->respond('postTransaction', Responses::errors('V6010'));
+    }
+
+    $this->runCron($processor);
+
+    $this->assertSame($due, $this->scheduleOf($recur), 'The schedule date is unchanged by a failure.');
+    $this->assertSame(['Failed' => 1], $this->chargeStatuses($recur));
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertEquals(($values['failure_count'] ?? 0) + 1, $after['failure_count']);
+    $this->assertNotEmpty($after['failure_retry_date']);
+  }
+
+  /**
+   * A record that fails and then succeeds on a retry is next due one interval after the date it was due, so no month
+   * is skipped. It used to be due two intervals on, because the first failed run and the successful retry each moved
+   * the date (DEF-58). The Failed contribution from the first run is dated after the retry date, and must not hide
+   * the record from the retry list.
+   *
+   * @testPlan PU-F30
+   */
+  public function testARecordThatFailsThenSucceedsOnARetryIsDueOneIntervalAfterItsDueDate(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-3 days'));
+    [$processor, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
+
+    $this->declineNextCharge();
+    $this->runCron($processor);
+
+    $this->assertSame($due, $this->scheduleOf($recur));
+    $this->assertNotContains((int) $recur['id'], $this->retryIds($processor), 'The retry waits for its date.');
+    $this->makeRetryDue($recur);
+    $this->assertContains((int) $recur['id'], $this->retryIds($processor), 'The Failed contribution does not hide it from the retry list.');
+
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertSame(['Completed' => 1, 'Failed' => 1], $this->chargeStatuses($recur));
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('In Progress', $this->recurStatus($after));
+    $this->assertEquals(0, $after['failure_count']);
+    $this->assertEmpty($after['failure_retry_date']);
+    $this->assertSame(date('Y-m-d 00:00:00', strtotime($due . ' +1 month')), $this->scheduleOf($recur), 'One month on from the due date, not two.');
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+    $this->assertNotContains((int) $recur['id'], $this->retryIds($processor));
+
+    $this->runCron($processor);
+    $this->assertCount(2, $this->http->callsTo('postTransaction'), 'Nothing more is charged.');
+  }
+
+  /**
+   * The lists skip a record that already has a contribution since its due date (or retry date), so that a record
+   * is not charged twice. Only a contribution that took or may yet take money counts: Failed and Cancelled ones do
+   * not. A failure leaves the due date in the past, so a record that failed and was then recovered always has a
+   * Failed contribution after its due date, and would never be charged again if that counted. A Pending contribution
+   * (a charge in progress or interrupted) and a Completed one still hide it.
+   *
+   * @testPlan PU-F31
+   */
+  public function testOnlyAFailedOrCancelledContributionIsIgnoredWhenWorkingOutWhatIsAlreadyCharged(): void {
+    $processor = Fixture::processor();
+    $due = date('Y-m-d 00:00:00', strtotime('-1 day'));
+    $expected = ['Failed' => TRUE, 'Cancelled' => TRUE, 'Pending' => FALSE, 'Completed' => FALSE];
+
+    foreach (['normal list' => [], 'retry list' => ['failure_count' => 1, 'failure_retry_date' => '-1 hour']] as $list => $values) {
+      foreach ($expected as $status => $listed) {
+        [, $recur] = $this->dueRecurring($values + ['next_sched_contribution_date' => $due], $processor);
+        Fixture::contribution($recur['contact_id'], [
+          'total_amount' => $recur['amount'],
+          'contribution_status_id' => $status,
+          'contribution_recur_id' => $recur['id'],
+          'receive_date' => date('Y-m-d H:i:s'),
+        ]);
+        // Core moves the date when it records a Completed or Failed payment.
+        $this->setSchedule($recur, $due);
+
+        $ids = $list === 'normal list' ? $this->dueIds($processor) : $this->retryIds($processor);
+        $this->assertSame($listed, in_array((int) $recur['id'], $ids, TRUE), "A $status contribution since the due date, $list");
+      }
+    }
+  }
+
+  /**
+   * With a retry delay of 0 the retry date is today at midnight, which is before the Failed contribution the failure
+   * has just created, so a record could never be retried.
+   *
+   * @testPlan PU-F32
+   */
+  public function testARetryDelayOfZeroStillRetriesTheRecord(): void {
+    \Civi::settings()->set('eway_recurring_contribution_retry_delay', 0);
+    [$processor, $recur] = $this->dueRecurring();
+    $this->declineNextCharge();
+    $this->runCron($processor);
+    $this->assertSame(['Failed' => 1], $this->chargeStatuses($recur));
+
+    $this->assertContains((int) $recur['id'], $this->retryIds($processor));
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertSame(['Completed' => 1, 'Failed' => 1], $this->chargeStatuses($recur));
+  }
+
+  /**
+   * Take a record through real failed runs until it is Failed, recover it with $recover, and check what the next
+   * runs do (the recovery of DEF-13, and Reactivate): it is charged exactly once on the next run, whatever its due
+   * date is, and the date then moves to the first date after today. It was due 70 days ago, so the months it missed
+   * while it was Failed are not charged as arrears.
+   */
+  private function assertARecoveredRecordIsChargedOnceAndMovesOn(callable $recover, ?string $expectedToken): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-70 days'));
+    [$processor, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
+
+    $this->runUntilFailed($processor, $recur, 2);
+
+    $failed = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('Failed', $this->recurStatus($failed), 'Set-up');
+    $this->assertEquals(2, $failed['failure_count'], 'Set-up');
+    $this->assertNotEmpty($failed['failure_retry_date'], 'Set-up');
+    $this->assertSame($due, $this->scheduleOf($recur), 'Failing leaves the due date in the past.');
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+    $this->assertNotContains((int) $recur['id'], $this->retryIds($processor));
+    $this->assertCount(2, $this->http->callsTo('postTransaction'));
+
+    $recover($processor, $recur);
+
+    $recovered = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('In Progress', $this->recurStatus($recovered));
+    $this->assertEquals(0, $recovered['failure_count']);
+    $this->assertEmpty($recovered['failure_retry_date']);
+    $this->assertSame($due, $this->scheduleOf($recur), 'Recovering does not move the date either.');
+    $this->assertContains((int) $recur['id'], $this->dueIds($processor), 'The two Failed contributions since the due date do not hide it.');
+
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertCount(3, $this->http->callsTo('postTransaction'), 'Charged exactly once by the run after the recovery.');
+    if ($expectedToken !== NULL) {
+      $this->assertSame($expectedToken, $this->http->lastArgs('postTransaction')[0]['Customer']['TokenCustomerID']);
+    }
+    $this->assertSame(['Completed' => 1, 'Failed' => 2], $this->chargeStatuses($recur));
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('In Progress', $this->recurStatus($after));
+    $this->assertEquals(0, $after['failure_count']);
+    $this->assertEmpty($after['failure_retry_date']);
+    $next = $this->scheduleOf($recur);
+    $this->assertGreaterThan(time(), strtotime($next), 'The next date is in the future.');
+    $this->assertSame($this->firstDateAfterToday($due, 1, 'month'), $next);
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+
+    $this->runCron($processor);
+    $this->assertCount(3, $this->http->callsTo('postTransaction'), 'Not charged again.');
+  }
+
+  /**
+   * A Failed record whose card is updated through the Update Billing Details form is charged once by the next cron
+   * run with the new card, goes back to In Progress with no failures, and then waits for a date in the future (DEF-46).
+   *
+   * @testPlan PU-F33
+   */
+  public function testAFailedRecordWhoseCardIsUpdatedIsChargedOnceByTheNextRun(): void {
+    $this->assertARecoveredRecordIsChargedOnceAndMovesOn(function (array $processor, array $recur) {
+      $this->updateTheCard($processor, $recur, 'NEWTOKEN001');
+    }, 'NEWTOKEN001');
+  }
+
+  /**
+   * The same for Reactivate on the Failed Recurring Contributions list (DEF-46).
+   *
+   * @testPlan PU-F34
+   */
+  public function testAReactivatedFailedRecordIsChargedOnceByTheNextRun(): void {
+    $this->assertARecoveredRecordIsChargedOnceAndMovesOn(function (array $processor, array $recur) {
+      $this->reactivate($recur);
+    }, '912345678901');
+  }
+
+  /**
+   * The date used to move before the charge, so a run that died after eWAY took the money could not charge again.
+   * It now moves only after a success, so the guard is the Pending contribution the run creates before it charges:
+   * a record with a contribution since its due date is not on the list. A run that dies after the gateway took
+   * the payment leaves the date alone and the next run does not charge it again.
+   *
+   * @testPlan PU-F35
+   */
+  public function testARunThatDiesAfterTheGatewayTookThePaymentDoesNotChargeAgain(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    [$processor, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
+    $this->approveNextCharge();
+    // An Error is not an Exception, so the job's own handling does not catch it: the process just ends.
+    $listener = function ($event) {
+      if ($event->getApiRequestSig() === '3.contribution.completetransaction') {
+        throw new Error('Simulated crash after the gateway took the payment');
+      }
+    };
+    \Civi::dispatcher()->addListener('civi.api.prepare', $listener);
+    try {
+      $this->runCron($processor);
+      $this->fail('The simulated crash should have ended the run.');
+    }
+    catch (Error $e) {
+      $this->assertStringContainsString('Simulated crash', $e->getMessage());
+    }
+    finally {
+      \Civi::dispatcher()->removeListener('civi.api.prepare', $listener);
+    }
+
+    $this->assertCount(1, $this->http->callsTo('postTransaction'));
+    $this->assertSame($due, $this->scheduleOf($recur), 'The date did not move, because the run did not finish.');
+    $this->assertSame(['Pending' => 1], $this->chargeStatuses($recur));
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor), 'The Pending contribution keeps it off the list.');
+
+    $this->runCron($processor);
+
+    $this->assertCount(1, $this->http->callsTo('postTransaction'), 'A second run does not charge again.');
+    $this->assertSame(['Pending' => 1], $this->chargeStatuses($recur));
+    $this->assertSame($due, $this->scheduleOf($recur));
+  }
+
+  /**
+   * A run that dies after it created the Pending contribution but before eWAY answered also leaves the date alone and
+   * is not charged again by the next run. It stays off the list until staff settle the Pending contribution; once
+   * they cancel it (no money was taken) the record is charged by the next run.
+   *
+   * @testPlan PU-F36
+   */
+  public function testARunThatDiesBeforeTheGatewayAnswersIsNotChargedAgainUntilStaffCancelThePendingContribution(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    [$processor, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
+    $this->http->respond('postTransaction', function () {
+      throw new Error('Simulated crash while waiting for the gateway');
+    });
+    try {
+      $this->runCron($processor);
+      $this->fail('The simulated crash should have ended the run.');
+    }
+    catch (Error $e) {
+      $this->assertStringContainsString('Simulated crash', $e->getMessage());
+    }
+
+    $this->assertSame($due, $this->scheduleOf($recur));
+    $this->assertSame(['Pending' => 1], $this->chargeStatuses($recur));
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+    $this->runCron($processor);
+    $this->assertCount(1, $this->http->callsTo('postTransaction'), 'Not charged again while the Pending contribution is there.');
+
+    civicrm_api3('Contribution', 'create', ['id' => $this->charges($recur)[0]['id'], 'contribution_status_id' => 'Cancelled']);
+
+    $this->assertContains((int) $recur['id'], $this->dueIds($processor));
+    $this->approveNextCharge();
+    $this->runCron($processor);
+    $this->assertCount(2, $this->http->callsTo('postTransaction'));
+    $this->assertSame(['Cancelled' => 1, 'Completed' => 1], $this->chargeStatuses($recur));
+    $this->assertSame($this->firstDateAfterToday($due, 1, 'month'), $this->scheduleOf($recur));
+  }
+
+  public function catchUpProvider(): array {
+    return [
+      'monthly, exactly three intervals overdue' => ['month', 1, '-3 months'],
+      'monthly, three intervals and ten days overdue' => ['month', 1, '-3 months -10 days'],
+      'daily, three days overdue' => ['day', 1, '-3 days'],
+      'weekly, one day overdue' => ['week', 1, '-1 day'],
+      'every 2 weeks, five weeks overdue' => ['week', 2, '-5 weeks'],
+      'quarterly, seven months overdue' => ['month', 3, '-7 months'],
+      'yearly, two years and twenty days overdue' => ['year', 1, '-2 years -20 days'],
+    ];
+  }
+
+  /**
+   * A record that is several intervals overdue (it sat Failed, or the job did not run) is charged once, and its next
+   * date is the first date after today, so the donor is not charged for the months missed and not charged again on
+   * the following runs.
+   *
+   * @dataProvider catchUpProvider
+   * @testPlan PU-F37
+   */
+  public function testARecordSeveralIntervalsOverdueIsChargedOnceAndMovesToTheFirstFutureDate(string $unit, int $interval, string $overdue): void {
+    $due = date('Y-m-d 00:00:00', strtotime($overdue));
+    [$processor, $recur] = $this->dueRecurring([
+      'frequency_unit' => $unit,
+      'frequency_interval' => $interval,
+      'next_sched_contribution_date' => $due,
+    ]);
+    $this->approveNextCharge();
+
+    $this->runCron($processor);
+
+    $this->assertCount(1, $this->http->callsTo('postTransaction'));
+    $this->assertSame(['Completed' => 1], $this->chargeStatuses($recur));
+    $next = strtotime($this->scheduleOf($recur));
+    $this->assertGreaterThan(strtotime('today'), $next, 'After today.');
+    $this->assertLessThanOrEqual(strtotime("tomorrow +{$interval} {$unit}s"), $next, 'No further away than the first date after today.');
+    $this->assertSame($this->firstDateAfterToday($due, $interval, $unit), date('Y-m-d H:i:s', $next));
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+
+    $this->runCron($processor);
+    $this->assertCount(1, $this->http->callsTo('postTransaction'), 'Not charged again.');
+  }
+
+  /**
+   * The last installment ends the record as Completed only after its charge succeeds. It used to be marked Completed
+   * before the charge was attempted, so a final installment that was declined left a Completed record that was never
+   * retried (DEF-67).
+   *
+   * @testPlan PU-F38
+   */
+  public function testTheLastInstallmentIsCompletedOnlyAfterItsChargeSucceeds(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    // One contribution exists (the seeded one), so the second installment is the last.
+    [$processor, $recur] = $this->dueRecurring(['installments' => 2, 'next_sched_contribution_date' => $due]);
+
+    $this->declineNextCharge();
+    $this->runCron($processor);
+
+    $failed = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('In Progress', $this->recurStatus($failed), 'A declined final installment is not Completed.');
+    $this->assertEmpty($failed['end_date']);
+    $this->assertEquals(1, $failed['failure_count']);
+    $this->assertSame($due, $this->scheduleOf($recur));
+    $this->makeRetryDue($recur);
+    $this->assertContains((int) $recur['id'], $this->retryIds($processor));
+
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertSame(['Completed' => 1, 'Failed' => 1], $this->chargeStatuses($recur));
+    $done = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('Completed', $this->recurStatus($done));
+    $this->assertNotEmpty($done['end_date']);
+    $this->assertEquals(0, $done['failure_count']);
+    $this->assertEmpty($done['failure_retry_date']);
+    $this->assertNotContains((int) $recur['id'], $this->retryIds($processor));
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+  }
+
+  /**
+   * A failed attempt is not an installment that was paid. A retry of a middle installment must not be taken for the
+   * last one (it used to be, because the Failed contribution was counted, so a successful retry of installment 2 of 3
+   * completed the record early), and the real last installment still completes it (DEF-67).
+   *
+   * @testPlan PU-F39
+   */
+  public function testARetryOfAMiddleInstallmentDoesNotCompleteTheRecord(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    [$processor, $recur] = $this->dueRecurring(['installments' => 3, 'next_sched_contribution_date' => $due]);
+
+    $this->declineNextCharge();
+    $this->runCron($processor);
+    $this->makeRetryDue($recur);
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $second = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('In Progress', $this->recurStatus($second), 'Installment 2 of 3 was paid on a retry: not the last.');
+    $this->assertEmpty($second['end_date']);
+    $this->assertSame(date('Y-m-d 00:00:00', strtotime($due . ' +1 month')), $this->scheduleOf($recur));
+
+    // A month passes: the third installment falls due, after the charges so far.
+    foreach ($this->charges($recur) as $charge) {
+      if ($this->contributionStatus($charge) === 'Completed') {
+        civicrm_api3('Contribution', 'create', ['id' => $charge['id'], 'receive_date' => date('Y-m-d H:i:s', strtotime('-30 days'))]);
+      }
+    }
+    $this->setSchedule($recur, date('Y-m-d 00:00:00', strtotime('-1 day')));
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertSame(['Completed' => 2, 'Failed' => 1], $this->chargeStatuses($recur));
+    $third = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('Completed', $this->recurStatus($third));
+    $this->assertNotEmpty($third['end_date']);
+  }
+
+  /**
+   * Every unit and an interval above 1: a failure leaves the date, and the retry that succeeds moves it from the date
+   * that was due.
+   *
+   * @dataProvider scheduleProvider
+   * @testPlan PU-F40
+   */
+  public function testEveryFrequencyUnitKeepsItsDateOnFailureAndMovesFromItOnARetry(string $unit, int $interval): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-5 days'));
+    [$processor, $recur] = $this->dueRecurring([
+      'frequency_unit' => $unit,
+      'frequency_interval' => $interval,
+      'next_sched_contribution_date' => $due,
+    ]);
+
+    $this->declineNextCharge();
+    $this->runCron($processor);
+    $this->assertSame($due, $this->scheduleOf($recur));
+
+    $this->makeRetryDue($recur);
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    $this->assertSame(['Completed' => 1, 'Failed' => 1], $this->chargeStatuses($recur));
+    $this->assertSame($this->firstDateAfterToday($due, $interval, $unit), $this->scheduleOf($recur));
   }
 
 }

@@ -3,13 +3,12 @@ import { test, expect } from '../../fixtures/base';
 import { adminUrl } from '../../fixtures/cms';
 import { api4, setSettings } from '../../fixtures/civi';
 import { openMenuEntry, resetEwaySettings } from '../../fixtures/backend';
-import { newTransactionId } from '../../fixtures/contribution-page';
+import { expectedNextPayment, newTransactionId } from '../../fixtures/contribution-page';
 import { responses, type EwayStub } from '../../fixtures/eway-stub';
 import {
   copyRecurring,
   createRecurring,
   deleteRecurring,
-  makeNextPaymentDue,
   makeRetryDue,
   makeTestRecord,
   moveToProcessor,
@@ -564,9 +563,9 @@ test.describe('the recovery loop', () => {
     await expect(contributionRow(adminPage, contributions[1].id).locator('.crm-contribution-status')).toHaveText('Completed');
   });
 
-  // What staff expect to happen next, and what happens: the first failed run already moved the schedule date a month on
-  // (DEF-46), so a reactivated record is not due again until that date arrives.
-  test('PW-B-failed-11 the whole loop: the cron job drives a record to Failed, the list shows it, Reactivate returns it to In Progress, and the next charge completes once it is due', async ({ adminPage, stub }) => {
+  // A failure does not move the schedule date (DEF-46), so after Reactivate the very next run charges the record, once, and only
+  // then does the date move on, one interval from the day the payment was due.
+  test('PW-B-failed-11 the whole loop: the cron job drives a record to Failed, the list shows it, Reactivate returns it to In Progress, and the very next run charges it once', async ({ adminPage, stub }) => {
     test.setTimeout(240_000);
     setSettings({ eway_recurring_contribution_max_retry: 2 });
     const record = dueRecord('failed11');
@@ -589,7 +588,8 @@ test.describe('the recovery loop', () => {
     await expect(row.locator('[data-field-name="failure_count"]')).toHaveText('2');
     await expect(row.locator('[data-field-name="failure_retry_date"]')).toContainText(/\d{4}/);
 
-    // Reactivate returns it to In Progress, with no failures and no retry date, and the schedule as the failures left it.
+    // Reactivate returns it to In Progress, with no failures and no retry date. The failures did not move the schedule, so it is
+    // still the day the payment was due.
     await openRowDialog(adminPage, record.recurId);
     await pressInReactivateDialog(adminPage, /Reactivate Recurring Contributions/);
     await expect(notification(adminPage)).toContainText('Successfully reactivated 1 Recurring Contributions.');
@@ -597,18 +597,11 @@ test.describe('the recovery loop', () => {
     expect(reactivated['contribution_status_id:name']).toBe('In Progress');
     expect(reactivated.failure_count).toBe(0);
     expect(reactivated.failure_retry_date).toBeFalsy();
-    expect(reactivated.next_sched_contribution_date).toBe(failed.next_sched_contribution_date);
+    expect(reactivated.next_sched_contribution_date).toBe(due);
+    expect(failed.next_sched_contribution_date).toBe(due);
     await expect(failedListRow(adminPage, record.recurId)).toHaveCount(0);
 
-    // The failures had moved the date a month on from the day the payment was due (DEF-46), so this run has nothing to charge.
-    expect(String(reactivated.next_sched_contribution_date) > due).toBe(true);
-    stub.reset();
-    stub.respond('postTransaction', responses.paymentApproved(newTransactionId()));
-    runRecurringJob();
-    expect(stub.requests('postTransaction')).toHaveLength(0);
-
-    // When the date arrives the run charges it, and the contact shows the new Completed payment.
-    makeNextPaymentDue(record.recurId);
+    // The very next run charges it, once, and the contact shows the new Completed payment.
     stub.reset();
     const transactionId = newTransactionId();
     stub.respond('postTransaction', responses.paymentApproved(transactionId));
@@ -620,6 +613,15 @@ test.describe('the recovery loop', () => {
     const charged = recurRow(record.recurId);
     expect(charged['contribution_status_id:name']).toBe('In Progress');
     expect(charged.failure_count).toBe(0);
+    expect(charged.failure_retry_date).toBeFalsy();
+    // One month on from the day the payment was due, not from the failures or the charge.
+    expect(charged.next_sched_contribution_date).toBe(expectedNextPayment(due.slice(0, 10), { interval: 1, unit: 'month' }));
+
+    // A second run the same day charges nothing more.
+    stub.reset();
+    stub.respond('postTransaction', responses.paymentApproved(newTransactionId()));
+    runRecurringJob();
+    expect(stub.requests('postTransaction')).toHaveLength(0);
 
     await openContributionsTab(adminPage, record.contactId);
     await expect(contributionRows(adminPage)).toHaveCount(4);
@@ -627,10 +629,9 @@ test.describe('the recovery loop', () => {
     await expect(contributionRow(adminPage, contributions[3].id).locator('.crm-contribution-amount')).toContainText('(Recurring)');
   });
 
-  // The staff expectation behind the loop: reactivate, and the next cron run charges. It does not today, because the failures
-  // moved the schedule date on (DEF-46). Pinned until the owner decides whether a failure should move the date at all.
+  // The staff expectation behind the loop: reactivate, and the next cron run charges (DEF-46). It did not, while a failure moved
+  // the schedule date on.
   test('PW-B-failed-11 the next cron run after Reactivate charges the record (DEF-46)', async ({ stub }) => {
-    test.fail(true, 'DEF-46: the failed runs already moved the schedule a month on, so a reactivated record is not due on the next run');
     test.setTimeout(180_000);
     const record = failedThroughCron(stub, 'failed11pin', 2);
     api4('ContributionRecur', 'update', {
