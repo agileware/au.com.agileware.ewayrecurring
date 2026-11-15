@@ -64,7 +64,7 @@ const REFUSAL_STATUS = [403, 500];
 /** The Reactivate dialog's update call (the list's own data and the dialog's label lookup are different calls). */
 const UPDATE_CALL = /ajax(\/|%2F)api4(\/|%2F)ContributionRecur(\/|%2F)update/;
 /** The list's own data request answers HTTP 500 for a user who is not an administrator (DEF-62). */
-const LIST_REFUSED = /HTTP 500 from .*ajax%2Fapi4|status of 500/;
+const LIST_REFUSED = /HTTP 500 from .*ajax(\/|%2F)api4|status of 500/;
 /** test.use() reads a two item list as a value and its options, so more than one pattern is joined into one. */
 const either = (...patterns: RegExp[]) => new RegExp(patterns.map((pattern) => pattern.source).join('|'));
 
@@ -494,7 +494,7 @@ test.describe('Reactivate', () => {
 
   test.describe('an error from the API', () => {
     // The refused update is a 403 from the ajax route, which the collector would report.
-    test.use({ allowedProblems: [either(SCREEN_NOISE, /HTTP 403 from .*ajax|status of 403/)] });
+    test.use({ allowedProblems: [either(SCREEN_NOISE, /HTTP 403 from .*ajax(\/|%2F)api4|status of 403/)] });
 
     test('PW-B-failed-10 when the update is refused the error alert shows, the dialog closes and the record is untouched', async ({ adminPage }) => {
       test.setTimeout(90_000);
