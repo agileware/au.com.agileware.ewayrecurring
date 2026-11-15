@@ -108,6 +108,23 @@ ddev exec "cv api4 Setting.set '{\"values\":{\"defaultContactCountry\":null}}'"
 
 Look for other settings you changed on this site that the setup script does not set, and undo them for the run.
 
+**PHP warnings.** A warning printed into a page changes the HTML and can break page elements, and the Playwright
+collector fails a test on any PHP output. DDEV's `wp-config-ddev.php` turns `WP_DEBUG` on, which makes WordPress print
+warnings (including ones from other extensions on the site), whatever `display_errors` says in `.ddev/php/`. To log
+them instead of printing them, put this in the site's own `wp-config.php`, above the line that includes
+`wp-config-ddev.php` (that file only sets `WP_DEBUG` when it is not defined yet):
+
+```php
+defined( 'WP_DEBUG' ) || define( 'WP_DEBUG', true );
+defined( 'WP_DEBUG_LOG' ) || define( 'WP_DEBUG_LOG', true );
+defined( 'WP_DEBUG_DISPLAY' ) || define( 'WP_DEBUG_DISPLAY', false );
+@ini_set( 'display_errors', '0' );
+```
+
+With display off, a warning from the extension no longer fails a local run, but it still fails the GitHub run, where
+the fresh site prints them. After a local run read the log for anything the extension wrote
+(`ddev exec "tail -n 200 wp-content/debug.log"`).
+
 ### 5. Run the tests
 
 The tests run `cv` inside the site through `CIVI_EXEC_PREFIX`. The script `tests/playwright/ddev-exec.sh` does that
