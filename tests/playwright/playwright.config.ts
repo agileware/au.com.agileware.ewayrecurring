@@ -36,8 +36,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      // The real eWAY sandbox hosted page. Needs EWAY_SANDBOX_KEY and EWAY_SANDBOX_PASSWORD, and runs
-      // nightly rather than on every push.
+      // The real eWAY sandbox (PW-X, specs/sandbox/). Needs EWAY_SANDBOX_API_KEY and EWAY_SANDBOX_API_PASSWORD in the
+      // environment; without them every case skips. Meant to run nightly rather than on every push, and can be
+      // selected with --project=sandbox or --grep @sandbox.
       name: 'sandbox',
       testMatch: /specs\/sandbox\/.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

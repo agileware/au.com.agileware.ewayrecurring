@@ -23,6 +23,25 @@ function run(args: string[]): string {
   }
 }
 
+/**
+ * Run an APIv4 call whose parameters carry a secret (the sandbox credentials), without ever letting the secret reach
+ * a message. Playwright shows an error's text in its report, trace and logs, and `run()` puts the start of the
+ * arguments in its error, so this one reports only a fixed text and the answer's own error, with every secret in
+ * `secrets` blanked out of that. The call's result is returned without the secrets being looked at.
+ */
+export function api4WithSecrets<T = any>(entity: string, action: string, params: Record<string, unknown>, secrets: string[]): T[] {
+  const [command, ...rest] = [...PREFIX, CIVI_CV, 'api4', `${entity}.${action}`, JSON.stringify(params), '--out=json'];
+  try {
+    return JSON.parse(execFileSync(command, rest, { cwd: CWD, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 }).toString());
+  } catch (error: any) {
+    let detail = String(error?.stderr?.toString?.() ?? '').slice(0, 400);
+    for (const secret of secrets.filter(Boolean)) {
+      detail = detail.split(secret).join('[withheld]');
+    }
+    throw new Error(`cv api4 ${entity}.${action} failed (the command is not shown because it carries credentials): ${detail}`);
+  }
+}
+
 /** Run an APIv4 call and return its values. Permission checks are off, as with cv on the command line. */
 export function api4<T = any>(entity: string, action: string, params: Record<string, unknown> = {}): T[] {
   // The parameters go as an argument, not on stdin: `docker exec` without -i does not pass stdin on.
