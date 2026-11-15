@@ -112,6 +112,9 @@ test.describe('scheduled jobs: the listing', () => {
 });
 
 test.describe('scheduled jobs: run from the screen', () => {
+  // The Search Kit job list on newer CiviCRM versions cancels its own request when the test navigates away.
+  test.use({ allowedProblems: [SCREEN_NOISE] });
+
   test('PW-B-jobs-03 "fill missing tokens metadata" fills in a card that has no expiry or masked number, and says so in its log', async ({ adminPage, stub }) => {
     // A card eWAY holds that this site has only a token for: no expiry date and no masked number.
     const donor = uniqueDonor('jobs03');
