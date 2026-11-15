@@ -508,6 +508,26 @@ class CRM_eWAYRecurring_DoPaymentTest extends \PHPUnit\Framework\TestCase implem
   }
 
   /**
+   * The text of eWAY's errors is eWAY's (the SDK passes a code it does not know through unchanged), and a refusal is shown
+   * to the donor as HTML, so markup in it must come out as text (DEF-74).
+   *
+   * @testPlan PU-B19
+   */
+  public function testMarkupInEwayErrorsIsShownAsText(): void {
+    $processor = Fixture::processor();
+    $contribution = Fixture::contribution(Fixture::contact());
+    $this->http->respond('postAccessCodeShared', Responses::errors('<img src=x onerror=alert(1)>,V6011'));
+    $params = $this->params($contribution);
+
+    $e = $this->refused($this->newPayment($processor), $params);
+
+    $this->assertStringNotContainsString('<img', $e->getMessage());
+    $this->assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;', $e->getMessage());
+    $this->assertStringContainsString(\Eway\Rapid::getMessage('V6011'), $e->getMessage(), 'A message eWAY has a translation for is still shown.');
+    $this->assertStringContainsString('<br>', $e->getMessage(), 'The messages stay on separate lines.');
+  }
+
+  /**
    * The SDK always returns a response object, so a NULL answer needs a stand-in client.
    *
    * @testPlan PU-B9

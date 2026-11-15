@@ -148,9 +148,10 @@ class CRM_eWAYRecurring_PaymentToken {
         $response->getErrors())
     );
     if (!empty($errorMessage)) {
+      // eWAY's own words, which the page's script shows as HTML.
       CRM_Utils_JSON::output([
         'is_error' => 1,
-        'message' => $errorMessage,
+        'message' => htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'),
       ]);
     }
 
@@ -178,7 +179,8 @@ class CRM_eWAYRecurring_PaymentToken {
    */
   public static function saveToken() {
     $pp_id = CRM_Utils_Request::retrieve('pp_id', 'String');
-    if (!$pp_id) {
+    // A list (pp_id[]=1) is not a processor id.
+    if (!$pp_id || !is_scalar($pp_id)) {
       echo "<script>window.close();</script>";
       // civiExit() ends the request like die() does, and lets the test framework catch it.
       CRM_Utils_System::civiExit();
@@ -187,7 +189,7 @@ class CRM_eWAYRecurring_PaymentToken {
     // eway will have access code in url
     $isFromeWay = TRUE;
     $accessCode = CRM_Utils_Request::retrieve('AccessCode', 'String');
-    if (!$accessCode) {
+    if (!$accessCode || !is_scalar($accessCode)) {
       $accessCode = CRM_Core_Session::singleton()->get('eway_accesscode');
       $isFromeWay = FALSE;
     }
@@ -239,7 +241,8 @@ class CRM_eWAYRecurring_PaymentToken {
       die();
     }
     // contact id from eWay reference field, which this extension sets to "civi-<contact id>"
-    $cid = preg_match('/^civi-(\d+)$/m', (string) $response->Reference, $matches) ? (int) $matches[1] : 0;
+    // The whole reference, on one line: with the m flag a second line of "civi-<id>" would count.
+    $cid = preg_match('/\Acivi-(\d+)\z/', (string) $response->Reference, $matches) ? (int) $matches[1] : 0;
     if (!$cid || !CRM_Core_DAO::singleValueQuery('SELECT COUNT(*) FROM civicrm_contact WHERE id = %1', [1 => [$cid, 'Integer']])) {
       CRM_Utils_JSON::output([
         'is_error' => 1,
@@ -322,7 +325,7 @@ class CRM_eWAYRecurring_PaymentToken {
    */
   public static function getPaymentProcessorById($id) {
     // Only this extension's own processors: another type has no eWAY credentials to build a client from.
-    if (!ctype_digit((string) $id) || !CRM_eWAYRecurring_Utils::isEwayProcessor((int) $id)) {
+    if (!is_scalar($id) || !ctype_digit((string) $id) || !CRM_eWAYRecurring_Utils::isEwayProcessor((int) $id)) {
       return NULL;
     }
     $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [

@@ -230,13 +230,20 @@ class CRM_eWAYRecurring_Utils {
       }
       else {
         if (!$validatingUpdateToken) {
-          $transactionResponse = $transactionResponse->Transactions[0];
-          if ($transactionResponse->TransactionID == '') {
+          // An answer with no error and no transaction at all (an access code eWAY has nothing for, which the visitor can
+          // make up) is the same as one with an empty transaction: there is no result yet.
+          if (empty($transactionResponse->Transactions[0])) {
             $transactionNotProcessedYet = TRUE;
-          } elseif (!$transactionResponse->TransactionStatus) {
-            $hasTransactionFailed = TRUE;
-            $transactionMessages = implode(', ', array_map('\Eway\Rapid::getMessage', explode(', ', (string) $transactionResponse->ResponseMessage)));
-            $transactionResponseError = 'Your payment was declined: ' . $transactionMessages;
+          }
+          else {
+            $transactionResponse = $transactionResponse->Transactions[0];
+            if ($transactionResponse->TransactionID == '') {
+              $transactionNotProcessedYet = TRUE;
+            } elseif (!$transactionResponse->TransactionStatus) {
+              $hasTransactionFailed = TRUE;
+              $transactionMessages = implode(', ', array_map('\Eway\Rapid::getMessage', explode(', ', (string) $transactionResponse->ResponseMessage)));
+              $transactionResponseError = 'Your payment was declined: ' . $transactionMessages;
+            }
           }
         }
       }
@@ -547,17 +554,30 @@ class CRM_eWAYRecurring_Utils {
    */
   public static function validateEwayContribution($paymentProcessor, $invoiceID) {
     if ($paymentProcessor instanceof CRM_Core_Payment_eWAYRecurring) {
+      // The invoice id comes from the address. APIv3 reads a "%" in a plain string as a wildcard, so ask for an exact
+      // match: otherwise a visitor could name a contribution by the start of its invoice id and have a payment they
+      // know nothing about completed or failed (DEF-70).
+      $invoiceID = is_string($invoiceID) ? $invoiceID : '';
       $contribution = civicrm_api3('Contribution', 'get', [
-        'invoice_id' => $invoiceID,
+        'invoice_id' => ['=' => $invoiceID],
         'sequential' => TRUE,
         'return' => [
           'contribution_page_id',
           'contribution_recur_id',
           'total_amount',
           'is_test',
+          'invoice_id',
         ],
         'is_test' => ($paymentProcessor->_mode == 'test') ? 1 : 0,
+        'options' => ['limit' => 5],
       ]);
+      // The database compares text without regard to case or trailing spaces; the id has to match exactly.
+      $contribution['values'] = array_values(array_filter(
+        $contribution['values'],
+        function ($row) use ($invoiceID) {
+          return $invoiceID !== '' && ($row['invoice_id'] ?? NULL) === $invoiceID;
+        }
+      ));
 
       if (count($contribution['values']) > 0 && $contribution['values'][0]['total_amount'] > 0) {
         // Include eWay SDK.

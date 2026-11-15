@@ -90,7 +90,9 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       ]);
 
       if ($transactionResponseError != '') {
-        CRM_Core_Session::setStatus($transactionResponseError, ts('Error'), 'error');
+        // The text is eWAY's (messages for its codes, or the code itself when the SDK does not know it), and status messages
+        // are shown as HTML.
+        CRM_Core_Session::setStatus(htmlspecialchars($transactionResponseError, ENT_QUOTES, 'UTF-8'), ts('Error'), 'error');
       }
       $failUrl = $this->getReturnFailUrl($qfKey);
       CRM_Utils_System::redirect($failUrl);
@@ -474,7 +476,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
           return $params;
         }
         elseif ($priorRow['status'] == CRM_eWAYRecurring_Utils::STATUS_FAILED) {
-          $this->paymentFailed($params, 'A previous attempt to complete this transaction already failed - ' . $priorRow['failed_message']);
+          $this->paymentFailed($params, 'A previous attempt to complete this transaction already failed - ' . htmlspecialchars((string) $priorRow['failed_message'], ENT_QUOTES, 'UTF-8'));
         }
       }
       else {
@@ -497,7 +499,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     //----------------------------------------------------------------------------------------------------
     $transactionErrors = $this->getEWayResponseErrors($eWAYResponse);
     if (count($transactionErrors)) {
-      $this->paymentFailed($params, implode("<br>", $transactionErrors));
+      // eWAY's own words, shown as HTML: escape each, then join with the line break.
+      $this->paymentFailed($params, implode("<br>", array_map(function ($error) {
+        return htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8');
+      }, $transactionErrors)));
     }
 
     $paymentProcessor = $this->getPaymentProcessor();
@@ -547,7 +552,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
             '\Eway\Rapid::getMessage',
             explode(', ', (string) $eWAYResponse->ResponseMessage))
         );
-        $this->paymentFailed($params, $errorMessage);
+        $this->paymentFailed($params, htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'));
       }
     } else {
       if($ewayParams['access_code'] !== $priorAccessCode) {

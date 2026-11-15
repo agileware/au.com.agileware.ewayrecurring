@@ -248,6 +248,35 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
   }
 
   /**
+   * The message of a declined payment is eWAY's and is shown as HTML, so markup in it must come out as text (DEF-74).
+   *
+   * @testPlan PU-D15
+   */
+  public function testMarkupInADeclineMessageIsShownAsText(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $this->http->respond('getTransaction', Responses::transactionFound([
+      'TransactionID' => 998,
+      'TransactionStatus' => FALSE,
+      'ResponseMessage' => '<img src=x onerror=alert(1)>',
+    ]));
+    $payment = new CRM_Core_Payment_eWAYRecurring('live', $processor);
+    CRM_Core_Session::singleton()->getStatus(TRUE);
+
+    try {
+      $payment->validateContribution('AC0001', ['id' => $contribution['id'], 'is_test' => 0], 'qf', $processor);
+      $this->fail('A declined payment redirects to the failure page.');
+    }
+    catch (CRM_Core_Exception_PrematureExitException $e) {
+      // The redirect.
+    }
+
+    $shown = implode(' ', array_column(CRM_Core_Session::singleton()->getStatus(TRUE), 'text'));
+    $this->assertStringStartsWith('Your payment was declined: ', $shown);
+    $this->assertStringNotContainsString('<img', $shown);
+    $this->assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;', $shown);
+  }
+
+  /**
    * @testPlan PU-D7
    */
   public function testNotProcessedYetChangesNothing(): void {
@@ -391,6 +420,53 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
     $this->assertFalse(CRM_eWAYRecurring_Utils::isEwayProcessor((int) $other));
     $this->assertFalse(CRM_eWAYRecurring_Utils::isEwayProcessor(99999999));
     $this->assertNull(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById($other));
+  }
+
+  /**
+   * The invoice id is read from the address, and APIv3 treats a "%" in a plain string as a wildcard. A visitor must not be
+   * able to name a contribution by the start (or end) of its invoice id: with an access code eWAY answers with an error
+   * for, that fails the first Pending contribution the pattern matches, whoever's it is (DEF-70).
+   *
+   * @testPlan PU-D13
+   */
+  public function testAnInvoiceIdWithAWildcardMatchesNoContribution(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $payment = new CRM_Core_Payment_eWAYRecurring('live', $processor);
+    // eWAY has no transaction for a made-up access code and says so with an error, which fails a contribution it matched.
+    $this->http->respond('getTransaction', ['Transactions' => [], 'Errors' => 'V6110'], TRUE);
+    $_REQUEST['AccessCode'] = 'MADE-UP';
+    $invoice = $contribution['invoice_id'];
+
+    foreach ([substr($invoice, 0, 8) . '%', '%' . substr($invoice, -6), '%', substr($invoice, 0, 4) . '%' . substr($invoice, -4)] as $pattern) {
+      $this->assertNull(CRM_eWAYRecurring_Utils::validateEwayContribution($payment, $pattern), "Pattern $pattern");
+    }
+    // The database ignores case when it compares text, the id must not.
+    $this->assertNull(CRM_eWAYRecurring_Utils::validateEwayContribution($payment, strtoupper($invoice)));
+    $this->assertSame([], $this->http->requests, 'eWAY is not asked.');
+    $reloaded = Fixture::reloadContribution($contribution['id']);
+    $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', $reloaded['contribution_status_id']));
+
+    // The exact id is still found (eWAY has no result yet, so nothing changes).
+    $this->http->respond('getTransaction', Responses::transactionNotProcessedYet());
+    $found = CRM_eWAYRecurring_Utils::validateEwayContribution($payment, $invoice);
+    $this->assertSame($contribution['id'], $found['contribution']['id']);
+  }
+
+  /**
+   * An access code eWAY has nothing for, with no error either (a visitor can make one up), has no result yet. It used to
+   * read the first transaction of an empty list and print PHP warnings (DEF-71).
+   *
+   * @testPlan PU-D14
+   */
+  public function testAnAccessCodeWithNoTransactionAndNoErrorIsNotProcessedYet(): void {
+    $processor = Fixture::processor();
+    $this->http->respond('getTransaction', ['Transactions' => [], 'Errors' => NULL]);
+
+    $result = CRM_eWAYRecurring_Utils::validateEwayAccessCode('MADE-UP', $processor);
+
+    $this->assertFalse($result['hasTransactionFailed']);
+    $this->assertTrue($result['transactionNotProcessedYet']);
+    $this->assertSame('', $result['transactionResponseError']);
   }
 
   // ---------------------------------------------------------------------------

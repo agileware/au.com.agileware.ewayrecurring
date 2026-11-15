@@ -35,7 +35,9 @@ CRM.eway.updateOptions = function (values) {
         return;
     }
 
-    let html = '';
+    // The options are built as elements, with the card's text set as text: the masked number comes from the card's record
+    // and must not be read as markup.
+    const options = [];
 
     for(const value of values) {
         const expireDate = new Date(value.expiry_date.replace(/\s/, 'T'));
@@ -45,19 +47,17 @@ CRM.eway.updateOptions = function (values) {
         }
 
         // Handle for tokens created via the legacy payment processor.
-        if (value.masked_account_number) {
-          html += `<option value="${value.id}">${value.masked_account_number.slice(-4)} - ${month}/${expireDate.getFullYear()}</option>`;
-        }
-        else {
-          html += `<option value="${value.id}">${month}/${expireDate.getFullYear()}</option>`;
-        }
+        const label = value.masked_account_number
+          ? `${String(value.masked_account_number).slice(-4)} - ${month}/${expireDate.getFullYear()}`
+          : `${month}/${expireDate.getFullYear()}`;
+        options.push(CRM.$('<option></option>').attr('value', value.id).text(label));
     }
 
     const $select = CRM.$('#contact_payment_token');
     if ($select) {
-        // html() replaces the whole list once. replaceWith() on each existing option put the full list in place of
+        // One replacement of the whole list. replaceWith() on each existing option put the full list in place of
         // every option, so a select that already held the cards showed each of them twice.
-        $select.html(html || '<option value="">No cards found.</option>');
+        $select.empty().append(options.length ? options : [CRM.$('<option></option>').attr('value', '').text('No cards found.')]);
 
         if(CRM.eway.selectedToken) {
             $select.val(CRM.eway.selectedToken);

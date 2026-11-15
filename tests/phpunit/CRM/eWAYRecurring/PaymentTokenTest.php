@@ -213,6 +213,74 @@ class CRM_eWAYRecurring_PaymentTokenTest extends \PHPUnit\Framework\TestCase imp
   }
 
   /**
+   * The reference has to be exactly "civi-<id>" on one line: a second line of that form (text before it) must not name a
+   * contact (DEF-73).
+   *
+   * @testPlan PU-G13
+   */
+  public function testAReferenceWithSeveralLinesNamesNoContact(): void {
+    $contactId = Fixture::contact();
+    foreach (["junk\ncivi-$contactId", "civi-$contactId\nmore", "civi-$contactId\n"] as $reference) {
+      $this->http->respond('getTransaction', Responses::transactionFound());
+      $this->http->respond('getCustomer', Responses::customerFound('912345678901', [], $reference));
+
+      $answer = $this->saveToken(Fixture::processor());
+
+      $this->assertSame('no contact.', $answer['message'], json_encode($reference));
+    }
+    $this->assertSame(0, PaymentToken::get(FALSE)->addWhere('contact_id', '=', $contactId)->execute()->count());
+  }
+
+  /**
+   * A list where a processor id is expected (pp_id[]=1) is no processor, and prints nothing (DEF-72).
+   *
+   * @testPlan PU-G13
+   */
+  public function testAListIsNotAProcessorId(): void {
+    $processor = Fixture::processor();
+    $this->assertNull(CRM_eWAYRecurring_PaymentToken::getPaymentProcessorById([(string) $processor['id']]));
+
+    // Like a missing pp_id, it only closes the window.
+    [$json, $echoed] = $this->callSaveTokenWithRequest(['pp_id' => [(string) $processor['id']], 'AccessCode' => 'x']);
+    $this->assertSame('<script>window.close();</script>', $echoed);
+    $this->assertArrayNotHasKey('is_error', $json ?? []);
+
+    // A list for the access code is no access code.
+    [$json, $echoed] = $this->callSaveTokenWithRequest(['pp_id' => (string) $processor['id'], 'AccessCode' => ['x']], NULL);
+    $this->assertSame('', $echoed);
+    $this->assertSame('no access code.', $json['message']);
+    $this->assertSame([], $this->http->requests, 'eWAY is not called.');
+  }
+
+  /**
+   * Call savetoken with the request parameters as given (they can be lists), and return what it printed.
+   *
+   * @return array [what it printed as JSON (or NULL), anything else it echoed]
+   */
+  private function callSaveTokenWithRequest(array $request, ?string $sessionAccessCode = 'AC-TOKEN'): array {
+    unset($_REQUEST['pp_id'], $_REQUEST['AccessCode']);
+    foreach ($request as $key => $value) {
+      $_REQUEST[$key] = $value;
+    }
+    CRM_Core_Session::singleton()->set('eway_accesscode', $sessionAccessCode);
+    $level = ob_get_level();
+    ob_start();
+    try {
+      CRM_eWAYRecurring_PaymentToken::saveToken();
+    }
+    catch (CRM_Core_Exception_PrematureExitException $e) {
+      return [$e->errorData ?: NULL, ob_get_clean()];
+    }
+    finally {
+      while (ob_get_level() > $level) {
+        ob_end_clean();
+      }
+      unset($_REQUEST['pp_id'], $_REQUEST['AccessCode']);
+    }
+    $this->fail('saveToken() was expected to answer and exit.');
+  }
+
+  /**
    * @testPlan PU-G9
    */
   public function testSavingATokenForACustomerWithoutCardDetailsIsRefused(): void {
@@ -700,6 +768,21 @@ class CRM_eWAYRecurring_PaymentTokenTest extends \PHPUnit\Framework\TestCase imp
     $this->assertSame(1, $answer['is_error']);
     $this->assertSame('no payment processor found.', $answer['message']);
     $this->assertSame([], $this->http->requests, 'eWAY is not called.');
+  }
+
+  /**
+   * eWAY's error text is shown by the page's script as HTML, so markup in it must come out as text (DEF-74).
+   *
+   * @testPlan PU-G14
+   */
+  public function testMarkupInAnEwayErrorIsShownAsText(): void {
+    $this->http->respond('postAccessCodeShared', Responses::errors('<img src=x onerror=alert(1)>'));
+
+    $answer = $this->createToken($this->billingPost(Fixture::contact(), Fixture::processor()['id']));
+
+    $this->assertSame(1, $answer['is_error']);
+    $this->assertStringNotContainsString('<img', $answer['message']);
+    $this->assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;', $answer['message']);
   }
 
   /**
