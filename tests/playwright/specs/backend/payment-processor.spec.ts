@@ -145,7 +145,12 @@ test.describe('payment processor admin', () => {
         await adminPage.locator('#test_user_name').fill('pw-test-key');
         await adminPage.locator('#test_password').fill('pw-test-pass');
         await adminPage.locator('#_qf_PaymentProcessor_next-bottom').click();
-        await expect(adminPage.locator('#crm-notification-container')).toContainText(`${title} has been saved`);
+        // The form accepts it and saves both rows. CiviCRM then checks the LIVE row, which is empty, and says so with its
+        // "configuration invalid" error instead of the "has been saved" message: the live details are still to be added.
+        const notice = adminPage.locator('#crm-notification-container');
+        await expect(notice).toContainText('Payment processor configuration invalid');
+        await expect(notice).toContainText('API Key is not set for this payment processor');
+        await expect(adminPage.getByText('Please correct the following errors in the form fields below')).toHaveCount(0);
 
         const rows = processorRows(title);
         expect(rows).toHaveLength(2);
