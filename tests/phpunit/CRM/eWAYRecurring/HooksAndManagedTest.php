@@ -343,6 +343,57 @@ class CRM_eWAYRecurring_HooksAndManagedTest extends \PHPUnit\Framework\TestCase 
   }
 
   /**
+   * A processor has a live section and a test (sandbox) section. Either one complete is enough (DEF-56).
+   *
+   * @testPlan PU-H16
+   */
+  public function testTheEwayProcessorFormAcceptsEitherASectionOfLiveOrOfTestCredentials(): void {
+    $base = ['payment_processor_type_id' => (string) $this->processorTypeId('eWay_Recurring')];
+
+    $this->assertSame([], $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['user_name' => 'key', 'password' => 'secret']), 'Live only');
+    $this->assertSame([], $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['user_name' => '', 'password' => '', 'test_user_name' => 'key', 'test_password' => 'secret']), 'Test only');
+    $this->assertSame([], $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['user_name' => 'k', 'password' => 'p', 'test_user_name' => 'tk', 'test_password' => 'tp']), 'Both');
+  }
+
+  /**
+   * @testPlan PU-H16
+   */
+  public function testTheEwayProcessorFormStillRequiresLiveCredentialsWhenNothingIsGiven(): void {
+    $base = ['payment_processor_type_id' => (string) $this->processorTypeId('eWay_Recurring')];
+
+    $errors = $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['user_name' => '', 'password' => '', 'test_user_name' => '', 'test_password' => '']);
+    $this->assertSame(['user_name', 'password'], array_keys($errors));
+    $this->assertSame('API Key is a required field.', $errors['user_name']);
+
+    $errors = $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['user_name' => '  ', 'password' => "\t"]);
+    $this->assertSame(['user_name', 'password'], array_keys($errors), 'Only spaces count as nothing');
+  }
+
+  /**
+   * A section with only a key or only a password is refused whichever section it is, even when the other section
+   * is complete.
+   *
+   * @testPlan PU-H16
+   */
+  public function testTheEwayProcessorFormRefusesASectionWithOnlyAKeyOrOnlyAPassword(): void {
+    $base = ['payment_processor_type_id' => (string) $this->processorTypeId('eWay_Recurring')];
+    $complete = ['user_name' => 'k', 'password' => 'p', 'test_user_name' => 'tk', 'test_password' => 'tp'];
+
+    $errors = $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['test_user_name' => 'tk', 'test_password' => '', 'user_name' => '', 'password' => '']);
+    $this->assertSame(['test_password'], array_keys($errors), 'A test key without its password');
+    $this->assertSame('Test API Password is a required field.', $errors['test_password']);
+
+    $errors = $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['test_user_name' => '', 'test_password' => 'tp', 'user_name' => '', 'password' => '']);
+    $this->assertSame(['test_user_name'], array_keys($errors), 'A test password without its key');
+
+    $errors = $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['test_password' => ''] + $complete);
+    $this->assertSame(['test_password'], array_keys($errors), 'A complete live section does not excuse a half-filled test section');
+
+    $errors = $this->validateForm('CRM_Admin_Form_PaymentProcessor', $base + ['password' => ''] + $complete);
+    $this->assertSame(['password'], array_keys($errors), 'A complete test section does not excuse a half-filled live section');
+  }
+
+  /**
    * A site whose processor type pre-dates managed entities has no managed record for it. The hook used to read
    * that record on every form and print a warning when it was missing (DEF-35).
    *

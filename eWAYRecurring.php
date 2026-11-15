@@ -225,12 +225,34 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
         break;
       }
 
-      if (empty($fields['user_name'])) {
-        $errors['user_name'] = E::ts('API Key is a required field.');
+      // A processor has a live section and a test (sandbox) section. At least one of them must be complete, and a
+      // section that has only a key or only a password is refused whichever one it is (DEF-56).
+      $filled = function (string $field) use ($fields): bool {
+        return trim((string) ($fields[$field] ?? '')) !== '';
+      };
+      $sections = [
+        ['user_name' => E::ts('API Key is a required field.'), 'password' => E::ts('API Password is a required field.')],
+        ['test_user_name' => E::ts('Test API Key is a required field.'), 'test_password' => E::ts('Test API Password is a required field.')],
+      ];
+      $complete = FALSE;
+      $partial = FALSE;
+      foreach ($sections as $section) {
+        $present = array_filter(array_keys($section), $filled);
+        if (count($present) === count($section)) {
+          $complete = TRUE;
+        }
+        elseif (count($present) === 1) {
+          // Only one of the pair is filled in: name the one that is missing.
+          $partial = TRUE;
+          foreach (array_diff(array_keys($section), $present) as $missing) {
+            $errors[$missing] = $section[$missing];
+          }
+        }
       }
-
-      if (empty($fields['password'])) {
-        $errors['password'] = E::ts('API Password is a required field.');
+      if (!$complete && !$partial) {
+        // Nothing usable in either section: ask for the live credentials, as the form always has.
+        $errors['user_name'] = $sections[0]['user_name'];
+        $errors['password'] = $sections[0]['password'];
       }
       break;
   }

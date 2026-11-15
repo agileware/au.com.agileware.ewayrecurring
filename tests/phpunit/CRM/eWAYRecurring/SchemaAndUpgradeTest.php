@@ -545,6 +545,7 @@ class CRM_eWAYRecurring_SchemaAndUpgradeTest extends \PHPUnit\Framework\TestCase
       'upgrade_20300' => ['upgrade_20300'],
       'upgrade_20601' => ['upgrade_20601'],
       'upgrade_30000' => ['upgrade_30000'],
+      'upgrade_30001' => ['upgrade_30001'],
     ];
   }
 
@@ -624,6 +625,82 @@ class CRM_eWAYRecurring_SchemaAndUpgradeTest extends \PHPUnit\Framework\TestCase
     $this->assertSame(self::LEGACY_CLASS, $this->classNameOf('civicrm_payment_processor', (int) $test['id']), 'A test-mode processor is not rewritten');
     $this->assertSame('Payment_eWAYRecurring', $this->classNameOf('civicrm_payment_processor', (int) $alreadyCurrent['id']));
     $this->assertSame($otherBefore, $this->classNameOf('civicrm_payment_processor', (int) $other['id']), 'Another type of processor is untouched');
+  }
+
+  // ---------------------------------------------------------------------------
+  // upgrade_30001: the managed record for the processor type (DEF-57)
+  // ---------------------------------------------------------------------------
+
+  private function managedProcessorTypeRows(): array {
+    $rows = [];
+    $dao = CRM_Core_DAO::executeQuery(
+      "SELECT id, entity_id FROM civicrm_managed WHERE module = %1 AND name = 'eWay_Recurring' AND entity_type = 'PaymentProcessorType'",
+      [1 => [self::KEY, 'String']]
+    );
+    while ($dao->fetch()) {
+      $rows[] = ['id' => (int) $dao->id, 'entity_id' => (int) $dao->entity_id];
+    }
+    return $rows;
+  }
+
+  private function processorTypeId(): int {
+    return (int) CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_payment_processor_type WHERE name = 'eWay_Recurring'");
+  }
+
+  private function removeManagedRecord(): void {
+    CRM_Core_DAO::executeQuery("DELETE FROM civicrm_managed WHERE module = %1 AND name = 'eWay_Recurring'", [1 => [self::KEY, 'String']]);
+  }
+
+  /**
+   * A site whose processor type pre-dates managed entities has the type and no managed record. The step adds the
+   * record, pointing at the existing type, and does not touch the type.
+   *
+   * @testPlan PU-L11
+   */
+  public function testUpgrade30001AddsTheMissingManagedRecordForTheProcessorType(): void {
+    $typeId = $this->processorTypeId();
+    $typeBefore = CRM_Core_DAO::executeQuery('SELECT * FROM civicrm_payment_processor_type WHERE id = %1', [1 => [$typeId, 'Integer']])->fetchAll();
+    $this->removeManagedRecord();
+    $this->assertSame([], $this->managedProcessorTypeRows(), 'Set-up: no managed record');
+
+    $this->assertTrue($this->upgraderWithContext()->upgrade_30001());
+
+    $this->assertSame([['id' => $this->managedProcessorTypeRows()[0]['id'], 'entity_id' => $typeId]], $this->managedProcessorTypeRows(), 'One record, for the existing type');
+    $this->assertSame($typeBefore, CRM_Core_DAO::executeQuery('SELECT * FROM civicrm_payment_processor_type WHERE id = %1', [1 => [$typeId, 'Integer']])->fetchAll(), 'The type is untouched');
+  }
+
+  /**
+   * A record that already points at the type is left exactly as it is, and the step reports that it did nothing.
+   *
+   * @testPlan PU-L12
+   */
+  public function testUpgrade30001LeavesAnExistingCorrectManagedRecordAlone(): void {
+    $before = $this->managedProcessorTypeRows();
+    $this->assertCount(1, $before, 'Set-up: a fresh install has the record');
+
+    $this->assertFalse((new CRM_eWAYRecurring_Upgrader())->linkProcessorTypeToManagedRecord(), 'Nothing was added or repaired');
+    $this->assertTrue($this->upgraderWithContext()->upgrade_30001());
+
+    $this->assertSame($before, $this->managedProcessorTypeRows());
+  }
+
+  /**
+   * A record that points at a type id which no longer exists is repaired, and a second run changes nothing.
+   *
+   * @testPlan PU-L13
+   */
+  public function testUpgrade30001RepairsARecordPointingAtAMissingTypeAndIsRepeatable(): void {
+    $typeId = $this->processorTypeId();
+    CRM_Core_DAO::executeQuery("UPDATE civicrm_managed SET entity_id = 99999999 WHERE module = %1 AND name = 'eWay_Recurring'", [1 => [self::KEY, 'String']]);
+
+    $upgrader = new CRM_eWAYRecurring_Upgrader();
+    $this->assertTrue($upgrader->linkProcessorTypeToManagedRecord(), 'The stale record was repaired');
+    $this->assertSame($typeId, $this->managedProcessorTypeRows()[0]['entity_id']);
+    $afterFirst = $this->managedProcessorTypeRows();
+
+    $this->assertFalse($upgrader->linkProcessorTypeToManagedRecord(), 'A second run does nothing');
+    $this->assertSame($afterFirst, $this->managedProcessorTypeRows());
+    $this->assertCount(1, $afterFirst, 'Still one record');
   }
 
 }

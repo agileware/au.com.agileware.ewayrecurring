@@ -95,6 +95,65 @@ SQL;
   }
 
   /**
+   * 3.0.0: link an eWay Recurring processor type that pre-dates managed entities to the extension (DEF-57).
+   *
+   * @return bool
+   */
+  public function upgrade_30001() {
+    $this->log('Apply 3.0.0 update; Link the eWay Recurring processor type to its managed record when it has none.');
+    $this->log($this->linkProcessorTypeToManagedRecord()
+      ? 'Added the missing managed record for the eWay Recurring processor type.'
+      : 'The eWay Recurring processor type already has its managed record, or does not exist; nothing to do.');
+    return TRUE;
+  }
+
+  /**
+   * Make sure CiviCRM's managed record for the processor type exists and points at it.
+   *
+   * A site whose processor type was created before the extension declared it as a managed entity has the type but
+   * no record in civicrm_managed. CiviCRM then tries to create the type again on every cache flush (and logs
+   * "Unable to create managed entity ... already exists"), and disabling the extension leaves the type active.
+   * The record is added only when it is missing, or when it points at a type id that no longer exists, so a
+   * second run changes nothing. The type itself is not touched.
+   *
+   * @return bool TRUE when a record was added or repaired.
+   */
+  public function linkProcessorTypeToManagedRecord(): bool {
+    $typeId = CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_payment_processor_type WHERE name = 'eWay_Recurring' ORDER BY id LIMIT 1");
+    if (!$typeId) {
+      return FALSE;
+    }
+    $typeId = (int) $typeId;
+    $module = 'au.com.agileware.ewayrecurring';
+    $params = [1 => [$module, 'String'], 2 => ['eWay_Recurring', 'String']];
+
+    $existing = CRM_Core_DAO::executeQuery(
+      "SELECT id, entity_id FROM civicrm_managed WHERE module = %1 AND name = %2 AND entity_type = 'PaymentProcessorType' LIMIT 1",
+      $params
+    );
+    if (!$existing->fetch()) {
+      CRM_Core_DAO::executeQuery(
+        "INSERT INTO civicrm_managed (module, name, entity_type, entity_id) VALUES (%1, %2, 'PaymentProcessorType', %3)",
+        $params + [3 => [$typeId, 'Integer']]
+      );
+      return TRUE;
+    }
+    if ((int) $existing->entity_id === $typeId) {
+      return FALSE;
+    }
+    $stillThere = CRM_Core_DAO::singleValueQuery('SELECT id FROM civicrm_payment_processor_type WHERE id = %1', [1 => [(int) $existing->entity_id, 'Integer']]);
+    if ($stillThere) {
+      // It points at another, existing type: leave it for an administrator to look at.
+      return FALSE;
+    }
+    CRM_Core_DAO::executeQuery(
+      'UPDATE civicrm_managed SET entity_id = %1 WHERE id = %2',
+      [1 => [$typeId, 'Integer'], 2 => [(int) $existing->id, 'Integer']]
+    );
+    return TRUE;
+  }
+
+  /**
    * Mark stuck recurring contributions Failed.
    *
    * Both rules apply only to In Progress, live (not test-mode) recurring contributions of an

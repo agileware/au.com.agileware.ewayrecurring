@@ -100,12 +100,13 @@ test.describe('payment processor admin', () => {
         await expect(adminPage.locator('tr', { has: adminPage.locator('#user_name') })).not.toContainText('required field');
         expect(processorRows(eway)).toHaveLength(0);
 
-        // Credentials in the test section alone do not count: the extension asks for the live ones.
+        // The test section follows the same rule: a key without its password is refused, and it names the test field
+        // that is missing (DEF-56, fixed: the live section is no longer demanded when the test section is complete).
         await adminPage.locator('#user_name').fill('');
         await adminPage.locator('#test_user_name').fill('pw-test-key');
-        await adminPage.locator('#test_password').fill('pw-test-pass');
         await adminPage.locator('#_qf_PaymentProcessor_next-bottom').click();
-        await expect(adminPage.locator('tr', { has: adminPage.locator('#user_name') })).toContainText('API Key is a required field.');
+        await expect(adminPage.locator('tr', { has: adminPage.locator('#test_password') })).toContainText('Test API Password is a required field.');
+        await expect(adminPage.locator('tr', { has: adminPage.locator('#user_name') })).not.toContainText('required field');
         expect(processorRows(eway)).toHaveLength(0);
 
         // Another type is not touched by the check: with nothing filled in, only CiviCRM's own message appears, and with
@@ -129,6 +130,31 @@ test.describe('payment processor admin', () => {
         deleteProcessorsTitled(dummy);
       }
       expect(api4('PaymentProcessor', 'get', { select: ['id'], where: [['is_test', 'IN', [true, false]]] }).length).toBe(before);
+    });
+  });
+
+  test.describe('a processor with test credentials only', () => {
+    test.use({ allowedProblems: [/Undefined array key "weight"/] });
+
+    test('PW-B-processor-02 an eWay Recurring processor with only the test (sandbox) section filled in is saved', async ({ adminPage }) => {
+      const title = uniqueName('PW sandbox only eWAY');
+      try {
+        await adminPage.goto(ADD_URL());
+        await chooseType(adminPage, 'eWay Recurring');
+        await fillCommon(adminPage, title);
+        await adminPage.locator('#test_user_name').fill('pw-test-key');
+        await adminPage.locator('#test_password').fill('pw-test-pass');
+        await adminPage.locator('#_qf_PaymentProcessor_next-bottom').click();
+        await expect(adminPage.locator('#crm-notification-container')).toContainText(`${title} has been saved`);
+
+        const rows = processorRows(title);
+        expect(rows).toHaveLength(2);
+        expect(rows.find((row) => row.is_test)).toMatchObject({ user_name: 'pw-test-key', password: 'pw-test-pass', class_name: 'Payment_eWAYRecurring' });
+        // The live row is left empty, so it cannot be used for live payments until the live details are added.
+        expect(rows.find((row) => !row.is_test)).toMatchObject({ class_name: 'Payment_eWAYRecurring' });
+      } finally {
+        deleteProcessorsTitled(title);
+      }
     });
   });
 
