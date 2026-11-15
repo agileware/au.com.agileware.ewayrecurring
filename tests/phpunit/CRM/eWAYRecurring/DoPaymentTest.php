@@ -759,6 +759,29 @@ class CRM_eWAYRecurring_DoPaymentTest extends \PHPUnit\Framework\TestCase implem
   }
 
   /**
+   * Core sets `contributionRecurID` (empty) on every form payment but leaves `is_recur` out unless the Recurring box is
+   * ticked, so a one-off back office payment has no such key. Reading it unguarded printed "Undefined array key is_recur" on every saved card
+   * payment (a PHPUnit warning becomes an exception here, as it does on a site that shows warnings).
+   *
+   * @testPlan PU-B18
+   */
+  public function testBackOfficeOneOffPaymentWithNoRecurringKeysRunsWithoutWarnings(): void {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact();
+    $contribution = Fixture::contribution($contactId);
+    $token = Fixture::token($contactId, $processor['id']);
+    $this->http->respond('postTransaction', Responses::paymentApproved(70000018));
+    $params = $this->backOfficeParams($contribution, $token['id']);
+    unset($params['is_recur']);
+
+    $result = $this->attempt($this->newPayment($processor, TRUE), $params);
+
+    $this->assertIsArray($result);
+    $this->assertSame($this->statusId('Completed'), $params['payment_status_id']);
+    $this->assertNotContains('Please update the credit card manually.', array_column(CRM_Core_Session::singleton()->getStatus(), 'text'));
+  }
+
+  /**
    * @testPlan PU-B17
    */
   public function testBackOfficeSuccessCompletesThePaymentWithTheTransactionId(): void {

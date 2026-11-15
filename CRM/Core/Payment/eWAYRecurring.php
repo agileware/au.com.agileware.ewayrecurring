@@ -520,14 +520,15 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 
     if ($this->backOffice) {
       // assign the payment token to the recurring contribution
-      if ($params['contributionRecurID']) {
+      // Core sets contributionRecurID on every form payment, but leaves is_recur out unless the Recurring box is ticked.
+      if (!empty($params['contributionRecurID'])) {
         $cr =  new CRM_Contribute_BAO_ContributionRecur();
         $cr->id = $params['contributionRecurID'];
         $cr->find(TRUE);
         $cr->processor_id = $token;
         $cr->payment_token_id = $payment_token;
         $cr->save();
-      } else if ($params['is_recur']) {
+      } else if (!empty($params['is_recur'])) {
         // remind user to fix the token
         CRM_Core_Session::setStatus(
           ts('Please update the credit card manually.'),
