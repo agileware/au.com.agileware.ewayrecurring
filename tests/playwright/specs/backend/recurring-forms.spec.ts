@@ -173,7 +173,8 @@ test.describe('update recurring contribution', () => {
     await picker.locator('a.ui-state-default', { hasText: /^20$/ }).click();
     await expect(picker).toBeHidden();
     await expect(form.locator('#next_sched_contribution_date')).toHaveValue(/^\d{4}-\d{2}-20/);
-    await expect(shown).toHaveValue(/^20\/\d{2}\/\d{4}$/);
+    // The box shows the date in the site's own format (day first or month first), so only that it is filled is checked.
+    await expect(shown).not.toHaveValue('');
     // The end date has its own picker and starts empty.
     await expect(form.locator('#end_date')).toHaveValue('');
     await pressInDialog(adminPage, /Cancel/);
@@ -190,15 +191,24 @@ test.describe('update recurring contribution', () => {
     await form.locator('#frequency_interval').fill('2');
     await form.locator('#s2id_frequency_unit').click();
     await adminPage.locator('.select2-drop-active .select2-result-label', { hasText: /^week$/ }).click();
-    // The dates are typed into the visible box as dd/mm/yyyy; the form keeps them as yyyy-mm-dd behind it.
-    const nextDate = form.locator('#next_sched_contribution_date').locator('xpath=following-sibling::input[1]');
-    await nextDate.fill('15/03/2031');
-    await nextDate.press('Tab');
-    const endDate = form.locator('#end_date').locator('xpath=following-sibling::input[1]');
-    await endDate.fill('15/03/2033');
-    await endDate.press('Tab');
-    await expect(form.locator('#next_sched_contribution_date')).toHaveValue('2031-03-15');
-    await expect(form.locator('#end_date')).toHaveValue('2033-03-15');
+    // The dates are picked from the calendar, not typed: the box's format (day first or month first) depends on the site's
+    // locale, but the field kept behind it is always yyyy-mm-dd. The next date is the 15th of the month after the one the
+    // calendar opens on, the end date the 15th three months after the calendar's starting month.
+    const pickDay15 = async (field: string, monthsAhead: number): Promise<string> => {
+      await form.locator(field).locator('xpath=following-sibling::input[1]').click();
+      const picker = adminPage.locator('#ui-datepicker-div');
+      await expect(picker).toBeVisible();
+      for (let month = 0; month < monthsAhead; month++) {
+        await picker.locator('.ui-datepicker-next').click();
+      }
+      await picker.locator('a.ui-state-default', { hasText: /^15$/ }).click();
+      await expect(picker).toBeHidden();
+      await expect(form.locator(field)).toHaveValue(/^\d{4}-\d{2}-15/);
+      return (await form.locator(field).inputValue()).slice(0, 10);
+    };
+    const nextDate = await pickDay15('#next_sched_contribution_date', 1);
+    const endDate = await pickDay15('#end_date', 3);
+    expect(endDate > nextDate).toBe(true);
 
     await pressInDialog(adminPage, 'Save');
     await expect(adminPage.locator('#crm-notification-container')).toContainText('Recurring contribution has been updated');
@@ -213,8 +223,8 @@ test.describe('update recurring contribution', () => {
     expect(saved.frequency_interval).toBe(2);
     expect(saved.frequency_unit).toBe('week');
     // A date only: the form has no time box, so the time is midnight.
-    expect(saved.next_sched_contribution_date).toBe('2031-03-15 00:00:00');
-    expect(String(saved.end_date)).toMatch(/^2033-03-15/);
+    expect(saved.next_sched_contribution_date).toBe(`${nextDate} 00:00:00`);
+    expect(String(saved.end_date).slice(0, 10)).toBe(endDate);
     expect(saved['contribution_status_id:name']).toBe('In Progress');
     // Nothing was sent to eWAY: the schedule is kept in CiviCRM.
     expect(stub.requests()).toHaveLength(0);
@@ -225,7 +235,9 @@ test.describe('update recurring contribution', () => {
     await expect(reopened.locator('#installments')).toHaveValue('6');
     await expect(reopened.locator('#frequency_interval')).toHaveValue('2');
     await expect(reopened.locator('#frequency_unit')).toHaveValue('week');
-    await expect(reopened.locator('#next_sched_contribution_date').locator('xpath=following-sibling::input[1]')).toHaveValue('15/03/2031');
+    // The date is shown again (its text is in the site's own format, so only the value kept behind the box is compared).
+    await expect(reopened.locator('#next_sched_contribution_date')).toHaveValue(new RegExp(`^${nextDate}`));
+    await expect(reopened.locator('#next_sched_contribution_date').locator('xpath=following-sibling::input[1]')).not.toHaveValue('');
     // Core's form does not fill the end date in again (it is saved, see above, but the box is empty), so it is not checked here.
   });
 });

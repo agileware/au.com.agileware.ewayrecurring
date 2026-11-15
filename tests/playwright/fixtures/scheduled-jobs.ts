@@ -22,21 +22,39 @@ export function jobsUrl(): string {
   return adminUrl('admin/job', { reset: 1 });
 }
 
-/** Open the Scheduled Jobs page and wait for its table. */
+/**
+ * Open the Scheduled Jobs page and wait for its list. CiviCRM draws the list differently from one version to the next (a
+ * classic table of `tr.crm-entity` rows with Execute links, or a Search Kit table whose row actions are behind a "Row
+ * Actions" button), so rows are found by their role and text, and the helpers below cope with both.
+ */
 export async function openJobs(page: Page): Promise<void> {
   await page.goto(jobsUrl());
-  await expect(page.locator('tr.crm-entity').first()).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: JOB.recurring }).first()).toBeVisible();
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/** The row of the Scheduled Jobs table for a job, found by its exact name. */
+/** The row of the Scheduled Jobs table for a job, found by its name. */
 export function jobRow(page: Page, name: string): Locator {
-  return page.locator('tr.crm-entity').filter({
-    has: page.locator('span[data-field="name"]').filter({ hasText: new RegExp(`^\\s*${escapeRegExp(name)}\\s*$`) }),
-  });
+  return page.getByRole('row').filter({ hasText: name });
+}
+
+/** The cell that says whether the job is enabled (Yes or No). */
+export function enabledCell(row: Locator): Locator {
+  return row.getByRole('cell', { name: /^\s*(Yes|No)\s*$/ });
+}
+
+/** Open the row's menu of actions, where the version of CiviCRM keeps one. */
+export async function openRowActions(row: Locator): Promise<void> {
+  const menu = row.getByRole('button', { name: 'Row Actions' });
+  if (await menu.count()) {
+    await menu.click();
+  } else {
+    await row.locator('.btn-slide').click();
+  }
+}
+
+/** The row's Execute action ("Execute" on older versions, "Execute now" on newer ones), once it is visible. */
+export function executeAction(row: Locator): Locator {
+  return row.locator('a', { hasText: /^\s*Execute( now)?\s*$/ });
 }
 
 /** The id CiviCRM gave a job, read from the database. */
@@ -48,34 +66,47 @@ export function jobIdByName(name: string): number {
   return rows[0].id;
 }
 
+/** The newest "Finished execution" entry in a job's log, as the log stores it, or undefined. */
+function newestFinishedEntry(name: string): { id: number; description: string } | undefined {
+  return api4<{ id: number; description: string }>('JobLog', 'get', {
+    select: ['id', 'description'],
+    where: [['job_id', '=', jobIdByName(name)], ['description', 'LIKE', 'Finished execution%']],
+    orderBy: { id: 'DESC' },
+    limit: 1,
+  })[0];
+}
+
 /**
- * Run a job the way an administrator does: press Execute on its row, confirm on the page that asks, and wait for the
- * message CiviCRM shows when it has run. The job runs on the web server, as the signed-in user.
+ * Run a job the way an administrator does: press Execute on its row, confirm on the page that asks, and wait until the
+ * job's log has a new "Finished execution" entry. The job runs on the web server, as the signed-in user. The wait is on
+ * the log, not on the message CiviCRM shows afterwards, which is worded differently from one version to the next.
  */
 export async function runJobFromScreen(page: Page, name: string): Promise<void> {
+  const before = newestFinishedEntry(name)?.id ?? 0;
   await openJobs(page);
   const row = jobRow(page, name);
   await expect(row).toHaveCount(1);
-  await row.getByRole('link', { name: 'Execute' }).click();
-  await expect(page.locator('.crm-job-form-block')).toContainText('Are you sure you would like to execute');
+  const execute = executeAction(row);
+  if (!(await execute.isVisible())) {
+    await openRowActions(row);
+  }
+  await execute.click();
+  await expect(page.locator('#_qf_Job_submit-bottom')).toBeVisible();
   await page.locator('#_qf_Job_submit-bottom').click();
-  await expect(page.locator('#crm-notification-container')).toContainText('Scheduled Job has been executed');
-}
-
-/** The job log page for one job. */
-export function jobLogUrl(name: string): string {
-  return adminUrl('admin/joblog', { jid: jobIdByName(name), reset: 1 });
+  await expect.poll(() => newestFinishedEntry(name)?.id ?? 0, { timeout: 30_000 }).toBeGreaterThan(before);
 }
 
 /**
  * The summary of the newest "Finished execution" entry in a job's log, for example
- * `Finished execution of X with result: Success (a:1:{s:5:"count";i:0;})`.
+ * `Finished execution of X with result: Success (a:1:{s:5:"count";i:0;})`. Read from the log table: the log screen is a
+ * different page on different versions of CiviCRM.
  */
-export async function latestJobResult(page: Page, name: string): Promise<string> {
-  await page.goto(jobLogUrl(name));
-  const finished = page.locator('tr.crm-entity .crm-joblog-description', { hasText: 'Finished execution' }).first();
-  await expect(finished).toBeVisible();
-  return (await finished.innerText()).replace(/^\s*Summary\s*/, '').replace(/\s+/g, ' ').trim();
+export function latestJobResult(name: string): string {
+  const entry = newestFinishedEntry(name);
+  if (!entry) {
+    throw new Error(`The job "${name}" has no "Finished execution" entry in its log.`);
+  }
+  return entry.description.replace(/\s+/g, ' ').trim();
 }
 
 /** How many saved eWAY cards are missing their expiry date or masked number, which is what the fill-in job looks for. */

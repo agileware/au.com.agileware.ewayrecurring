@@ -68,6 +68,12 @@ function removeCheckPreference(): void {
   api4('StatusPreference', 'delete', { where: [['name', '=', CHECK_NAME]] });
 }
 
+/**
+ * Other messages on the page can contain the word "Warning:" in their own text (a site with debug on shows "Warning: Debug is
+ * enabled in system settings"), which the problem collector reads as PHP output when the page is the last one a case looks at.
+ */
+test.use({ allowedProblems: [/Warning: Debug is enabled in system settings/] });
+
 let aside: SavedRetryDates = {};
 
 test.beforeEach(() => {

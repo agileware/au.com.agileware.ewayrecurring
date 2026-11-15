@@ -11,7 +11,6 @@ import {
   setOtherDueRecurringAside,
 } from '../../fixtures/recurring-records';
 import {
-  civiDay,
   contributionRow,
   contributionRows,
   openContributionsTab,
@@ -20,7 +19,7 @@ import {
   recurringViewUrl,
   SCREEN_NOISE,
 } from '../../fixtures/recurring-screens';
-import { cardsWithoutDetails, JOB, jobRow, latestJobResult, openJobs, runJobFromScreen } from '../../fixtures/scheduled-jobs';
+import { cardsWithoutDetails, enabledCell, executeAction, JOB, jobRow, latestJobResult, openJobs, openRowActions, runJobFromScreen } from '../../fixtures/scheduled-jobs';
 
 /**
  * PW-B-jobs: the four scheduled jobs the extension adds, as an administrator sees them on CiviCRM's Scheduled Jobs
@@ -33,10 +32,13 @@ import { cardsWithoutDetails, JOB, jobRow, latestJobResult, openJobs, runJobFrom
  * stub exactly what its own record needs.
  */
 
-/** The state of a scheduled job as the screen lists it. */
+/** The state of a scheduled job as it is stored, and how the screen words it. */
 interface ExpectedJob {
   name: string;
+  /** The frequency as stored. */
   frequency: string;
+  /** How the screen words the frequency: older versions of CiviCRM say "Always", newer ones "Every time cron job is run". */
+  shown: RegExp;
   entity: string;
   action: string;
   parameters: string;
@@ -44,45 +46,59 @@ interface ExpectedJob {
 }
 
 const EXPECTED: ExpectedJob[] = [
-  { name: JOB.recurring, frequency: 'Always', entity: 'Job', action: 'run_payment_cron', parameters: 'processor_name=eWay_Recurring', enabled: 'Yes' },
-  { name: JOB.verifications, frequency: 'Always', entity: 'EwayContributionTransactions', action: 'validate', parameters: 'no parameters', enabled: 'Yes' },
-  { name: JOB.tokens, frequency: 'Hourly', entity: 'EwayRecurring', action: 'fillTokensMeta', parameters: 'no parameters', enabled: 'Yes' },
-  { name: JOB.settlement, frequency: 'Daily', entity: 'EwaySettlement', action: 'Sync', parameters: 'no parameters', enabled: 'No' },
+  { name: JOB.recurring, frequency: 'Always', shown: /Always|Every time cron job is run/, entity: 'Job', action: 'run_payment_cron', parameters: 'processor_name=eWay_Recurring', enabled: 'Yes' },
+  { name: JOB.verifications, frequency: 'Always', shown: /Always|Every time cron job is run/, entity: 'EwayContributionTransactions', action: 'validate', parameters: '', enabled: 'Yes' },
+  { name: JOB.tokens, frequency: 'Hourly', shown: /Hourly/, entity: 'EwayRecurring', action: 'fillTokensMeta', parameters: '', enabled: 'Yes' },
+  { name: JOB.settlement, frequency: 'Daily', shown: /Daily/, entity: 'EwaySettlement', action: 'Sync', parameters: '', enabled: 'No' },
 ];
 
 test.describe('scheduled jobs: the listing', () => {
   test('PW-B-jobs-01 the Scheduled Jobs page lists the four eWAY jobs once each, with their frequencies, commands and active states', async ({ adminPage }) => {
     await openJobs(adminPage);
 
-    for (const job of EXPECTED) {
-      const row = jobRow(adminPage, job.name);
-      await expect(row, `${job.name} is listed once`).toHaveCount(1);
-      await expect(row.locator('td').first(), `${job.name}: name and frequency`).toContainText(`${job.name} (${job.frequency})`);
-      await expect(row.locator('td').first(), `${job.name}: API entity`).toContainText(`API Entity: ${job.entity}`);
-      await expect(row.locator('td').first(), `${job.name}: API action`).toContainText(`API Action: ${job.action}`);
-      await expect(row.locator('td.crm-job-name').nth(2), `${job.name}: parameters`).toHaveText(job.parameters);
-      await expect(row.locator('td.crm-job-is_active'), `${job.name}: enabled`).toHaveText(job.enabled);
-      // Every job can be run from its row.
-      await expect(row.getByRole('link', { name: 'Execute' }), `${job.name}: Execute link`).toBeVisible();
-    }
-
+    const stored = api4<Record<string, any>>('Job', 'get', {
+      select: ['name', 'run_frequency', 'api_entity', 'api_action', 'parameters', 'is_active'],
+      where: [['name', 'LIKE', 'eWay%']],
+    });
     // The list shows exactly these four from the extension and no stray extra ones: anything else with "eWay" in its name
     // would be a leftover of an older version of the extension.
-    await expect(adminPage.locator('tr.crm-entity').filter({ hasText: /^\s*eWay/ }), 'eWay jobs listed').toHaveCount(EXPECTED.length);
+    expect(stored.map((job) => job.name).sort()).toEqual(EXPECTED.map((job) => job.name).sort());
+
+    for (const job of EXPECTED) {
+      // As stored.
+      const record = stored.find((row) => row.name === job.name)!;
+      expect(record.run_frequency, `${job.name}: frequency`).toBe(job.frequency);
+      expect(record.api_entity, `${job.name}: API entity`).toBe(job.entity);
+      expect(record.api_action, `${job.name}: API action`).toBe(job.action);
+      expect(String(record.parameters ?? '').trim(), `${job.name}: parameters`).toBe(job.parameters);
+      expect(record.is_active, `${job.name}: active`).toBe(job.enabled === 'Yes');
+
+      // As the screen shows it. Older versions of CiviCRM print the entity and the action on separate lines, newer ones
+      // as Entity.action.
+      const row = jobRow(adminPage, job.name);
+      await expect(row, `${job.name} is listed once`).toHaveCount(1);
+      await expect(row, `${job.name}: frequency`).toContainText(job.shown);
+      await expect(row, `${job.name}: command`).toContainText(new RegExp(`${job.entity}\\.${job.action}|API Entity: ${job.entity}[\\s\\S]*API Action: ${job.action}`));
+      await expect(enabledCell(row), `${job.name}: enabled`).toHaveText(job.enabled);
+      // Every job can be run from its row.
+      if (!(await executeAction(row).isVisible())) {
+        await openRowActions(row);
+      }
+      await expect(executeAction(row), `${job.name}: Execute action`).toBeVisible();
+    }
   });
 
   test('PW-B-jobs-02 the eWay Settlement Sync job is listed and switched off, with an Enable choice on its row', async ({ adminPage }) => {
     await openJobs(adminPage);
     const row = jobRow(adminPage, JOB.settlement);
     await expect(row).toHaveCount(1);
-    await expect(row.locator('td.crm-job-is_active')).toHaveText('No');
-    await expect(row.locator('td').first()).toContainText('(Daily)');
-    await expect(row.locator('td').first()).toContainText('reconciles fee_amount and net_amount');
+    await expect(enabledCell(row)).toHaveText('No');
+    await expect(row).toContainText(/Daily/);
+    await expect(row).toContainText('reconciles fee_amount and net_amount');
 
-    // Switched off means the row offers Enable, not Disable.
-    await row.locator('.btn-slide').click();
-    await expect(row.locator('a.crm-enable-disable')).toHaveAttribute('title', 'Enable Scheduled Job');
-    await expect(row.locator('a.crm-enable-disable')).toHaveText('Enable');
+    // Switched off means the row offers Enable.
+    await openRowActions(row);
+    await expect(row.getByText(/^\s*Enable\s*$/).first()).toBeVisible();
 
     // And the database agrees, and shows the other three on.
     const jobs = api4<{ name: string; is_active: boolean }>('Job', 'get', { select: ['name', 'is_active'], where: [['name', 'LIKE', 'eWay%']] });
@@ -121,7 +137,7 @@ test.describe('scheduled jobs: run from the screen', () => {
     stub.respond('getCustomer', responses.customerFound(token, 'civi-1', { Number: '512345XXXXXX2346', ExpiryMonth: '09', ExpiryYear: '32' }), { repeat: true });
     await runJobFromScreen(adminPage, JOB.tokens);
 
-    const result = await latestJobResult(adminPage, JOB.tokens);
+    const result = latestJobResult(JOB.tokens);
     expect(result).toContain('result: Success');
     expect(result, 'the log gives the number of cards filled in').toContain(`s:5:"count";i:${waiting};`);
     expect(stub.requests('getCustomer').map((request) => request.args[0])).toContain(token);
@@ -137,7 +153,7 @@ test.describe('scheduled jobs: run from the screen', () => {
     // Nothing is left to fill, so a second run asks eWAY about nothing and says so.
     stub.reset();
     await runJobFromScreen(adminPage, JOB.tokens);
-    expect(await latestJobResult(adminPage, JOB.tokens)).toContain('s:5:"count";i:0;');
+    expect(latestJobResult(JOB.tokens)).toContain('s:5:"count";i:0;');
     expect(stub.requests('getCustomer')).toHaveLength(0);
   });
 
@@ -150,7 +166,7 @@ test.describe('scheduled jobs: run from the screen', () => {
 
     await runJobFromScreen(adminPage, JOB.verifications);
 
-    const result = await latestJobResult(adminPage, JOB.verifications);
+    const result = latestJobResult(JOB.verifications);
     expect(result).toContain('result: Success');
     const after = contributionState(payment.contributionId);
     expect(after.status).toBe('Completed');
@@ -181,7 +197,7 @@ test.describe('scheduled jobs: run from the screen', () => {
 
       await runJobFromScreen(adminPage, JOB.recurring);
 
-      expect(await latestJobResult(adminPage, JOB.recurring)).toContain('result: Success');
+      expect(latestJobResult(JOB.recurring)).toContain('result: Success');
       const charges = stub.requests('postTransaction');
       expect(charges).toHaveLength(1);
       const sent = charges[0].args[0] as any;
@@ -208,9 +224,11 @@ test.describe('scheduled jobs: run from the screen', () => {
       expect(after['contribution_status_id:name']).toBe('In Progress');
       expect(String(after.next_sched_contribution_date) > String(before.next_sched_contribution_date)).toBe(true);
       await openRecurringTab(adminPage, record.contactId);
-      await expect(recurringRow(adminPage, record)).toContainText(civiDay(String(after.next_sched_contribution_date)));
+      // The date's own text depends on the site's date format, so only that a date is shown is checked; its value is
+      // checked above, in the database.
+      await expect(recurringRow(adminPage, record).locator('td').nth(3)).not.toHaveText('');
       await adminPage.goto(recurringViewUrl(record));
-      await expect(adminPage.locator('tr', { hasText: /^\s*Next Contribution/ })).toContainText(civiDay(String(after.next_sched_contribution_date)));
+      await expect(adminPage.locator('tr', { hasText: /^\s*Next Contribution/ }).locator('td').last()).not.toHaveText('');
     });
   });
 });
