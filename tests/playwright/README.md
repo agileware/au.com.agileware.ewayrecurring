@@ -19,7 +19,8 @@ and who may read and change saved cards (`PW-B-permissions`, `token-permissions.
 Cancel and Update Recurring Contribution forms with a Failed record (`PW-B-recurforms`, `recurring-forms.spec.ts`)
 are written too, and so are the Failed Recurring Contributions list and its Reactivate action (`PW-B-failed`,
 `failed-recurring.spec.ts`) and back-office saved-card payments (`PW-B-backoffice`, `backoffice-token-payment.spec.ts`).
-`specs/security/` and `specs/sandbox/` are still to be written.
+The real eWAY sandbox cases (`specs/sandbox/`, `PW-X-01` to `PW-X-05`, tagged `@sandbox`) are written too: see
+[The real sandbox cases](#the-real-sandbox-cases) below. `specs/security/` is still to be written.
 
 ## How it works
 
@@ -94,6 +95,7 @@ npx playwright test
 | `CIVI_EXEC_CWD` | The folder to run the prefix from (for tools that need to be started from a project folder) |
 | `IGNORE_PROBLEMS` | Regular expressions, separated by two bars, for problems to ignore on a local site that has other extensions making noise (for example a PHP warning from another extension). Leave it unset on CI |
 | `EWAY_STUB_PORT` | The port the fake hosted page is served on. Default 4580 |
+| `EWAY_SANDBOX_API_KEY`, `EWAY_SANDBOX_API_PASSWORD` | The API key and password of an eWAY sandbox account, for the real-sandbox cases only (see below). When either is missing those cases skip. Never put values in a file in the repository |
 | `PERSONAS` | Comma separated personas to sign in, for a site where not all of them exist (default all four) |
 | `WP_CLEAN_URLS` | `0` for a WordPress site without pretty permalinks |
 
@@ -101,6 +103,39 @@ If your prefix needs quoting (`ddev exec` joins its arguments back into one stri
 small wrapper script that quotes each argument. For DDEV, `ddev-exec.sh` in this folder is that script (see its
 header for `DDEV_PROJECT_DIR`). `developer/LOCAL_DEV.md` has the whole safe routine for a development machine:
 snapshot, deploy, run, restore.
+
+## The real sandbox cases
+
+`specs/sandbox/` holds `PW-X-01` to `PW-X-05`. Unlike every other spec they do not use the fake eWAY: the PHP code calls
+eWAY's real sandbox API (`https://api.sandbox.ewaypayments.com/`, the endpoint the extension picks for a test-mode
+processor) and the donor or staff member pays on eWAY's own sandbox hosted page, with eWAY's published test card
+`4444333322221111`. They check the stub against reality, so they catch drift in eWAY's responses. The site must be able to
+reach the internet.
+
+How the stub is turned off for them: each spec's `beforeAll` (`prepareSandboxSite()` in `fixtures/sandbox.ts`) creates a
+processor named "Playwright eWAY Sandbox" (a live record with dummy credentials, and a test record) and two contribution
+pages that use it, then saves the sandbox credentials on the **test** record. The stub extension makes one exception: the
+test-mode record of that processor gets the real HTTP service. Everything else, and that processor in live mode, stays
+stubbed, so nothing can reach eWAY's live gateway. The cases use the contribution pages' test-drive mode
+(`action=preview`) and the back-office credit card form in test mode (`mode=test`), which are the ways CiviCRM uses a
+processor's test record. `afterAll` overwrites the saved credentials, and a database snapshot restore removes the processor.
+
+Run them (the variables only for this command, never written down; from this folder, after the usual site set-up):
+
+```bash
+set -a; . /path/to/eway-sandbox.env; set +a      # sets EWAY_SANDBOX_API_KEY and EWAY_SANDBOX_API_PASSWORD
+npx playwright test --project=sandbox            # or: npx playwright test --grep @sandbox
+```
+
+Without the two variables every sandbox case skips with a message that names them, so a normal run and a CI run without
+the secrets stay green. A plain `npx playwright test` runs the sandbox project too (it skips). The credentials are
+sent to the site in one call that saves them on the processor, and that call never shows its command in an error. Do not
+take a screenshot or trace of a processor's admin form, and no sandbox spec opens one.
+
+eWAY's sandbox declines by the cents of the amount when the sandbox account is on "Use Cents Value" (Settings > Sandbox >
+Customise Sandbox Behaviour): $10.00 is approved (A2000), $10.05 is declined with D4405 (Do Not Honour), $10.51 with D4451
+(Insufficient Funds). Source: eWAY Rapid API reference, "Sandbox Testing". An account set to "Always Approve" approves
+every amount; the decline cases then skip with a message saying so (the account used so far does this).
 
 `npm run typecheck` checks the TypeScript without a site. `npx playwright test --list` lists the tests.
 
@@ -118,6 +153,8 @@ fixtures/
                           own page and forms, the Failed Recurring Contributions list
   backend.ts              back-office helpers: the settings page (open, submit, the select2 box, reset and read the
                           settings it owns), CiviCRM's menus (Administer, Contributions), and CRM.api4() called from a signed-in page
+  sandbox.ts              the real-sandbox cases: reads the credentials, makes the sandbox processor and pages, drives eWAY's
+                          sandbox hosted page, the sandbox test card and amounts
   visibility.ts           checks that a message really shows inside the theme (size, position, contrast, not covered)
   civi.ts                 cv api4 / ev / scr wrappers
   eway-stub.ts            scripted responses, the request log, the fake hosted page's HTML, response builders
@@ -139,5 +176,7 @@ specs/
                           PW-B-jobs (scheduled-jobs.spec.ts), PW-B-cron (recurring-cron.spec.ts), PW-B-status (system-status.spec.ts),
                           PW-B-recurforms (recurring-forms.spec.ts), PW-B-failed (failed-recurring.spec.ts),
                           PW-B-backoffice (backoffice-token-payment.spec.ts)
-  security/ sandbox/      still to be written
+  sandbox/                PW-X (sandbox-once-off, sandbox-recurring, sandbox-card, sandbox-settlement .spec.ts), the real eWAY
+                          sandbox, skipped unless the two credential variables are set
+  security/               still to be written
 ```
