@@ -68,25 +68,25 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **310**. Done: **160**. In progress: **140**. Blocked: **0**. To do: **5**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **310**. Done: **188**. In progress: **112**. Blocked: **0**. To do: **5**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 11 | 0 | 0 | 0 | 0 | none |
-| PU-B | PHPUnit | `DoPaymentTest` | 18 | 17 | 1 | 0 | 0 | 0 | none (S1 done; PU-B18 passes locally, `done` after a CI run) |
+| PU-B | PHPUnit | `DoPaymentTest` | 18 | 18 | 0 | 0 | 0 | 0 | none (S1 done |
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 3 | 0 | 0 | 0 | 0 | none |
 | PU-D | PHPUnit | `ValidateContributionTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 41 | 28 | 13 | 0 | 0 | 0 | none (S1 done); PU-F29 to PU-F40 pass locally, `done` after a CI run |
+| PU-F | PHPUnit | `RecurringProcessingTest` | 41 | 41 | 0 | 0 | 0 | 0 | none (S1 done)
 | PU-G | PHPUnit | `PaymentTokenTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-H | PHPUnit | `HooksAndManagedTest` | 16 | 13 | 3 | 0 | 0 | 0 | none (PU-H14 and PU-H15 pass locally, `done` after a CI run) |
+| PU-H | PHPUnit | `HooksAndManagedTest` | 16 | 16 | 0 | 0 | 0 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 4 | 0 | 0 | 0 | 0 | none |
-| PU-J | PHPUnit | `SettingsFormTest` | 10 | 7 | 3 | 0 | 0 | 0 | none (PU-J8 to J10 pass locally, `done` after a CI run) |
+| PU-J | PHPUnit | `SettingsFormTest` | 10 | 10 | 0 | 0 | 0 | 0 | none |
 | PU-K | PHPUnit | `PagesTest` | 6 | 3 | 0 | 0 | 0 | 3 | none (refactor done); PU-K4 to K6 dropped with the deleted page |
-| PU-L | PHPUnit | `SchemaAndUpgradeTest` | 13 | 10 | 3 | 0 | 0 | 0 | none |
+| PU-L | PHPUnit | `SchemaAndUpgradeTest` | 13 | 13 | 0 | 0 | 0 | 0 | none |
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 4 | 0 | 0 | 0 | 0 | none |
 | PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 9 | 0 | 0 | 0 | 0 | none |
-| PU-O | PHPUnit | `FailedRecurringSearchTest` | 10 | 5 | 5 | 0 | 0 | 0 | none (PU-O6 to PU-O10 pass locally, `done` after a CI run) |
+| PU-O | PHPUnit | `FailedRecurringSearchTest` | 10 | 10 | 0 | 0 | 0 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
 | PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 13 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
@@ -530,7 +530,7 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 | PU-B15 | done | Back office with `contributionRecurID`: `processor_id` and `payment_token_id` written to the recurring record |
 | PU-B16 | done | Back office with `is_recur` but no recurring id: the "update the credit card manually" status message |
 | PU-B17 | done | Back office success sets `payment_status_id` Completed and `trxn_id`; declined transaction fails with the translated message |
-| PU-B18 | wip | Back office one-off payment: core leaves `is_recur` out of the parameters unless the Recurring box is ticked, and the payment runs with no warning and no "update the card by hand" reminder (DEF-66). Passes locally, `done` after a CI run |
+| PU-B18 | done | Back office one-off payment: core leaves `is_recur` out of the parameters unless the Recurring box is ticked, and the payment runs with no warning and no "update the card by hand" reminder (DEF-66). Passes locally, `done` after a CI run |
 
 ### PU-C `ReturnUrlsTest`
 
@@ -613,19 +613,19 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-F26 | done | A Failed recurring contribution reset the way such a page resets it (In Progress, `failure_count` 0, retry date cleared) is charged on the first run on or after its schedule date: not before when the schedule date was moved into the future, and on the next run when the schedule was restarted from today (the two schedule choices a site can make) |
 | PU-F27 | done | A recurring contribution cancelled while it is being retried (failures above 0, retry date due) is not retried, makes no gateway call and is left untouched, while one that is still being retried is charged in the same run (CIVIEWAY-125) |
 | PU-F28 | done | A declined charge whose answer has no ResponseMessage raises no PHP deprecation (DEF-17, fixed: the message was split with explode() on null) |
-| PU-F29 | wip | A failed charge does not move `next_sched_contribution_date`, on every route to a failure: a decline on the first attempt, a decline on a retry, a request eWAY refuses, no card token (eWAY never called), for day, week (every 2), month and year records. CiviCRM core moves the date when it records a Failed contribution, so the code puts it back (DEF-46) |
-| PU-F30 | wip | A record that fails and then succeeds on a retry is next due one interval after the original due date, not two (DEF-58); the first Failed contribution does not hide it from the retry list; nothing more is charged afterwards |
-| PU-F31 | wip | A Failed or Cancelled contribution dated after the due date (normal list) or retry date (retry list) does not hide the record; a Pending or Completed one still does (DEF-68) |
-| PU-F32 | wip | A retry delay of 0 still retries a failed record (DEF-68) |
-| PU-F33 | wip | End to end through real failed runs: a record due 70 days ago driven to Failed, then its card updated through `updateSubscriptionBillingInfo`: In Progress, `failure_count` 0, no retry date, due date unchanged; the next run charges it once with the new token, the date becomes the first date after today, and a further run charges nothing (DEF-46, DEF-13) |
-| PU-F34 | wip | The same end to end through the Reactivate update |
-| PU-F35 | wip | Crash safety: a run that dies after eWAY took the payment (an Error thrown from `completetransaction`) leaves the date alone and a Pending contribution, and the next run does not charge again (the Pending contribution, not the date, is the guard) |
-| PU-F36 | wip | A run that dies before the gateway answers: the same, and once staff cancel the Pending contribution the next run charges the record |
-| PU-F37 | wip | A record several intervals overdue (day, week, every 2 weeks, month, quarter, year, including exactly three intervals) is charged once and its next date is the first date after today; it is not charged again |
-| PU-F38 | wip | The last installment is Completed, with an end date, only after its charge succeeds: a declined final installment stays In Progress with no end date and is retried (DEF-67) |
-| PU-F39 | wip | A successful retry of a middle installment (2 of 3) does not complete the record, because failed attempts are not installments; installment 3 then completes it (DEF-67) |
-| PU-F40 | wip | Every frequency unit and an interval above 1: a failure keeps the date, the retry that succeeds moves it from the due date (DEF-46, DEF-58) |
-| PU-F41 | wip | A test-mode recurring record with installments is charged and, on its last installment, Completed like a live one: the job looks up the record's own contributions with its `is_test` value, prints no warning, and counts the installments (DEF-69) |
+| PU-F29 | done | A failed charge does not move `next_sched_contribution_date`, on every route to a failure: a decline on the first attempt, a decline on a retry, a request eWAY refuses, no card token (eWAY never called), for day, week (every 2), month and year records. CiviCRM core moves the date when it records a Failed contribution, so the code puts it back (DEF-46) |
+| PU-F30 | done | A record that fails and then succeeds on a retry is next due one interval after the original due date, not two (DEF-58); the first Failed contribution does not hide it from the retry list; nothing more is charged afterwards |
+| PU-F31 | done | A Failed or Cancelled contribution dated after the due date (normal list) or retry date (retry list) does not hide the record; a Pending or Completed one still does (DEF-68) |
+| PU-F32 | done | A retry delay of 0 still retries a failed record (DEF-68) |
+| PU-F33 | done | End to end through real failed runs: a record due 70 days ago driven to Failed, then its card updated through `updateSubscriptionBillingInfo`: In Progress, `failure_count` 0, no retry date, due date unchanged; the next run charges it once with the new token, the date becomes the first date after today, and a further run charges nothing (DEF-46, DEF-13) |
+| PU-F34 | done | The same end to end through the Reactivate update |
+| PU-F35 | done | Crash safety: a run that dies after eWAY took the payment (an Error thrown from `completetransaction`) leaves the date alone and a Pending contribution, and the next run does not charge again (the Pending contribution, not the date, is the guard) |
+| PU-F36 | done | A run that dies before the gateway answers: the same, and once staff cancel the Pending contribution the next run charges the record |
+| PU-F37 | done | A record several intervals overdue (day, week, every 2 weeks, month, quarter, year, including exactly three intervals) is charged once and its next date is the first date after today; it is not charged again |
+| PU-F38 | done | The last installment is Completed, with an end date, only after its charge succeeds: a declined final installment stays In Progress with no end date and is retried (DEF-67) |
+| PU-F39 | done | A successful retry of a middle installment (2 of 3) does not complete the record, because failed attempts are not installments; installment 3 then completes it (DEF-67) |
+| PU-F40 | done | Every frequency unit and an interval above 1: a failure keeps the date, the retry that succeeds moves it from the due date (DEF-46, DEF-58) |
+| PU-F41 | done | A test-mode recurring record with installments is charged and, on its last installment, Completed like a live one: the job looks up the record's own contributions with its `is_test` value, prints no warning, and counts the installments (DEF-69) |
 
 ### PU-G `PaymentTokenTest`
 
@@ -666,9 +666,9 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | PU-H11 | done | `preProcess` Confirm (contribution and event): already-paid access code throws the right message per component, failed prior transaction shows the warning and clears the session response, not-processed-yet continues |
 | PU-H12 | done | `hook_check`: no message at zero failures, message with count and link when failures exist past the 4-hour threshold, ignores test recurring records, honours a disabled `StatusPreference`, honours the `statusNames` filter (DEF-3: only recurring contributions marked Failed are counted) |
 | PU-H13 | done | `hook_enable` works when nobody is logged in (no permissions): the processor type is reactivated and nothing throws "Authorization failed" (DEF-15, fixed) |
-| PU-H14 | wip | `hook_enable` switches the three active scheduled jobs back on and leaves the Settlement Sync job off (DEF-53) |
-| PU-H15 | wip | `buildForm` on the cancel form: for an eWAY processor `send_cancel_request` is taken out of the template's list of entity fields as well as removed as an element (no PHP warnings on the screen, DEF-59); for other processors the list is left alone |
-| PU-H16 | wip | The eWay processor form accepts a complete live section, a complete test section or both; refuses a section with only a key or only a password (naming the missing field, whichever section it is and even when the other section is complete); asks for the live key and password when nothing is given; only spaces count as nothing (DEF-56) |
+| PU-H14 | done | `hook_enable` switches the three active scheduled jobs back on and leaves the Settlement Sync job off (DEF-53) |
+| PU-H15 | done | `buildForm` on the cancel form: for an eWAY processor `send_cancel_request` is taken out of the template's list of entity fields as well as removed as an element (no PHP warnings on the screen, DEF-59); for other processors the list is left alone |
+| PU-H16 | done | The eWay processor form accepts a complete live section, a complete test section or both; refuses a section with only a key or only a password (naming the missing field, whichever section it is and even when the other section is complete); asks for the live key and password when nothing is given; only spaces count as nothing (DEF-56) |
 
 ### PU-I `PermissionsTest` (`APIWrapper`)
 
@@ -690,9 +690,9 @@ the menu callback as a thin wrapper, or cover it through Playwright PW-B-backoff
 | PU-J5 | done | Legacy delimited string for processors still pre-populates |
 | PU-J6 | done | Processor options list only live eWAY processors |
 | PU-J7 | done | The setting key used by the cron (`eway_recurring_contribution_max_retry`) is the one the form writes, despite the differing `name` field in the settings file |
-| PU-J8 | wip | Retries and delay must be whole numbers of zero or more: -1, 2.5, 0.5, 1e2, +3 and -0 refused; 0, 7 and padded numbers accepted and trimmed on save (DEF-52) |
-| PU-J9 | wip | Saving shows a "settings have been saved" status message; a refused submission shows none (DEF-54) |
-| PU-J10 | wip | The form declares its `_submittedValues` property (no PHP 8.2 dynamic property deprecation, DEF-55) |
+| PU-J8 | done | Retries and delay must be whole numbers of zero or more: -1, 2.5, 0.5, 1e2, +3 and -0 refused; 0, 7 and padded numbers accepted and trimmed on save (DEF-52) |
+| PU-J9 | done | Saving shows a "settings have been saved" status message; a refused submission shows none (DEF-54) |
+| PU-J10 | done | The form declares its `_submittedValues` property (no PHP 8.2 dynamic property deprecation, DEF-55) |
 
 ### PU-K `PagesTest` (`VerifyPayment`)
 
@@ -726,9 +726,9 @@ version with seeded data are covered by the `UP` suite below.
 | PU-L8 | done | `upgrade_30000` is idempotent (a second run changes nothing), uses the retry limit saved at the time it runs, reports the number of records changed, does not send mail or create activities, and fires no recurring contribution hooks (U1: the change is a single SQL statement) (FR-2) |
 | PU-L9 | done | `upgrade_30000` Rule 2: an In Progress eWAY record with a retry date and `failure_count` 0 is marked Failed and keeps its failure count of 0, its retry date and its next scheduled date; nobody is charged, and it then shows in the Failed Recurring Contributions list (FR-2) |
 | PU-L10 | done | `upgrade_30000` Rule 2 leaves alone: records with failures below the limit (still being retried), records with no retry date, other statuses, other processors, test-mode records and Pending records; a second run changes nothing; the count is reported separately from Rule 1's (FR-2, decisions U2 and U3) |
-| PU-L11 | wip | `upgrade_30001` adds the managed record that links the eWay Recurring processor type to the extension when it is missing, and leaves the type itself untouched (DEF-57) |
-| PU-L12 | wip | `upgrade_30001` leaves an existing correct managed record exactly as it is and reports that it changed nothing |
-| PU-L13 | wip | `upgrade_30001` repairs a managed record that points at a type id that no longer exists, and a second run changes nothing (one record remains) |
+| PU-L11 | done | `upgrade_30001` adds the managed record that links the eWay Recurring processor type to the extension when it is missing, and leaves the type itself untouched (DEF-57) |
+| PU-L12 | done | `upgrade_30001` leaves an existing correct managed record exactly as it is and reports that it changed nothing |
+| PU-L13 | done | `upgrade_30001` repairs a managed record that points at a type id that no longer exists, and a second run changes nothing (one record remains) |
 
 ### PU-M `SettlementSync` gaps (add to existing class or a sibling)
 
@@ -762,11 +762,11 @@ version with seeded data are covered by the `UP` suite below.
 | PU-O3 | done | The Reactivate payload (status In Progress, `failure_count` 0, `failure_retry_date` empty, optional `next_sched_contribution_date`) applied through `ContributionRecur.update` resets all four fields and leaves others alone |
 | PU-O4 | done | Reactivated records are picked up by the next `get_scheduled_contributions` once the date has passed (ties F3 to the UI) |
 | PU-O5 | done | Reactivate on a non-eWAY recurring record changes only its status fields |
-| PU-O6 | wip | A user holding only access CiviCRM, view all contacts, access CiviContribute and edit contributions (and the `finance` persona's permissions) gets, from the saved search and from the Search Kit display, the live eWAY records that have a card (Failed and Failing), and not test, token-less or other-processor records (FR-4, DEF-62) |
-| PU-O7 | wip | That user cannot read any PaymentProcessor field through ContributionRecur: PaymentProcessor.get is refused; implicit and explicit joins return nothing for `id`, `name`, `title`, `user_name`, `password`, `signature`, `url_site`, `class_name` and the type; a condition on a processor field is an invalid field; the new `is_eway_processor` field returns only true or false; no processor name, key or password is in the display's data or a plain read. The saved search does not name PaymentProcessor (FR-4) |
-| PU-O8 | wip | `is_eway_processor` follows processors with nothing to refresh (a processor added later is listed, one changed to another type drops out, a record with no processor is not listed); it is not part of a plain read nor of create and update, and other calls return every record as before; an administrator sees the same records as the old join gave (FR-4) |
-| PU-O9 | wip | Reactivate (the update the dialog sends) works with permission checks on for a user holding edit contributions and no more, and is refused (and changes nothing) for users without it (FR-4) |
-| PU-O10 | wip | The page's Afform and the menu entry need "edit contributions". On a site with the administrator-only entry or the saved search with the processor join (older declarations), the managed reconcile that an upgrade or cache clear runs brings both to the new definitions when unmodified, and leaves them when a person changed them (FR-4) |
+| PU-O6 | done | A user holding only access CiviCRM, view all contacts, access CiviContribute and edit contributions (and the `finance` persona's permissions) gets, from the saved search and from the Search Kit display, the live eWAY records that have a card (Failed and Failing), and not test, token-less or other-processor records (FR-4, DEF-62) |
+| PU-O7 | done | That user cannot read any PaymentProcessor field through ContributionRecur: PaymentProcessor.get is refused; implicit and explicit joins return nothing for `id`, `name`, `title`, `user_name`, `password`, `signature`, `url_site`, `class_name` and the type; a condition on a processor field is an invalid field; the new `is_eway_processor` field returns only true or false; no processor name, key or password is in the display's data or a plain read. The saved search does not name PaymentProcessor (FR-4) |
+| PU-O8 | done | `is_eway_processor` follows processors with nothing to refresh (a processor added later is listed, one changed to another type drops out, a record with no processor is not listed); it is not part of a plain read nor of create and update, and other calls return every record as before; an administrator sees the same records as the old join gave (FR-4) |
+| PU-O9 | done | Reactivate (the update the dialog sends) works with permission checks on for a user holding edit contributions and no more, and is refused (and changes nothing) for users without it (FR-4) |
+| PU-O10 | done | The page's Afform and the menu entry need "edit contributions". On a site with the administrator-only entry or the saved search with the processor join (older declarations), the managed reconcile that an upgrade or cache clear runs brings both to the new definitions when unmodified, and leaves them when a person changed them (FR-4) |
 
 ### UP upgrade tests in CI (`tests/upgrade/`)
 
@@ -1117,6 +1117,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-15 | PHPUnit run on `8c25704` is green on GitHub (505 tests), so every PHPUnit case that was `wip` is now `done` (PU-B18, PU-F29 to PU-F41, PU-H14 to PU-H16, PU-J8 to PU-J10, PU-L11 to PU-L13, PU-O6 to PU-O10). Playwright run on the same commit: 168 passed, 8 skipped (the real-sandbox cases, which need the sandbox secrets), upgrade tests green. Playwright cases stay `wip` until Drupal, Joomla and Standalone have run them. |
 | 2026-11-15 | Feature FR-4 built on `release-3.0.0`: finance staff ("edit contributions") can open the Failed Recurring Contributions list and use Reactivate without being able to read payment processors. The saved search no longer joins PaymentProcessor; it filters on a calculated yes/no field `is_eway_processor` that the extension adds to ContributionRecur through an APIv4 spec provider (decision F1 in FEATURES.md). The page and menu entry are back to "edit contributions" (decision F2), which supersedes the interim DEF-62 rule. New cases PU-O6 to PU-O10 (`wip`, pass locally on CiviCRM 6.16.5, 24 tests in `FailedRecurringSearchTest`) and PW-B-failed-13 (`wip`); PW-B-failed-01 rewritten (three tests: `finance` sees the list and Reactivates, `limited` refused, administrator unchanged). Checked the cases fail on the old saved search (HTTP 500 for `finance`). PW-B-failed run on the local WordPress site (snapshot, run, restore, all checked). Cases 310: 160 done, 140 in progress, 5 to do, 5 dropped. Not yet run on GitHub. |
 | 2026-11-15 | Owner decisions applied: DEF-53 confirmed; DEF-56 fixed (option C: either section, partial sections refused, PU-H16, PW-B-processor-02 updated); DEF-57 fixed (`upgrade_30001`, PU-L11 to PU-L13); DEF-62 fixed by requiring administer CiviCRM for the Failed list (PW-B-failed-01 rewritten) with FR-4 added to FEATURES.md for finance access; DEF-69 fixed (job looks up a test-mode record's own contributions, PU-F41). Not yet run on GitHub except as noted in the earlier lines. 304 cases: 160 done, 134 in progress, 5 to do, 5 dropped. |
 | 2026-11-15 | PW-X (real eWAY sandbox, 5 cases) written for WordPress by a Playwright agent on the local site (snapshot, run, restore, all checked): `specs/sandbox/` with `sandbox-once-off`, `sandbox-recurring`, `sandbox-card` and `sandbox-settlement` specs (8 tests, tagged `@sandbox`) and `fixtures/sandbox.ts`. The stub extension now gives the real HTTP service to the test-mode record of the processor "Playwright eWAY Sandbox" and stubs everything else. Green locally against eWAY's sandbox: 6 passed and 2 skipped; without `EWAY_SANDBOX_API_KEY` and `EWAY_SANDBOX_API_PASSWORD` all 8 skip. The 2 skips are the decline tests (PW-X-01, PW-X-05): the sandbox account approves every amount, so eWAY's cents rule never declines (see PW-X-01 **Found:**). DEF-69 added (open): the recurring job in test mode misses test contributions. All five cases are `wip` until a GitHub run with the sandbox secrets. 299 cases: 160 done, 129 in progress, 5 to do. |
