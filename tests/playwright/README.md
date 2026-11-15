@@ -17,8 +17,9 @@ and who may read and change saved cards (`PW-B-permissions`, `token-permissions.
 (`PW-B-jobs`, `scheduled-jobs.spec.ts`), what the recurring payments job does and what staff then see
 (`PW-B-cron`, `recurring-cron.spec.ts`), the System Status check (`PW-B-status`, `system-status.spec.ts`) and the
 Cancel and Update Recurring Contribution forms with a Failed record (`PW-B-recurforms`, `recurring-forms.spec.ts`)
-are written too. The failed recurring list and back-office saved-card payments, `specs/security/` and `specs/sandbox/`
-are still to be written.
+are written too, and so are the Failed Recurring Contributions list and its Reactivate action (`PW-B-failed`,
+`failed-recurring.spec.ts`) and back-office saved-card payments (`PW-B-backoffice`, `backoffice-token-payment.spec.ts`).
+`specs/security/` and `specs/sandbox/` are still to be written.
 
 ## How it works
 
@@ -116,7 +117,7 @@ fixtures/
   recurring-screens.ts   the contact's Contributions, Recurring Contributions and Activities tabs, the recurring record's
                           own page and forms, the Failed Recurring Contributions list
   backend.ts              back-office helpers: the settings page (open, submit, the select2 box, reset and read the
-                          settings it owns), the Administer menu, and CRM.api4() called from a signed-in page
+                          settings it owns), CiviCRM's menus (Administer, Contributions), and CRM.api4() called from a signed-in page
   visibility.ts           checks that a message really shows inside the theme (size, position, contrast, not covered)
   civi.ts                 cv api4 / ev / scr wrappers
   eway-stub.ts            scripted responses, the request log, the fake hosted page's HTML, response builders
@@ -136,6 +137,7 @@ specs/
   frontend/               PW-F1 (contribution-once-off*.spec.ts), PW-F2 (contribution-recurring.spec.ts), PW-F3 (event-registration.spec.ts)
   backend/                PW-B-settings (settings.spec.ts), PW-B-processor (payment-processor.spec.ts), PW-B-permissions (token-permissions.spec.ts),
                           PW-B-jobs (scheduled-jobs.spec.ts), PW-B-cron (recurring-cron.spec.ts), PW-B-status (system-status.spec.ts),
-                          PW-B-recurforms (recurring-forms.spec.ts)
+                          PW-B-recurforms (recurring-forms.spec.ts), PW-B-failed (failed-recurring.spec.ts),
+                          PW-B-backoffice (backoffice-token-payment.spec.ts)
   security/ sandbox/      still to be written
 ```
