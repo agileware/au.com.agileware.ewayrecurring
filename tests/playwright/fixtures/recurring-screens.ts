@@ -109,3 +109,44 @@ export const SEARCH_ABORTED = /SearchDisplay%2Frun \(net::ERR_ABORTED\)/;
 
 /** Both of the above, as one pattern (test.use() reads a list whose second item is an object as a pair). */
 export const SCREEN_NOISE = new RegExp(`${RECURRING_VIEW_CORE_NOISE.source}|${SEARCH_ABORTED.source}`);
+
+/** The ids shown in the Failed Recurring Contributions list's ID column, row by row (open the list first). */
+export async function failedListIds(page: Page): Promise<number[]> {
+  const texts = await page.locator('tbody tr [data-field-name="id"]').allInnerTexts();
+  return texts.map((text) => Number(text.trim()));
+}
+
+/** A column header of the Failed Recurring Contributions list, found by its label. */
+export function failedListHeader(page: Page, label: string): Locator {
+  return page.locator('thead th').filter({ has: page.locator('.crm-search-display-table-column-label', { hasText: new RegExp(`^\\s*${label}\\s*$`) }) });
+}
+
+/** The labels of the list's column headers, left to right (the checkbox and button columns have none). */
+export async function failedListHeaderLabels(page: Page): Promise<string[]> {
+  return (await page.locator('thead th .crm-search-display-table-column-label').allInnerTexts()).map((text) => text.trim()).filter(Boolean);
+}
+
+/** The tick box at the start of a row of the Failed Recurring Contributions list. */
+export function failedListTick(page: Page, recurId: number): Locator {
+  return failedListRow(page, recurId).locator('input.crm-search-ctrl-select-row');
+}
+
+/** The Reactivate button on a row of the list. */
+export function reactivateRowButton(page: Page, recurId: number): Locator {
+  return failedListRow(page, recurId).getByTitle('Reactivate');
+}
+
+/** The Reactivate button above the list, which acts on the ticked rows. */
+export function reactivateToolbarButton(page: Page): Locator {
+  return page.locator('.crm-search-task-button', { hasText: 'Reactivate' });
+}
+
+/** The Reactivate dialog (a CiviCRM dialog, opened from a row button or the toolbar button). */
+export function reactivateDialog(page: Page): Locator {
+  return page.locator('.ui-dialog').filter({ has: page.locator('form[name="crmSearchTaskResetRecur"]') });
+}
+
+/** Press a button in the Reactivate dialog's button bar. */
+export async function pressInReactivateDialog(page: Page, name: string | RegExp): Promise<void> {
+  await reactivateDialog(page).locator('.ui-dialog-buttonpane').getByRole('button', { name }).click();
+}

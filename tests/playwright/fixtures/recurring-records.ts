@@ -13,7 +13,7 @@ import testData from './test-data.json';
  */
 
 /** The status names of a recurring contribution that these specs need. */
-export type RecurStatus = 'In Progress' | 'Pending' | 'Failed' | 'Completed' | 'Cancelled';
+export type RecurStatus = 'In Progress' | 'Pending' | 'Failed' | 'Failing' | 'Completed' | 'Cancelled';
 
 export interface RecurringOptions {
   /** Shows in the donor's email address, which helps when reading the site. */
@@ -371,4 +371,89 @@ export function restoreRetryDates(saved: SavedRetryDates): void {
       }
     }
   `);
+}
+
+/** Statuses as they were, by recurring contribution id (the status id), so they can be put back. */
+export type SavedStatuses = Record<number, number>;
+
+/**
+ * Take every Failed and Failing recurring contribution on the site off the Failed Recurring Contributions list by marking it
+ * Cancelled, so a case that checks which records the list shows (or that its own records come first) is not at the mercy of
+ * what earlier cases left behind. Only the status column changes, with a plain query, so nothing else about a record moves.
+ * Returns the original statuses for restoreStatuses().
+ */
+export function setFailedAndFailingAside(): SavedStatuses {
+  const out = evaluate(`
+    $saved = [];
+    $cancelled = (int) CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_ContributionRecur', 'contribution_status_id', 'Cancelled');
+    $dao = CRM_Core_DAO::executeQuery('SELECT id, contribution_status_id FROM civicrm_contribution_recur WHERE contribution_status_id IN (%1, %2)', [
+      1 => [(int) CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_ContributionRecur', 'contribution_status_id', 'Failed'), 'Integer'],
+      2 => [(int) CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_ContributionRecur', 'contribution_status_id', 'Failing'), 'Integer'],
+    ]);
+    while ($dao->fetch()) {
+      $saved[(int) $dao->id] = (int) $dao->contribution_status_id;
+    }
+    if ($saved) {
+      CRM_Core_DAO::executeQuery('UPDATE civicrm_contribution_recur SET contribution_status_id = ' . $cancelled . ' WHERE id IN (' . implode(',', array_keys($saved)) . ')');
+    }
+    echo json_encode((object) $saved);
+  `);
+  return JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+}
+
+/** Put back the statuses setFailedAndFailingAside() took. */
+export function restoreStatuses(saved: SavedStatuses): void {
+  const entries = Object.entries(saved);
+  if (!entries.length) {
+    return;
+  }
+  evaluate(`
+    $saved = json_decode(${php(JSON.stringify(saved))}, TRUE);
+    foreach ($saved as $id => $status) {
+      CRM_Core_DAO::executeQuery('UPDATE civicrm_contribution_recur SET contribution_status_id = %1 WHERE id = %2', [1 => [(int) $status, 'Integer'], 2 => [(int) $id, 'Integer']]);
+    }
+  `);
+}
+
+/**
+ * Make `count` more recurring contributions like an existing one (same donor, same saved card, same fields, no payments
+ * of their own), in one call to the site, for a list that needs more rows than one page holds. Returns their ids. Remove
+ * them with deleteRecurring() when the case is over.
+ */
+export function copyRecurring(source: Pick<RecurringRecord, 'recurId'>, count: number): number[] {
+  const out = evaluate(`
+    $source = \\Civi\\Api4\\ContributionRecur::get(FALSE)
+      ->addWhere('id', '=', ${Number(source.recurId)})
+      ->addWhere('is_test', 'IN', [FALSE, TRUE])
+      ->execute()
+      ->first();
+    unset($source['id'], $source['create_date'], $source['modified_date']);
+    $ids = [];
+    for ($i = 0; $i < ${Number(count)}; $i++) {
+      $ids[] = (int) \\Civi\\Api4\\ContributionRecur::create(FALSE)->setValues($source)->execute()->first()['id'];
+    }
+    echo json_encode($ids);
+  `);
+  return JSON.parse(out.slice(out.indexOf('['), out.lastIndexOf(']') + 1));
+}
+
+/**
+ * Delete recurring contributions that have no payments of their own (the ones copyRecurring() made). A plain query: core's
+ * delete action printed a database syntax error for a list of ids on the site this was written on.
+ */
+export function deleteRecurring(ids: number[]): void {
+  if (!ids.length) {
+    return;
+  }
+  evaluate(`CRM_Core_DAO::executeQuery('DELETE FROM civicrm_contribution_recur WHERE id IN (' . implode(',', array_map('intval', json_decode(${php(JSON.stringify(ids))}, TRUE))) . ')');`);
+}
+
+/** Make a recurring contribution belong to another processor but keep its saved card (the list skips non-eWAY processors by the processor). */
+export function moveToProcessor(recurId: number, processorId: number): void {
+  api4('ContributionRecur', 'update', { where: [['id', '=', recurId], ['is_test', 'IN', [false, true]]], values: { payment_processor_id: processorId } });
+}
+
+/** Drop a recurring contribution's link to a saved card, as a record made before saved cards existed has none. */
+export function removeToken(recurId: number): void {
+  api4('ContributionRecur', 'update', { where: [['id', '=', recurId], ['is_test', 'IN', [false, true]]], values: { payment_token_id: null } });
 }

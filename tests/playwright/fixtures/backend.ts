@@ -85,20 +85,25 @@ export async function submitSettings(page: Page, values: { retries?: string; del
 }
 
 /**
- * Open CiviCRM's Administer menu by clicking it (hovering does not open it in a browser driven by a script) and return
- * the entry with this text. The menu is built by script after the page loads, so a click that comes too early is
- * repeated until the entry shows.
+ * Open one of CiviCRM's menus (Administer, Contributions, ...) by clicking it (hovering does not open it in a browser driven
+ * by a script) and return the entry with this text. The menu is built by script after the page loads, so a click that comes
+ * too early is repeated until the entry shows.
  */
-export async function openAdministerMenuEntry(page: Page, entryText: string): Promise<Locator> {
+export async function openMenuEntry(page: Page, menuName: string, entryText: string): Promise<Locator> {
   const menu = page.locator('#civicrm-menu');
   await expect(menu).toBeVisible();
-  const administer = menu.getByText('Administer', { exact: true }).first();
+  const top = menu.getByText(menuName, { exact: true }).first();
   const entry = menu.locator('a', { hasText: entryText });
   await expect(async () => {
-    await administer.click();
+    await top.click();
     await expect(entry).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 15_000 });
   return entry;
+}
+
+/** Open CiviCRM's Administer menu and return the entry with this text. */
+export async function openAdministerMenuEntry(page: Page, entryText: string): Promise<Locator> {
+  return openMenuEntry(page, 'Administer', entryText);
 }
 
 /** The row of the settings form that holds a field. */
