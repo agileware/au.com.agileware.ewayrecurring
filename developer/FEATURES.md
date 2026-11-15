@@ -48,6 +48,7 @@ documentation (that lives in `docs/`).
 | [FR-1](#fr-1-donor-facing-update-my-stored-card-page) | Donor-facing "update my stored card" page | `planned` | to be decided | Group to be added once decisions D1 to D5 are settled; supporting cases listed below |
 | [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `in progress` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
 | [FR-3](#fr-3-check-a-new-card-with-the-issuer-when-it-is-added) | Check a new card with the issuer when it is added | `idea` | to be decided | Group to be added once decisions C1 to C6 are settled; PW-X-05 is the first step |
+| [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `planned` | 3.0.0 | PW-B-failed-01 (changes when built) |
 
 ---
 
@@ -512,6 +513,60 @@ To be written once the options are decided.
 | --- | --- |
 | PW-X-05 | The real sandbox: what happens when a card eWAY will decline is added, at token creation and at the first charge |
 
+## FR-4 Let finance staff open the Failed Recurring Contributions list
+
+| | |
+| --- | --- |
+| Status | `planned` |
+| Raised | 2026-11-15 |
+| Target release | 3.0.0 (the owner asked for it with the DEF-62 fix) |
+| Related | DEF-62 in [TEST_PLAN.md](TEST_PLAN.md) |
+
+### Summary
+
+The Failed Recurring Contributions page lists the recurring records that need attention. Today it is open only to
+administrators (DEF-62): the list is built from a saved search that joins the payment processor to keep only
+eWAY records, and CiviCRM drops that join for anyone who may not read payment processors, because the processor
+holds the API credentials. The aim is to let a user who has the "edit contributions" permission (a finance
+role, for example) open the list and use Reactivate, without giving them any access to the processors.
+
+### Why
+
+Finance staff are the people who chase failed payments. Making them ask an administrator to open the list is a
+real cost, and the page worked for no one but administrators before the interim fix, so there is nothing to lose
+by doing this properly.
+
+### Design options
+
+| Option | How | Notes |
+| --- | --- | --- |
+| A | Filter eWAY records without joining the payment processor, for example on a value the extension keeps on each recurring record or a filter the extension adds to the list's query | Preferred. No extra read access is granted. The detail is to be chosen when building |
+| B | Let the extension authorise that one read of the payment processor | Not recommended: the entity holds the API credentials |
+| C | Keep the page for administrators only | The interim state set by the DEF-62 fix |
+
+### Decisions still open
+
+| ID | Question | Status |
+| --- | --- | --- |
+| F1 | Which mechanism filters eWAY records for a user who cannot read payment processors | Open: to be chosen and recorded when building, with the reason |
+| F2 | Which permission the page and menu entry need once it works (expected "edit contributions", as before DEF-62) | Open |
+
+### Acceptance criteria
+
+1. A user with only "edit contributions" sees the page in the Contributions menu and sees the Failed and Failing
+   eWAY records, and no records of other processors.
+2. That user can Reactivate a record from the list, and nothing about a payment processor (its name, key or
+   password) is readable by them through the page or its requests.
+3. A user without "edit contributions" is refused, and an administrator sees what they saw before.
+
+### Test coverage
+
+| ID | What it covers |
+| --- | --- |
+| PW-B-failed-01 | Who can open the list: the cases change when this is built (finance sees the list, limited does not) |
+
+---
+
 ---
 
 ## 2. Change log
@@ -520,6 +575,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-15 | FR-4 added as `planned`: let finance staff open the Failed Recurring Contributions list without access to payment processors (the better follow-up to DEF-62, which now needs "administer CiviCRM"). |
 | 2026-11-15 | FR-1 decision D3 decided by the owner: a failure does not move the schedule date, a successful charge moves it from the due date to the first date after today, so a recovered record is charged once by the next run (built and tested as DEF-46 and DEF-58, PU-F29 to PU-F40). |
 | 2026-11-14 | FR-3 added as `idea`: check a new card with the issuer when it is added (recorded as DEF-33, reclassified as not a defect), with what eWAY's documentation says, three options and six open decisions (C1 to C6). Not scheduled. |
 | 2026-11-14 | FR-2 upgrade tests UP-10 and UP-11 written (`tests/upgrade/`) and passed a local rehearsal; waiting for a GitHub run. |

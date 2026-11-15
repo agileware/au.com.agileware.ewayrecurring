@@ -51,6 +51,8 @@ trait CRM_eWAYRecurring_ProcessTrait {
         'sequential' => 1,
         'return' => ['total_amount', 'tax_amount'],
         'contribution_recur_id' => $contribution->id,
+        // APIv3 looks at live contributions only unless told otherwise, so a test-mode record found nothing (DEF-69).
+        'is_test' => (int) $contribution->is_test,
       ]);
 
       $mainContributions = $mainContributions['values'];
@@ -59,6 +61,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
       // of installment 2 of 3 would otherwise look like the last one.
       $ccount = civicrm_api3('Contribution', 'getcount', [
         'contribution_recur_id' => $contribution->id,
+        'is_test' => (int) $contribution->is_test,
         'contribution_status_id' => ['NOT IN' => [
           CRM_eWAYRecurring_Utils::contribution_status_id('Failed'),
           CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled'),
@@ -114,6 +117,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
           'Contribution', 'get', [
             'sequential' => 1,
             'contribution_recur_id' => $contribution->id,
+            'is_test' => (int) $contribution->is_test,
             'options' => ['sort' => "id ASC"],
           ]
         );

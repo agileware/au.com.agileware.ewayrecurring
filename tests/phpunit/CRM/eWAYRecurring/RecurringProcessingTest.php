@@ -1429,6 +1429,42 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   /**
+   * The job looked up a record's contributions with APIv3's default of live contributions only, so a test-mode record
+   * (a test-drive contribution page, or a test processor) found none: it printed "Undefined array key 0" on every run,
+   * never read the tax amount, and counted no installments, so it was never Completed (DEF-69).
+   *
+   * @testPlan PU-F41
+   */
+  public function testATestModeRecordWithInstallmentsIsChargedAndCompletedLikeALiveOne(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    $processor = Fixture::processor(TRUE);
+    $contactId = Fixture::contact();
+    $recur = Fixture::recurring($contactId, $processor, ['installments' => 2, 'is_test' => 1, 'next_sched_contribution_date' => $due]);
+    Fixture::contribution($contactId, [
+      'total_amount' => $recur['amount'],
+      'financial_type_id' => $recur['financial_type_id'],
+      'contribution_status_id' => 'Completed',
+      'contribution_recur_id' => $recur['id'],
+      'receive_date' => date('Y-m-d H:i:s', strtotime('-2 months')),
+      'payment_instrument_id' => 1,
+      'is_test' => 1,
+    ]);
+    ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', $recur['id'])
+      ->addValue('next_sched_contribution_date', $due)
+      ->execute();
+
+    $this->approveNextCharge();
+    $this->runCron($processor);
+
+    // One test contribution was there and the run made the second, which was the last installment.
+    $this->assertSame(2, (int) civicrm_api3('Contribution', 'getcount', ['contribution_recur_id' => $recur['id'], 'is_test' => 1]));
+    $done = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame('Completed', $this->recurStatus($done), 'The last installment completed the test-mode record.');
+    $this->assertNotEmpty($done['end_date']);
+  }
+
+  /**
    * A failed attempt is not an installment that was paid. A retry of a middle installment must not be taken for the
    * last one (it used to be, because the Failed contribution was counted, so a successful retry of installment 2 of 3
    * completed the record early), and the real last installment still completes it (DEF-67).
