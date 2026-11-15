@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | Extension version | 2.8.2 (work in progress on branch `release-3.0.0`) |
-| Status last updated | 2026-11-14 |
+| Status last updated | 2026-11-15 |
 | Owner | Extension maintainers |
 | Related | [TEST_PLAN.md](TEST_PLAN.md) (test coverage and status), [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment) |
 
@@ -48,7 +48,7 @@ documentation (that lives in `docs/`).
 | [FR-1](#fr-1-donor-facing-update-my-stored-card-page) | Donor-facing "update my stored card" page | `planned` | to be decided | Group to be added once decisions D1 to D5 are settled; supporting cases listed below |
 | [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `in progress` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
 | [FR-3](#fr-3-check-a-new-card-with-the-issuer-when-it-is-added) | Check a new card with the issuer when it is added | `idea` | to be decided | Group to be added once decisions C1 to C6 are settled; PW-X-05 is the first step |
-| [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `planned` | 3.0.0 | PW-B-failed-01 (changes when built) |
+| [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `in progress` | 3.0.0 | PU-O6 to PU-O10, PW-B-failed-01, PW-B-failed-13 |
 
 ---
 
@@ -517,18 +517,18 @@ To be written once the options are decided.
 
 | | |
 | --- | --- |
-| Status | `planned` |
+| Status | `in progress` (built on `release-3.0.0`, green locally; PU-O6 to PU-O10 and PW-B-failed-13 wait for a GitHub run) |
 | Raised | 2026-11-15 |
 | Target release | 3.0.0 (the owner asked for it with the DEF-62 fix) |
 | Related | DEF-62 in [TEST_PLAN.md](TEST_PLAN.md) |
 
 ### Summary
 
-The Failed Recurring Contributions page lists the recurring records that need attention. Today it is open only to
-administrators (DEF-62): the list is built from a saved search that joins the payment processor to keep only
+The Failed Recurring Contributions page lists the recurring records that need attention. It used to be open only to
+administrators (DEF-62): the list was built from a saved search that joined the payment processor to keep only
 eWAY records, and CiviCRM drops that join for anyone who may not read payment processors, because the processor
-holds the API credentials. The aim is to let a user who has the "edit contributions" permission (a finance
-role, for example) open the list and use Reactivate, without giving them any access to the processors.
+holds the API credentials. The page and its Reactivate action are now open to a user who has the "edit contributions"
+permission (a finance role, for example), and that user still has no access to the processors.
 
 ### Why
 
@@ -540,30 +540,91 @@ by doing this properly.
 
 | Option | How | Notes |
 | --- | --- | --- |
-| A | Filter eWAY records without joining the payment processor, for example on a value the extension keeps on each recurring record or a filter the extension adds to the list's query | Preferred. No extra read access is granted. The detail is to be chosen when building |
-| B | Let the extension authorise that one read of the payment processor | Not recommended: the entity holds the API credentials |
-| C | Keep the page for administrators only | The interim state set by the DEF-62 fix |
+| A | Filter eWAY records without joining the payment processor | Chosen, as a calculated field (decision F1). No extra read access is granted |
+| B | Let the extension authorise that one read of the payment processor | Not recommended: the entity holds the API credentials. Not built |
+| C | Keep the page for administrators only | The interim state set by the DEF-62 fix (commit `c14eb17`), now replaced |
 
-### Decisions still open
+### Decisions
 
 | ID | Question | Status |
 | --- | --- | --- |
-| F1 | Which mechanism filters eWAY records for a user who cannot read payment processors | Open: to be chosen and recorded when building, with the reason |
-| F2 | Which permission the page and menu entry need once it works (expected "edit contributions", as before DEF-62) | Open |
+| F1 | Which mechanism filters eWAY records for a user who cannot read payment processors | **Decided 2026-11-15**: a calculated yes/no field `is_eway_processor` on ContributionRecur, added through APIv4's spec provider extension point. See below |
+| F2 | Which permission the page and menu entry need once it works | **Decided 2026-11-15**: "edit contributions", as before DEF-62 (and as in release 2.8.2). The data requests also need "access CiviCRM" and "access CiviContribute", which core and the extension already require for recurring records |
+
+#### F1: how eWAY records are filtered
+
+Chosen: the extension registers a spec provider (`Civi\EwayRecurring\Api4\ContributionRecurEwaySpecProvider`, registered in
+`ewayrecurring_civicrm_container()`) that adds one read-only, calculated field to ContributionRecur, `is_eway_processor`. The
+saved search filters on `is_eway_processor = TRUE` instead of joining PaymentProcessor. The field is rendered as SQL inside the
+query: `IF(EXISTS (SELECT 1 FROM civicrm_payment_processor ... INNER JOIN civicrm_payment_processor_type ... WHERE processor id =
+the record's payment_processor_id AND type name = 'eWay_Recurring'), 1, 0)`. It is the same test the old join made.
+
+Why this one:
+
+- It exposes one yes or no value and nothing else. It is not a join, so there is no processor field to select, filter or sort
+  by, and it needs no permission on PaymentProcessor. Nothing authorises a read of that entity (option B is not built).
+- It is worked out when the list is read, so it follows processors being added, removed or changed with nothing to refresh
+  and nothing stored (PU-O8).
+- It is core's documented extension point (the same one core uses for calculated fields such as "is current"), and the core
+  version it relies on (6.16 and later, the extension's minimum) already has it. Nothing is patched or copied from core.
+- It changes no other call: it is not part of a plain read, it is not a field of create or update, and no other screen or
+  API call returns different rows (PU-O8).
+
+What was weighed, with what was checked on CiviCRM 6.16.5 (read from the core code on the local site, then run):
+
+| Option | Result |
+| --- | --- |
+| Filter on `payment_processor_id` against the ids of eWAY processors | A fixed list is not acceptable. A list kept up to date needs a hook on every processor change and the saved search still holds ids. APIv4's `IN` takes literal values only (`Api4Query.php`), so a live subquery cannot be written in the saved search. Rejected |
+| An APIv4 listener or `hook_civicrm_selectWhereClause` limiting ContributionRecur rows for this search only | A listener cannot tell which screen made a request without a marker the request itself carries, and an ACL clause applies to every call and every join to the entity. Fragile, and the closest to changing what other screens return. Rejected |
+| A join or virtual field from the schema map events | A join to the table `civicrm_payment_processor` is still checked against the PaymentProcessor entity (`Api4SelectQuery::autoJoinFK()` maps the table back to its entity and calls `checkEntityAccess()`), so it would be dropped the same way. Making the target something that is not a known table needs a table expression core did not design for. Rejected |
+| A SQL-level approach in the saved search | The saved search is APIv4 parameters, not SQL, so this is the same idea as the calculated field. This is how it is done |
+| The calculated field (chosen) | Verified: for a user holding exactly `access CiviCRM`, `view all contacts`, `access CiviContribute` and `edit contributions`, the old saved search fails with "Invalid field ...payment_processor_type_id" (the DEF-62 error) and the new one returns the right rows |
+
+The saved search also loses its processor join and its processor title column (the display never showed it). Its payment token
+join stays: the extension already lets anyone with "access CiviContribute" read payment tokens, which every user who can read
+recurring records has.
+
+How it was proved that the user cannot read processor data (PU-O6 to PU-O9, PW-B-failed-01 and PW-B-failed-13): as a user
+with only "edit contributions" and the access it needs, PaymentProcessor reads are refused, a join of either kind to
+PaymentProcessor returns no field (the same for `id`, `name`, `title`, `user_name`, `password`, `signature`, `url_site`,
+`class_name` and the type), a condition on a processor field is refused as an invalid field, the new field returns only 1 or
+0, and no processor key, password, name or title appears in the page's own responses or in the Search Kit display's data.
+
+Limit of the guarantee: core lets any user who can read recurring records read the **title** of processors through the field's
+option lookup (`payment_processor_id:label`, and `getFields` with `loadOptions`). That is core's behaviour for every recurring
+read, not something this feature adds, and it never returns the key, password or any other field. It is logged as a core issue outside this repository.
+
+What happens on a site that is upgraded:
+
+- **Menu entry.** It is a managed record with the policy `unmodified`, so an ordinary reconcile (the extension upgrade, or any
+  cache clear) updates it unless someone changed it in the menu editor. Release 2.8.2 already had "edit contributions", so a
+  site upgrading from a release has nothing to change. A development build between commits `c14eb17` and this change has the
+  administrator-only entry, and the reconcile sets it back (PU-O10). No upgrade step is needed: the existing mechanism does it.
+- **Saved search and display.** The same policy applies, so an unmodified saved search is replaced with the new filter on the
+  reconcile (PU-O10). A saved search someone edited in Search Kit is left alone, as the policy promises, and a user without
+  administrator rights then still gets the old HTTP 500 until it is reverted (Search Kit, Saved Searches, Revert). The local
+  development site had one that core counted as modified (probably left by an earlier local rehearsal of the upgrade test,
+  which edits the saved search on purpose), and Revert gave it the new definition. This is in `docs/UPGRADE.md`.
 
 ### Acceptance criteria
 
 1. A user with only "edit contributions" sees the page in the Contributions menu and sees the Failed and Failing
-   eWAY records, and no records of other processors.
+   eWAY records, and no records of other processors. (PU-O6, PW-B-failed-01)
 2. That user can Reactivate a record from the list, and nothing about a payment processor (its name, key or
-   password) is readable by them through the page or its requests.
-3. A user without "edit contributions" is refused, and an administrator sees what they saw before.
+   password) is readable by them through the page or its requests. (PU-O7, PU-O9, PW-B-failed-01, PW-B-failed-13)
+3. A user without "edit contributions" is refused, and an administrator sees what they saw before. (PU-O8, PU-O9, PW-B-failed-01)
 
 ### Test coverage
 
 | ID | What it covers |
 | --- | --- |
-| PW-B-failed-01 | Who can open the list: the cases change when this is built (finance sees the list, limited does not) |
+| PU-O6 | A user who may not administer sees only the live eWAY records that have a card, through the saved search and through the Search Kit display |
+| PU-O7 | That user cannot read any processor field through ContributionRecur (joins, conditions, the new field, the page's data); the saved search does not name the PaymentProcessor entity |
+| PU-O8 | The field follows processors added or changed with nothing to refresh, changes no other call, and an administrator sees the same records as the old join gave |
+| PU-O9 | Reactivate works for a user with "edit contributions" and is refused without it |
+| PU-O10 | The page and menu entry need "edit contributions"; an upgrade replaces an older menu entry and saved search unless a person changed them |
+| PW-B-failed-01 | `finance` sees the entry under Contributions and the Failed and Failing eWAY records and can Reactivate one; `limited` is refused; the administrator still works |
+| PW-B-failed-13 | `finance` cannot read any processor data through the page's responses, the Search Kit request or APIv4 |
 
 ---
 
@@ -575,6 +636,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-15 | FR-4 built (`in progress`): decisions F1 (a calculated `is_eway_processor` field on ContributionRecur through a spec provider replaces the join to the payment processor) and F2 ("edit contributions" for the page and menu entry) decided and recorded with the options weighed and the evidence. Page and menu entry back to "edit contributions". PU-O6 to PU-O10 and PW-B-failed-13 added. |
 | 2026-11-15 | FR-4 added as `planned`: let finance staff open the Failed Recurring Contributions list without access to payment processors (the better follow-up to DEF-62, which now needs "administer CiviCRM"). |
 | 2026-11-15 | FR-1 decision D3 decided by the owner: a failure does not move the schedule date, a successful charge moves it from the due date to the first date after today, so a recovered record is charged once by the next run (built and tested as DEF-46 and DEF-58, PU-F29 to PU-F40). |
 | 2026-11-14 | FR-3 added as `idea`: check a new card with the issuer when it is added (recorded as DEF-33, reclassified as not a defect), with what eWAY's documentation says, three options and six open decisions (C1 to C6). Not scheduled. |

@@ -21,6 +21,19 @@ function ewayrecurring_civicrm_config(&$config) {
 }
 
 /**
+ * Implements hook_civicrm_container().
+ *
+ * Registers the calculated ContributionRecur field is_eway_processor, which the Failed Recurring Contributions list
+ * filters on instead of joining the payment processor (DEF-62, FR-4).
+ *
+ * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_container/
+ */
+function ewayrecurring_civicrm_container(\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
+  $container->register(\Civi\EwayRecurring\Api4\ContributionRecurEwaySpecProvider::class, \Civi\EwayRecurring\Api4\ContributionRecurEwaySpecProvider::class)
+    ->addTag('spec_provider');
+}
+
+/**
  * Implements hook_civicrm_install().
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_install

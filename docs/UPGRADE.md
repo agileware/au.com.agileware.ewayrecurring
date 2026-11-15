@@ -27,6 +27,23 @@ periods it missed while it was Failed are not charged as arrears.
 Recurring contributions that are already failing when you upgrade keep the date the earlier release
 gave them. The upgrade does not change any date.
 
+### Finance staff can open the Failed Recurring Contributions list
+
+The Failed Recurring Contributions page (Contributions, Failed Recurring Contributions) and its Reactivate button are
+for users with the "edit contributions" permission, as in earlier releases. Before 3.0.0 the page opened for those users
+but its list failed to load unless the user was an administrator, because the list read the payment processor to pick out
+eWAY records. It now finds eWAY records with a field the extension adds to recurring contributions, which gives only yes or
+no, so a user who cannot see payment processors can use the list and Reactivate. Nothing about the payment processors
+(their API key, password or name) is shown to them, and no permission was added or widened.
+
+The menu entry and the saved search are updated by the upgrade (they are packaged Search Kit and menu records that CiviCRM
+refreshes when the extension is upgraded or the caches are cleared). Two cases are left as they are on purpose:
+
+- If you edited the **Failed Recurring Contributions** saved search in Search Kit, CiviCRM keeps your version. Staff who are
+  not administrators will still see an empty list (an error in the browser) until you open Search Kit, find the saved search
+  and choose **Revert**, or remove its join to Payment Processor and filter on "Paid Through eWAY" instead.
+- If you moved or changed the menu entry yourself, your change is kept. Check its permission is "edit contributions".
+
 ## 2.0.0
 
 The 2.0.0 version introduces use of the eWay RapidAPI 3.1, which requires a

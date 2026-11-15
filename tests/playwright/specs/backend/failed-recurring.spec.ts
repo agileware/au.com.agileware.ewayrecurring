@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base';
 import { adminUrl } from '../../fixtures/cms';
 import { api4, setSettings } from '../../fixtures/civi';
-import { openMenuEntry, resetEwaySettings } from '../../fixtures/backend';
+import { browserApi4, openMenuEntry, resetEwaySettings } from '../../fixtures/backend';
 import { expectedNextPayment, newTransactionId } from '../../fixtures/contribution-page';
 import { responses, type EwayStub } from '../../fixtures/eway-stub';
 import {
@@ -166,25 +166,67 @@ function notification(page: Page) {
 }
 
 test.describe('who can open the list', () => {
-  // Only an administrator may open the list: it reads the payment processor, which holds the API credentials
-  // (DEF-62, fixed by requiring "administer CiviCRM" for the page and the menu entry).
+  // A user with "edit contributions" (and CiviContribute access) may open the list and use Reactivate, without any access
+  // to payment processors. The list finds eWAY records with a calculated field, not a join to the processor, which APIv4
+  // drops for anyone who may not read payment processors (DEF-62, feature FR-4).
+  test('PW-B-failed-01 the finance user is offered the list under Contributions, sees the Failed and Failing eWAY records only, and can Reactivate one', async ({ financePage }) => {
+    test.setTimeout(120_000);
+    const failed = failedRecord('failed01finance');
+    const failing = createRecurring({ label: 'failed01failing', status: 'Failing', failureCount: 1, retryDate: '+1 day' });
+    const otherProcessor = failedRecord('failed01dummy');
+    const [dummy] = api4<{ id: number }>('PaymentProcessor', 'get', {
+      select: ['id'],
+      where: [['name', '=', testData.processors.dummy], ['is_test', '=', false]],
+    });
+    moveToProcessor(otherProcessor.recurId, dummy.id);
+    const before = snapshot(failed.recurId);
+
+    // The entry is offered directly under Contributions, and goes to the list's address.
+    await financePage.goto(adminUrl('contribute', { reset: 1 }));
+    const entry = await openMenuEntry(financePage, 'Contributions', 'Failed Recurring Contributions');
+    const parent = await entry.evaluate((a) => a.closest('ul')?.closest('li')?.querySelector(':scope > a')?.textContent?.trim());
+    expect(parent).toBe('Contributions');
+    expect(await entry.getAttribute('href')).toContain('civicrm%2Fcontribute%2Ffailedrecurring');
+    const rows = financePage.waitForResponse((response) => response.request().method() === 'POST' && /ajax(\/|%2F)api4$/.test(response.url()));
+    await entry.click();
+    await expect(financePage.getByRole('heading', { name: 'Failed Recurring Contributions' }).first()).toBeVisible();
+    expect((await rows).status(), 'the list loads for this user').toBe(200);
+    await financePage.waitForLoadState('networkidle');
+
+    // The list has the Failed and the Failing eWAY records, and not the other processor's.
+    await expect(financePage.locator('.select2-search-choice')).toHaveText(['Failed', 'Failing']);
+    await expect(failedListRow(financePage, failed.recurId)).toHaveCount(1);
+    await expect(failedListRow(financePage, failing.recurId)).toHaveCount(1);
+    await expect(failedListRow(financePage, otherProcessor.recurId)).toHaveCount(0);
+    await expect(failedListRow(financePage, failed.recurId).locator('[data-field-name="contribution_status_id:label"]')).toHaveText('Failed');
+    await expect(failedListRow(financePage, failed.recurId).locator('[data-field-name="contact_id.display_name"]')).toContainText(`${failed.donor.firstName} ${failed.donor.lastName}`);
+
+    // And Reactivate works for them: the dialog, the update, the row leaves the list, the record is In Progress.
+    await openRowDialog(financePage, failed.recurId);
+    await pressInReactivateDialog(financePage, /Reactivate Recurring Contributions/);
+    await expect(notification(financePage)).toContainText('Successfully reactivated 1 Recurring Contributions.');
+    await expect(reactivateDialog(financePage)).toHaveCount(0);
+    expect(snapshot(failed.recurId)).toEqual({ ...before, status: 'In Progress', failures: 0, retry: null });
+    await expect(failedListRow(financePage, failed.recurId)).toHaveCount(0);
+    // The record they did not touch is still Failing.
+    expect(snapshot(failing.recurId).status).toBe('Failing');
+  });
+
   test.describe('refused users', () => {
     test.use({ allowedProblems: [either(SCREEN_NOISE, REFUSAL_NOISE)] });
 
-    test('PW-B-failed-01 the finance and limited users are refused: no list, no rows, and no menu entry', async ({ financePage, limitedPage }) => {
+    test('PW-B-failed-01 the limited user (no "edit contributions") is refused: no list, no rows, and no menu entry', async ({ limitedPage }) => {
       const record = failedRecord('failed01refused');
-      for (const [name, page] of [['finance', financePage], ['limited', limitedPage]] as const) {
-        const response = await page.goto(adminUrl('contribute/failedrecurring', { reset: 1 }));
-        expect(REFUSAL_STATUS, `${name}: HTTP status ${response?.status()}`).toContain(response?.status());
-        await expect(page.getByText('You do not have permission to access this page.'), name).toBeVisible();
-        await expect(page.locator('crm-search-display-table, table.table'), name).toHaveCount(0);
-        await expect(failedListRow(page, record.recurId), name).toHaveCount(0);
+      const response = await limitedPage.goto(adminUrl('contribute/failedrecurring', { reset: 1 }));
+      expect(REFUSAL_STATUS, `HTTP status ${response?.status()}`).toContain(response?.status());
+      await expect(limitedPage.getByText('You do not have permission to access this page.')).toBeVisible();
+      await expect(limitedPage.locator('crm-search-display-table, table.table')).toHaveCount(0);
+      await expect(failedListRow(limitedPage, record.recurId)).toHaveCount(0);
 
-        // The menu does not offer the entry to this user, under Contributions or anywhere else.
-        await page.goto(adminUrl('dashboard', { reset: 1 }));
-        await expect(page.locator('#civicrm-menu'), name).toBeVisible();
-        await expect(page.locator('#civicrm-menu a', { hasText: 'Failed Recurring Contributions' }), name).toHaveCount(0);
-      }
+      // The menu does not offer the entry to this user, under Contributions or anywhere else.
+      await limitedPage.goto(adminUrl('dashboard', { reset: 1 }));
+      await expect(limitedPage.locator('#civicrm-menu')).toBeVisible();
+      await expect(limitedPage.locator('#civicrm-menu a', { hasText: 'Failed Recurring Contributions' })).toHaveCount(0);
     });
   });
 
@@ -201,6 +243,74 @@ test.describe('who can open the list', () => {
     await expect(adminPage.getByRole('heading', { name: 'Failed Recurring Contributions' }).first()).toBeVisible();
     await expect(adminPage.locator('.select2-search-choice')).toHaveText(['Failed', 'Failing']);
     await expect(failedListRow(adminPage, record.recurId)).toHaveCount(1);
+  });
+
+  test.describe('payment processor data', () => {
+    // The refused PaymentProcessor read is a 403 from the ajax route, which the collector would report.
+    test.use({ allowedProblems: [either(SCREEN_NOISE, /HTTP 403 from .*ajax(\/|%2F)api4|status of 403/)] });
+
+    test('PW-B-failed-13 the finance user cannot read any payment processor data through the page, its requests or APIv4', async ({ financePage }) => {
+      test.setTimeout(120_000);
+      const record = failedRecord('failed13');
+      // What a processor holds that must not reach this user: its API key and password (their values), and its name and title.
+      const [processor] = api4<Record<string, any>>('PaymentProcessor', 'get', {
+        select: ['id', 'name', 'title', 'user_name', 'password'],
+        where: [['name', '=', testData.processors.live], ['is_test', '=', false]],
+      });
+      const secrets = [processor.user_name, processor.password, processor.name, processor.title].map(String);
+      expect(secrets.every((value) => value.length > 3), 'set-up: the processor has values to look for').toBe(true);
+
+      // Every response the page gets while the list loads (the list's own data request, the page and its scripts) is read.
+      const bodies: string[] = [];
+      financePage.on('response', async (response) => {
+        if (/\.(png|jpe?g|gif|woff2?|ttf|svg|ico)(\?|$)/.test(response.url())) {
+          return;
+        }
+        try {
+          bodies.push(await response.text());
+        } catch {
+          // A response that was cancelled or has no body.
+        }
+      });
+      await openFailedList(financePage);
+      await expect(failedListRow(financePage, record.recurId)).toHaveCount(1);
+      await financePage.waitForTimeout(500);
+      expect(bodies.length, 'responses were read').toBeGreaterThan(3);
+      for (const secret of secrets) {
+        expect(bodies.some((body) => body.includes(secret)), `no response of the page holds a processor value (${secret.length} characters)`).toBe(false);
+      }
+
+      // The same calls the page and its buttons use, and the ones a user could try by hand, from this user's own session.
+      const refused = await browserApi4(financePage, 'PaymentProcessor', 'get', { select: ['id', 'name', 'user_name', 'password'] });
+      expect(refused).toEqual({ ok: false, status: 403 });
+      for (const field of ['id', 'name', 'title', 'user_name', 'password', 'signature', 'url_site', 'class_name', 'payment_processor_type_id:name']) {
+        const implicit = await browserApi4(financePage, 'ContributionRecur', 'get', {
+          select: ['id', `payment_processor_id.${field}`],
+          where: [['id', '=', record.recurId]],
+        });
+        expect(implicit, `payment_processor_id.${field}`).toEqual({ ok: true, values: [{ id: record.recurId }] });
+        const explicit = await browserApi4(financePage, 'ContributionRecur', 'get', {
+          select: ['id', `pp.${field}`],
+          join: [['PaymentProcessor AS pp', 'LEFT', ['payment_processor_id', '=', 'pp.id']]],
+          where: [['id', '=', record.recurId]],
+        });
+        expect(explicit, `an explicit join's ${field}`).toEqual({ ok: true, values: [{ id: record.recurId }] });
+      }
+      // The saved search's own request, as the page makes it, has no processor value either.
+      const list = await browserApi4(financePage, 'SearchDisplay', 'run', {
+        savedSearch: 'Failed_Recurring_Contributions',
+        display: 'Failed_Recurring_Contribution_Listing',
+        return: 'page:1',
+      });
+      expect(list.ok).toBe(true);
+      expect(list.values!.length).toBeGreaterThan(0);
+      for (const secret of secrets) {
+        expect(JSON.stringify(list.values), 'the list data').not.toContain(secret);
+      }
+      // The only thing the calculated field gives is yes or no.
+      const flag = await browserApi4(financePage, 'ContributionRecur', 'get', { select: ['id', 'is_eway_processor'], where: [['id', '=', record.recurId]] });
+      expect(flag).toEqual({ ok: true, values: [{ id: record.recurId, is_eway_processor: true }] });
+    });
   });
 });
 
