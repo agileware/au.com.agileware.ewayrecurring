@@ -13,6 +13,8 @@ import {
   invoiceOf,
   isJsonText,
   json,
+  NAVIGATED_AWAY,
+  REFUSED_STATUS,
   newContact,
   post,
   routeUrl,
@@ -136,12 +138,17 @@ test.describe('the return page: the processor and the invoice id', () => {
     const invoice = invoiceOf(payment.contributionId);
     stub.respond('getTransaction', approvedTransaction(invoice, 25), { repeat: true });
 
-    // The test-mode eWAY processor (mode mismatch), the Dummy processor and core's own test processor (not eWAY's), ids
-    // that are no processor, and a processor id written so that it is a number only to a sloppy reader.
+    // Every processor on this site that is not the live eWAY one: the test-mode eWAY record (mode mismatch), the Dummy
+    // processor, and whatever else the site has that is not eWAY's (core's own test processor on a development site; the
+    // CI site has only the eWAY records and the Dummy one, so the list is read from the site and not assumed). Then ids that
+    // are no processor, and processor ids written so that they are numbers only to a sloppy reader.
+    const others = api4<{ id: number; title: string; is_test: boolean; 'payment_processor_type_id:name': string }>('PaymentProcessor', 'get', {
+      select: ['id', 'title', 'is_test', 'payment_processor_type_id:name'],
+      where: [['is_test', 'IN', [true, false]]],
+    }).filter((row) => row.id !== processors.live && (row['payment_processor_type_id:name'] !== 'eWay_Recurring' || row.is_test));
+    expect(others.map((row) => row.id), 'the seeded test-mode and Dummy processors are among them').toEqual(expect.arrayContaining([processors.test, processors.dummy]));
     const attempts: [string, number | string][] = [
-      ['the test-mode eWAY processor', processors.test],
-      ['the Dummy processor', processors.dummy],
-      ['the first processor on the site', 1],
+      ...others.map((row): [string, number] => [`${row.is_test ? 'test-mode ' : ''}processor ${row.id} (${row.title})`, row.id]),
       ['no such processor', 99999999],
       ['zero', 0],
       ['a processor id with a plus sign', `+${processors.live}`],
@@ -280,7 +287,7 @@ test.describe('the return page: replaying a completed return', () => {
   });
 
   test.describe('a visitor who follows the redirect', () => {
-    test.use({ allowedProblems: [/status of (403|500)|HTTP (403|500) from/] });
+    test.use({ allowedProblems: [new RegExp(`${REFUSED_STATUS.source}|${NAVIGATED_AWAY.source}`)] });
 
     test('PW-S-02 the replayed address shows a visitor with no session nothing of the donor', async ({ anonPage, stub }) => {
       const { live } = seededProcessors();

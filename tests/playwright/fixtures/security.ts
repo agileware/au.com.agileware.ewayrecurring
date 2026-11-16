@@ -27,6 +27,19 @@ export function withoutCoreNoise(body: string): string {
   return body.replace(/(<br \/>\s*)?(<b>)?Warning(<\/b>)?:\s+http_response_code\(\): Cannot set response code[\s\S]{0,400}?on line (<b>)?\d+(<\/b>)?(<br \/>)?/g, '');
 }
 
+/**
+ * What the browser reports when a page refuses a request (HTTP 403 here, HTTP 500 on a fresh CI site, which CiviCRM answers
+ * with its permission page), as a console error and as a failed watched request. For tests that make a refused request on
+ * purpose; the same status from a request that should have worked still fails them elsewhere.
+ */
+export const REFUSED_STATUS = /status of (403|500)|HTTP (403|500) from|status: 403/;
+
+/**
+ * A request the browser cancelled because the test moved on to another page while the page's own script was still asking
+ * the API for data (the contact tabs and the Search Kit lists do). It is the test navigating, not a failure of the page.
+ */
+export const NAVIGATED_AWAY = /ajax%2Fapi4 \(net::ERR_ABORTED\)|SearchDisplay%2Frun \(net::ERR_ABORTED\)/;
+
 /** The headers a script made with jQuery sends, which a plain navigation or a cross-site form post lacks. */
 export const XHR = { 'X-Requested-With': 'XMLHttpRequest' };
 

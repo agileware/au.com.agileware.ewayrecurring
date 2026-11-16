@@ -13,7 +13,7 @@ import {
   recurRow,
   type RecurringRecord,
 } from '../../fixtures/recurring-records';
-import { tokenTotal, seededProcessors, withoutCoreNoise } from '../../fixtures/security';
+import { NAVIGATED_AWAY, tokenTotal, seededProcessors, withoutCoreNoise } from '../../fixtures/security';
 import testData from '../../fixtures/test-data.json';
 
 /**
@@ -41,7 +41,7 @@ import testData from '../../fixtures/test-data.json';
 const HEADERS_SENT = /http_response_code\(\): Cannot set response code/;
 /** What the browser reports for a refusal (HTTP 403 or 500) and the CMS's admin script noise on an error page. */
 const REFUSED = /status of (403|404|500)|status: 403|HTTP (403|500) from|ViewTransition|Undefined array key "is_required"|values is not iterable/;
-const NOISE = new RegExp(`${HEADERS_SENT.source}|${REFUSED.source}`);
+const NOISE = new RegExp(`${HEADERS_SENT.source}|${REFUSED.source}|${NAVIGATED_AWAY.source}`);
 
 test.use({ allowedProblems: [NOISE] });
 

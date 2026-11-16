@@ -19,7 +19,7 @@ import {
 import { eventUrl, fillPaidRegistration, paidEventId, pressReview } from '../../fixtures/event-registration';
 import { createRecurring } from '../../fixtures/recurring-records';
 import { failedListRow, openFailedList, recurringViewUrl, SCREEN_NOISE } from '../../fixtures/recurring-screens';
-import { XHR, billingForm, failedListIsCurrent, get, newContact, post, routeUrl, seededProcessors, visibleText } from '../../fixtures/security';
+import { NAVIGATED_AWAY, REFUSED_STATUS, XHR, billingForm, failedListIsCurrent, get, newContact, post, routeUrl, seededProcessors, visibleText } from '../../fixtures/security';
 import testData from '../../fixtures/test-data.json';
 
 /**
@@ -108,8 +108,10 @@ class Capture {
 
 test.describe('what donors and staff are sent', () => {
   // The donor's card list is refused to a donor (HTTP 403), which the browser logs.
-  // Refusals (HTTP 403, and core's own warning about setting the status after the page began, upstream-issues/07).
-  test.use({ allowedProblems: [new RegExp(`${SCREEN_NOISE.source}|status of 403|status: 403|HTTP 403 from|Cannot set response code`)] });
+  // Refusals: the donor's card list is refused to a donor, and the processor screens are refused to staff without administrator
+  // rights (HTTP 403 here, 500 on a fresh CI site), plus core's own warning about setting the status after the page began
+  // (upstream-issues/07) and requests cancelled when the test moves to the next page.
+  test.use({ allowedProblems: [new RegExp(`${SCREEN_NOISE.source}|${NAVIGATED_AWAY.source}|${REFUSED_STATUS.source}|Cannot set response code`)] });
 
   test('PW-S-04 a donor\'s journeys carry neither the API key nor the password: the contribution pages, the confirm step, the thank-you step and the event registration', async ({ anonPage, stub }) => {
     test.setTimeout(150_000);
@@ -237,7 +239,8 @@ test.describe('what donors and staff are sent', () => {
 });
 
 test.describe('who can read the processor', () => {
-  test.use({ allowedProblems: [/status of (403|500)|HTTP (403|500) from/] });
+  // Refusals are on purpose here; the administrator's test also moves between pages with the API still being asked.
+  test.use({ allowedProblems: [new RegExp(`${REFUSED_STATUS.source}|${NAVIGATED_AWAY.source}`)] });
 
   test('PW-S-04 the processor and its credentials are refused to a visitor and to every persona but the administrator, through every API and screen', async ({ anonPage, financePage, tokenviewerPage, limitedPage, adminPage }) => {
     const { live } = seededProcessors();

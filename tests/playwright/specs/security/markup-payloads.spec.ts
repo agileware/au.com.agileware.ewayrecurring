@@ -18,7 +18,7 @@ import {
 } from '../../fixtures/contribution-page';
 import { createRecurring, type RecurringRecord } from '../../fixtures/recurring-records';
 import { failedListRow, openFailedList, recurringViewUrl, SCREEN_NOISE } from '../../fixtures/recurring-screens';
-import { failedListIsCurrent } from '../../fixtures/security';
+import { NAVIGATED_AWAY, REFUSED_STATUS, failedListIsCurrent } from '../../fixtures/security';
 
 /**
  * PW-S-01: script and markup in the places a donor, an eWAY answer or a data import can put text, shown as text and never
@@ -90,7 +90,7 @@ function failOnDialog(page: Page): string[] {
 }
 
 test.describe('through the donor\'s form', () => {
-  test.use({ allowedProblems: [/status of (403|500)|HTTP (403|500) from/] });
+  test.use({ allowedProblems: [new RegExp(`${REFUSED_STATUS.source}|${NAVIGATED_AWAY.source}`)] });
 
   for (const [name, payload] of Object.entries(PAYLOADS)) {
     test(`PW-S-01 a ${name} payload in the billing name and address is refused or shown as text on the confirm and thank-you steps`, async ({ anonPage, stub }) => {
@@ -165,7 +165,7 @@ function recordWithPayloads(label: string, status: 'Failed' | 'In Progress' = 'I
 
 test.describe('through the data, on the staff screens', () => {
   // The donor's card list is refused to a donor (HTTP 403), which the browser logs.
-  test.use({ allowedProblems: [new RegExp(`${SCREEN_NOISE.source}|status of 403|status: 403|HTTP 403 from`)] });
+  test.use({ allowedProblems: [new RegExp(`${SCREEN_NOISE.source}|${NAVIGATED_AWAY.source}|status of 403|status: 403|HTTP 403 from`)] });
 
   test('PW-S-01 the Failed list, the contact, the recurring and the contribution screens show the payloads as text and run nothing', async ({ financePage, adminPage }) => {
     test.setTimeout(120_000);
@@ -199,17 +199,23 @@ test.describe('through the data, on the staff screens', () => {
     expect(adminDialogs).toEqual([]);
   });
 
-  // KNOWN DEFECT IN CORE (upstream-issues/14): core's Recurring Contribution page prints the record's cancel reason without
-  // escaping (templates/CRM/Contribute/Page/ContributionRecur.tpl) and runs a script in a contribution's source. This case
-  // asserts the right behaviour and is expected to fail until core is fixed.
-  test('PW-S-01 core\'s Recurring Contribution page shows a cancel reason and a contribution source with markup in them as text', async ({ adminPage }) => {
-    test.fail(true, 'core: the recurring contribution page does not escape the cancel reason or a contribution\'s source (upstream-issues/14)');
-    const dialogs = failOnDialog(adminPage);
-    const record = recordWithPayloads('s01recurview');
-    await adminPage.goto(recurringViewUrl(record));
-    await adminPage.waitForLoadState('networkidle');
-    await expectNothingInjected(adminPage, 'recurring contribution page');
-    expect(dialogs).toEqual([]);
+  // The payload's image is a broken address, so the page also logs a 404 for it (and on CiviCRM 6.19.5, where the page still runs
+  // the script, the browser reports that as a console error).
+  test.describe('a page that runs the payload', () => {
+    test.use({ allowedProblems: [new RegExp(`${SCREEN_NOISE.source}|${NAVIGATED_AWAY.source}|status of 404`)] });
+
+    // KNOWN DEFECT IN CORE (upstream-issues/14): core's Recurring Contribution page prints the record's cancel reason without
+    // escaping (templates/CRM/Contribute/Page/ContributionRecur.tpl) and runs a script in a contribution's source. This case
+    // asserts the right behaviour and is expected to fail until core is fixed.
+    test('PW-S-01 core\'s Recurring Contribution page shows a cancel reason and a contribution source with markup in them as text', async ({ adminPage }) => {
+      test.fail(true, 'core: the recurring contribution page does not escape the cancel reason or a contribution\'s source (upstream-issues/14)');
+      const dialogs = failOnDialog(adminPage);
+      const record = recordWithPayloads('s01recurview');
+      await adminPage.goto(recurringViewUrl(record));
+      await adminPage.waitForLoadState('networkidle');
+      await expectNothingInjected(adminPage, 'recurring contribution page');
+      expect(dialogs).toEqual([]);
+    });
   });
 
   test('PW-S-01 the Update Billing form fills the payloads into its boxes as values, for staff and for a donor with a checksum link', async ({ adminPage, anonPage }) => {
@@ -247,7 +253,7 @@ test.describe('through the data, on the staff screens', () => {
 });
 
 test.describe('words from eWAY', () => {
-  test.use({ allowedProblems: [/status of (403|500)|HTTP (403|500) from/] });
+  test.use({ allowedProblems: [new RegExp(`${REFUSED_STATUS.source}|${NAVIGATED_AWAY.source}`)] });
 
   test('PW-S-01 a decline message with markup in it is shown to the donor as text', async ({ anonPage, stub }) => {
     test.setTimeout(120_000);
