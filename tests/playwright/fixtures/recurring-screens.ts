@@ -121,6 +121,26 @@ export function failedListHeader(page: Page, label: string): Locator {
   return page.locator('thead th').filter({ has: page.locator('.crm-search-display-table-column-label', { hasText: new RegExp(`^\\s*${label}\\s*$`) }) });
 }
 
+/**
+ * Search Kit launches a search for a sort or page click through a debounce that drops any launch made within 300ms of the
+ * one before (`getResultsPronto` in core's searchDisplayBaseTrait: leading edge only, 300ms). A click that comes sooner still
+ * changes the header's arrow or the pager's active page, but no request is made and the rows stay as they were. A fast site
+ * (the CI one) is quick enough to click inside that window, so every sort or page click waits this long first.
+ */
+export const SEARCH_LAUNCH_GAP_MS = 400;
+
+/** Click a column header of the Failed Recurring Contributions list to sort by it (a second click reverses the order). */
+export async function sortFailedListBy(page: Page, label: string): Promise<void> {
+  await page.waitForTimeout(SEARCH_LAUNCH_GAP_MS);
+  await failedListHeader(page, label).click();
+}
+
+/** Click a page number in the list's pager. */
+export async function goToFailedListPage(page: Page, pageNumber: number): Promise<void> {
+  await page.waitForTimeout(SEARCH_LAUNCH_GAP_MS);
+  await page.locator('ul.pagination li.pagination-page a', { hasText: new RegExp(`^${pageNumber}$`) }).click();
+}
+
 /** The labels of the list's column headers, left to right (the checkbox and button columns have none). */
 export async function failedListHeaderLabels(page: Page): Promise<string[]> {
   return (await page.locator('thead th .crm-search-display-table-column-label').allInnerTexts()).map((text) => text.trim()).filter(Boolean);

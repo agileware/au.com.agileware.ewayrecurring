@@ -35,8 +35,10 @@ import {
   pressInReactivateDialog,
   reactivateDialog,
   reactivateRowButton,
+  goToFailedListPage,
   reactivateToolbarButton,
   SCREEN_NOISE,
+  sortFailedListBy,
 } from '../../fixtures/recurring-screens';
 import testData from '../../fixtures/test-data.json';
 
@@ -358,13 +360,13 @@ test.describe('what the list shows', () => {
     await expect(failedListRow(adminPage, failing.recurId).locator('[data-field-name="contribution_status_id:label"]')).toHaveText('Failing');
 
     // Clicking a header sorts by it: ID ascending, then descending; failures ascending.
-    await failedListHeader(adminPage, 'ID').click();
+    await sortFailedListBy(adminPage, 'ID');
     await expect.poll(() => failedListIds(adminPage)).toEqual([later.recurId, earlier.recurId, failing.recurId]);
-    await failedListHeader(adminPage, 'ID').click();
+    await sortFailedListBy(adminPage, 'ID');
     await expect.poll(() => failedListIds(adminPage)).toEqual([failing.recurId, earlier.recurId, later.recurId]);
-    await failedListHeader(adminPage, 'Number of Failures').click();
+    await sortFailedListBy(adminPage, 'Number of Failures');
     await expect.poll(() => failedListIds(adminPage)).toEqual([failing.recurId, earlier.recurId, later.recurId]);
-    await failedListHeader(adminPage, 'Number of Failures').click();
+    await sortFailedListBy(adminPage, 'Number of Failures');
     await expect.poll(() => failedListIds(adminPage)).toEqual([later.recurId, earlier.recurId, failing.recurId]);
 
     // The contact's name links to the contact.
@@ -384,19 +386,20 @@ test.describe('what the list shows', () => {
       const all = [first.recurId, ...others];
       await openFailedList(adminPage);
       // Sort by ID so the pages are the same each time (ties on the default sort have no fixed order).
-      await failedListHeader(adminPage, 'ID').click();
+      await sortFailedListBy(adminPage, 'ID');
       await expect.poll(async () => (await failedListIds(adminPage)).length).toBe(50);
       expect(await failedListIds(adminPage)).toEqual(all.slice(0, 50));
       const pager = adminPage.locator('ul.pagination');
       await expect(pager.locator('li.pagination-page')).toHaveText(['1', '2']);
       await expect(pager.locator('li.pagination-page.active')).toHaveText('1');
 
-      await pager.locator('li.pagination-page a', { hasText: /^2$/ }).click();
+      await goToFailedListPage(adminPage, 2);
       await expect.poll(() => failedListIds(adminPage)).toEqual(all.slice(50));
       await expect(pager.locator('li.pagination-page.active')).toHaveText('2');
-      // Back to the first.
-      await pager.locator('li.pagination-page a', { hasText: /^1$/ }).click();
-      await expect.poll(async () => (await failedListIds(adminPage)).length).toBe(50);
+      // Back to the first: the active page and the rows both come back.
+      await goToFailedListPage(adminPage, 1);
+      await expect(pager.locator('li.pagination-page.active')).toHaveText('1');
+      await expect.poll(() => failedListIds(adminPage)).toEqual(all.slice(0, 50));
     } finally {
       deleteRecurring(others);
     }
@@ -451,8 +454,8 @@ test.describe('what the list shows', () => {
       await adminPage.locator('.select2-drop-active .select2-result-label', { hasText: new RegExp(`^${status}$`) }).click();
     }
     await expect(filter.locator('.select2-search-choice')).toHaveText(['Failed', 'Failing', 'In Progress', 'Cancelled', 'Completed']);
-    await failedListHeader(adminPage, 'ID').click();
-    await failedListHeader(adminPage, 'ID').click();
+    await sortFailedListBy(adminPage, 'ID');
+    await sortFailedListBy(adminPage, 'ID');
     await expect.poll(async () => (await failedListIds(adminPage))[0]).toBe(completed.recurId);
 
     for (const record of [inProgress, cancelled, completed]) {
