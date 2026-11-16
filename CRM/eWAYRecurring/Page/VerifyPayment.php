@@ -63,7 +63,13 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
         // This function will do redirect if the payment failed
         $response = CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $contributionInvoiceID);
       } catch (CRM_Core_Exception $e) {
-        // Treated as neither success nor failure: the request is rejected below.
+        // Treated as neither success nor failure: the request is rejected below. A donor who paid may be told the
+        // payment could not be verified, and the queued verification job then settles it, so leave a trace of why
+        // (DEF-79). The invoice id is the secret that names the payment, so it is not logged.
+        Civi::log()->warning('eWAY return page: the payment could not be verified (payment processor {processor_id}): {msg}', [
+          'processor_id' => $paymentProcessorID,
+          'msg' => $e->getMessage(),
+        ]);
       }
 
       // payment success

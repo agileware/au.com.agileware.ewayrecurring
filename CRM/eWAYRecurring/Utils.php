@@ -44,6 +44,8 @@ class CRM_eWAYRecurring_Utils {
 
     foreach ($transactionsToValidate as $transactionToValidate) {
       $contributionId = $transactionToValidate['contribution_id'];
+      // Set once the contribution and processor are found. A failure after that point is not "not found" (DEF-78).
+      $checking = FALSE;
       try {
 
         // Fetch contribution
@@ -63,6 +65,7 @@ class CRM_eWAYRecurring_Utils {
         ]);
 
         // Validate the transaction
+        $checking = TRUE;
         $response = self::validateContribution($transactionToValidate['access_code'], $contribution, $paymentProcessor);
         $transactionToValidate['tries']++;
 
@@ -93,6 +96,17 @@ class CRM_eWAYRecurring_Utils {
         civicrm_api3('EwayContributionTransactions', 'create', $transactionToValidate);
 
       } catch (CRM_Core_Exception $e) {
+        if ($checking) {
+          // Not a missing contribution or processor: eWAY was asked and something failed afterwards, for example
+          // completing the contribution of an approved payment. The row is still removed below, as before, so say what
+          // happened and for which contribution (DEF-78).
+          Civi::log()->error('eWAY Recurring: the verification job could not finish checking the payment for contribution {contribution_id} (queue row {id}, payment processor {processor_id}), and removed it from the queue: {msg}', [
+            'contribution_id' => $contributionId,
+            'id' => $transactionToValidate['id'],
+            'processor_id' => $transactionToValidate['payment_processor_id'],
+            'msg' => $e->getMessage(),
+          ]);
+        }
         // Contribution/Payment Processor not found, delete the transaction.
         civicrm_api3('EwayContributionTransactions', 'delete', [
           'id' => $transactionToValidate['id'],
@@ -124,7 +138,14 @@ class CRM_eWAYRecurring_Utils {
         civicrm_api3('EwayContributionTransactions', 'create', $transactionPendingMaxTries);
 
       } catch (CRM_Core_Exception $e) {
-      // Contribution not found.
+        // The contribution comes from the queue row, which cannot outlive it, so this is not "not found": the
+        // contribution stays Pending and the row stays in the queue to be tried again every run (DEF-78).
+        Civi::log()->error('eWAY Recurring: the verification job could not mark contribution {contribution_id} Failed after {tries} tries (queue row {id}): {msg}', [
+          'contribution_id' => $contributionID,
+          'tries' => $transactionPendingMaxTries['tries'],
+          'id' => $transactionPendingMaxTries['id'],
+          'msg' => $e->getMessage(),
+        ]);
       }
     }
 
@@ -539,6 +560,15 @@ class CRM_eWAYRecurring_Utils {
       civicrm_api3('ContributionRecur', 'create', $recurringContribution);
     }
     catch (CRM_Core_Exception $e) {
+      // The first payment has already been taken by eWAY, so this must not stop the contribution being completed, and
+      // an error page now would be worse. But the recurring record is left without its token, card and schedule date
+      // (so it can never be charged again), so say so (DEF-77). Only ids and the exception's message are logged, never card or credential data.
+      Civi::log()->error('eWAY Recurring: the first payment was taken but the recurring contribution {recur_id} could not be started (contribution {contribution_id}, payment processor {processor_id}): {msg}', [
+        'recur_id' => $contributionRecurringId,
+        'contribution_id' => $contribution['id'] ?? NULL,
+        'processor_id' => $paymentProcessorId,
+        'msg' => $e->getMessage(),
+      ]);
     }
   }
 

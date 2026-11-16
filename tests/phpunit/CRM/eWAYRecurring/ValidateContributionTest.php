@@ -23,6 +23,15 @@ use CRM_eWAYRecurring_Test_FakeEwayResponses as Responses;
  */
 class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\TestCase implements HeadlessInterface, HookInterface, TransactionalInterface {
 
+  use CRM_eWAYRecurring_Test_LogCapture;
+
+  /**
+   * Listeners a test added to the pre hook, removed in tearDown().
+   *
+   * @var callable[]
+   */
+  private $preHookListeners = [];
+
   /**
    * @var \CRM_eWAYRecurring_Test_FakeEwayHttp
    */
@@ -40,6 +49,11 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
   }
 
   public function tearDown(): void {
+    foreach ($this->preHookListeners as $listener) {
+      \Civi::dispatcher()->removeListener('hook_civicrm_pre', $listener);
+    }
+    $this->preHookListeners = [];
+    $this->releaseLog();
     FakeHttp::uninstall();
     unset($_REQUEST['AccessCode'], $_REQUEST['qfKey']);
     parent::tearDown();
@@ -526,6 +540,221 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
     $this->assertSame('4242', (string) $reloaded['trxn_id']);
     $expectedNext = date('Y-m-d 00:00:00', strtotime('+2 weeks'));
     $this->assertSame($expectedNext, date('Y-m-d H:i:s', strtotime($reloaded['next_sched_contribution_date'])));
+  }
+
+  /**
+   * Make saving one kind of record fail with a CiviCRM exception, as a hook
+   * or a database constraint would.
+   *
+   * @param callable|null $when
+   *   Given the values being saved, says whether to refuse this save.
+   */
+  private function failSavingA(string $objectName, string $op, ?callable $when = NULL): void {
+    $listener = function ($event) use ($objectName, $op, $when) {
+      [$hookOp, $hookObjectName, , $values] = $event->getHookValues();
+      if ($hookObjectName === $objectName && $hookOp === $op && ($when === NULL || $when((array) $values))) {
+        throw new CRM_Core_Exception("Saving the $objectName was refused by the test");
+      }
+    };
+    \Civi::dispatcher()->addListener('hook_civicrm_pre', $listener);
+    $this->preHookListeners[] = $listener;
+  }
+
+  /**
+   * A Pending recurring record, its Pending first contribution, and the
+   * answers eWAY gives for an approved first payment.
+   *
+   * @return array [processor, recurring row, contribution row as the job reads it]
+   */
+  private function approvedFirstRecurringPayment(): array {
+    $processor = Fixture::processor();
+    $contactId = Fixture::contact();
+    $recur = Fixture::recurring($contactId, $processor, [
+      'contribution_status_id:name' => 'Pending',
+      'token' => FALSE,
+      'processor_id' => '',
+      'next_sched_contribution_date' => '+10 years',
+    ]);
+    $contribution = Fixture::contribution($contactId, [
+      'contribution_recur_id' => $recur['id'],
+      'contribution_page_id' => Fixture::contributionPage(),
+    ]);
+    Fixture::queued($contribution['id'], $processor['id'], 'AC0001');
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 4242, 'TokenCustomerID' => 'TOKEN-A']));
+    $this->http->respond('getCustomer', Responses::customerFound('TOKEN-A'));
+    return [$processor, $recur, $this->contributionRowAsTheJobReadsIt($contribution['id'])];
+  }
+
+  /**
+   * The first payment is taken by eWAY, but the recurring record cannot be
+   * loaded to be started. This used to leave no trace at all (DEF-77). The
+   * donor has paid, so the contribution is still completed and nothing is
+   * thrown; the failure is logged with the ids a person needs to repair it.
+   *
+   * @testPlan PU-D16
+   */
+  public function testARecurringRecordThatCannotBeLoadedIsLoggedAndThePaymentStillCompletes(): void {
+    [$processor, , $row] = $this->approvedFirstRecurringPayment();
+    // The row names a recurring record that is not there.
+    $row['contribution_recur_id'] = 99999999;
+    $this->captureLog();
+
+    CRM_eWAYRecurring_Utils::validateContribution('AC0001', $row, $processor);
+
+    $errors = $this->logged('error', 'eWAY Recurring: the first payment was taken');
+    $this->assertCount(1, $errors, 'The failure is logged once, at error level.');
+    $this->assertCount(1, $this->loggedErrors());
+    $this->assertSame(99999999, (int) $errors[0]['context']['recur_id']);
+    $this->assertSame((int) $row['id'], (int) $errors[0]['context']['contribution_id']);
+    $this->assertSame((int) $processor['id'], (int) $errors[0]['context']['processor_id']);
+    $this->assertNotSame('', (string) $errors[0]['context']['msg']);
+    $this->assertSame('Completed', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($row['id'])['contribution_status_id']));
+  }
+
+  /**
+   * The recurring record loads but cannot be saved (here a hook refuses it).
+   * It is left without its token, card and schedule date, the contribution is
+   * still completed, and the failure is logged without any card data (DEF-77).
+   *
+   * @testPlan PU-D17
+   */
+  public function testARecurringRecordThatCannotBeSavedIsLoggedAndThePaymentStillCompletes(): void {
+    [$processor, $recur, $row] = $this->approvedFirstRecurringPayment();
+    // Only the save that starts the schedule (it carries the eWAY customer token): core also edits the recurring
+    // record when the contribution is completed.
+    $this->failSavingA('ContributionRecur', 'edit', function (array $values) {
+      return ($values['processor_id'] ?? NULL) === 'TOKEN-A';
+    });
+    $this->captureLog();
+
+    CRM_eWAYRecurring_Utils::validateContribution('AC0001', $row, $processor);
+
+    $errors = $this->logged('error', 'eWAY Recurring: the first payment was taken');
+    $this->assertCount(1, $errors);
+    $context = $errors[0]['context'];
+    $this->assertSame((int) $recur['id'], (int) $context['recur_id']);
+    $this->assertSame((int) $row['id'], (int) $context['contribution_id']);
+    $this->assertSame((int) $processor['id'], (int) $context['processor_id']);
+    $this->assertStringContainsString('Saving the ContributionRecur was refused by the test', $context['msg']);
+    $everythingLogged = json_encode($this->logRecords);
+    $this->assertStringNotContainsString('TOKEN-A', $everythingLogged, 'The customer token is not logged.');
+
+    $reloaded = Fixture::reloadRecurring($recur['id']);
+    // Nothing the extension saves reached the record: no eWAY token, no card, and the schedule date is as it was.
+    $this->assertEmpty($reloaded['processor_id']);
+    $this->assertEmpty($reloaded['payment_token_id']);
+    $this->assertGreaterThan(strtotime('+9 years'), strtotime($reloaded['next_sched_contribution_date']));
+    $this->assertSame('Completed', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($row['id'])['contribution_status_id']));
+  }
+
+  /**
+   * The normal path writes nothing at error level, so the log line above
+   * means something. (This one passes with or without the fix: it guards
+   * against logging a failure that did not happen.)
+   *
+   * @testPlan PU-D18
+   */
+  public function testAnApprovedFirstRecurringPaymentLogsNoError(): void {
+    [$processor, $recur, $row] = $this->approvedFirstRecurringPayment();
+    $this->captureLog();
+
+    CRM_eWAYRecurring_Utils::validateContribution('AC0001', $row, $processor);
+
+    $this->assertSame([], $this->loggedErrors());
+    $this->assertSame([], $this->logged('warning', 'eWAY Recurring'));
+    $this->assertSame('In Progress', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_ContributionRecur', 'contribution_status_id', Fixture::reloadRecurring($recur['id'])['contribution_status_id']));
+  }
+
+  /**
+   * The verification job asks eWAY, eWAY approves, but completing the
+   * contribution fails. That is not a missing contribution, yet the job
+   * removed the queue row with no trace of why (DEF-78).
+   *
+   * @testPlan PU-D19
+   */
+  public function testTheVerificationJobLogsAFailureAfterEwayWasAsked(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 777]));
+    $this->failSavingA('Contribution', 'edit');
+    $this->captureLog();
+
+    $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $this->assertSame(1, $result['deleted']);
+    $errors = $this->logged('error', 'eWAY Recurring: the verification job could not finish checking the payment');
+    $this->assertCount(1, $errors);
+    $this->assertSame((int) $contribution['id'], (int) $errors[0]['context']['contribution_id']);
+    $this->assertSame((int) $processor['id'], (int) $errors[0]['context']['processor_id']);
+    $this->assertStringContainsString('Saving the Contribution was refused by the test', $errors[0]['context']['msg']);
+    $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
+  }
+
+  /**
+   * A contribution that is no longer Pending is the ordinary reason for the
+   * job to drop a row, and is not worth an error in the log.
+   *
+   * @testPlan PU-D19
+   */
+  public function testTheVerificationJobDoesNotLogAnErrorForAContributionThatIsNoLongerPending(): void {
+    [$processor, $contactId] = [Fixture::processor(), Fixture::contact()];
+    $contribution = Fixture::contribution($contactId, ['contribution_status_id' => 'Completed']);
+    Fixture::queued($contribution['id'], $processor['id'], 'AC-DONE');
+    $this->captureLog();
+
+    $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $this->assertSame(1, $result['deleted']);
+    $this->assertSame([], $this->loggedErrors());
+    $this->assertSame([], $this->http->requests, 'eWAY is not asked.');
+  }
+
+  /**
+   * Giving up on a row that is out of tries marks the contribution Failed.
+   * When that cannot be saved the contribution stays Pending and the row stays
+   * in the queue, and the job said nothing (DEF-78).
+   *
+   * @testPlan PU-D20
+   */
+  public function testTheVerificationJobLogsWhenItCannotMarkAContributionFailed(): void {
+    [, , $contribution] = $this->pendingPayment();
+    civicrm_api3('EwayContributionTransactions', 'create', [
+      'id' => civicrm_api3('EwayContributionTransactions', 'getsingle', ['contribution_id' => $contribution['id']])['id'],
+      'tries' => CRM_eWAYRecurring_Utils::MAX_TRIES,
+    ]);
+    $this->failSavingA('Contribution', 'edit');
+    $this->captureLog();
+
+    (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $errors = $this->logged('error', 'eWAY Recurring: the verification job could not mark contribution');
+    $this->assertCount(1, $errors);
+    $this->assertSame((int) $contribution['id'], (int) $errors[0]['context']['contribution_id']);
+    $this->assertEquals(CRM_eWAYRecurring_Utils::MAX_TRIES, $errors[0]['context']['tries']);
+    $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
+  }
+
+  /**
+   * The return page rejects a request when validating it throws, which is
+   * right, but a donor who paid then has no trace of why in the log (DEF-79).
+   * The invoice id names the payment, so it is not logged.
+   *
+   * @testPlan PU-D21
+   */
+  public function testTheReturnPageLogsWhyAPaymentCouldNotBeVerified(): void {
+    [$processor, , $contribution] = $this->pendingPayment();
+    $_REQUEST['AccessCode'] = 'AC0001';
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 778]));
+    $this->failSavingA('Contribution', 'edit');
+    $this->captureLog();
+
+    $outcome = (new CRM_eWAYRecurring_Page_VerifyPayment())->resolve($contribution['invoice_id'], (string) $processor['id'], 'qf', 'contribute');
+
+    $this->assertSame(['status' => 400], $outcome);
+    $warnings = $this->logged('warning', 'eWAY return page: the payment could not be verified');
+    $this->assertCount(1, $warnings);
+    $this->assertSame((int) $processor['id'], (int) $warnings[0]['context']['processor_id']);
+    $this->assertStringContainsString('Saving the Contribution was refused by the test', $warnings[0]['context']['msg']);
+    $this->assertStringNotContainsString($contribution['invoice_id'], json_encode($this->logRecords));
   }
 
   /**
