@@ -20,7 +20,11 @@ Cancel and Update Recurring Contribution forms with a Failed record (`PW-B-recur
 are written too, and so are the Failed Recurring Contributions list and its Reactivate action (`PW-B-failed`,
 `failed-recurring.spec.ts`) and back-office saved-card payments (`PW-B-backoffice`, `backoffice-token-payment.spec.ts`).
 The real eWAY sandbox cases (`specs/sandbox/`, `PW-X-01` to `PW-X-05`, tagged `@sandbox`) are written too: see
-[The real sandbox cases](#the-real-sandbox-cases) below. `specs/security/` is still to be written.
+[The real sandbox cases](#the-real-sandbox-cases) below. The security cases (`specs/security/`, `PW-S-01` to `PW-S-05`) attack the extension's entry
+points as a visitor or a signed-in persona would: markup payloads (`markup-payloads.spec.ts`), tampering with the return page and
+the token pages (`return-page-tampering.spec.ts`), who may open each route and API entity (`route-permissions.spec.ts`), the API
+key and password never leaving the server (`secret-exposure.spec.ts`) and a forged card id on the card forms (`tampered-card.spec.ts`).
+They use plain HTTP requests where the status and the redirect matter, and the same fake eWAY as the other groups.
 
 ## How it works
 
@@ -155,6 +159,8 @@ fixtures/
                           settings it owns), CiviCRM's menus (Administer, Contributions), and CRM.api4() called from a signed-in page
   sandbox.ts              the real-sandbox cases: reads the credentials, makes the sandbox processor and pages, drives eWAY's
                           sandbox hosted page, the sandbox test card and amounts
+  security.ts             the security specs: plain HTTP requests as an attacker makes them (get, post, the answer's status and body), the
+                          return address and eWAY's answers for an invoice, the seeded processors, a fresh contact, and the billing form fields
   visibility.ts           checks that a message really shows inside the theme (size, position, contrast, not covered)
   civi.ts                 cv api4 / ev / scr wrappers
   eway-stub.ts            scripted responses, the request log, the fake hosted page's HTML, response builders
@@ -178,5 +184,5 @@ specs/
                           PW-B-backoffice (backoffice-token-payment.spec.ts)
   sandbox/                PW-X (sandbox-once-off, sandbox-recurring, sandbox-card, sandbox-settlement .spec.ts), the real eWAY
                           sandbox, skipped unless the two credential variables are set
-  security/               still to be written
+  security/               PW-S: markup-payloads, return-page-tampering, route-permissions, secret-exposure, tampered-card (.spec.ts)
 ```
