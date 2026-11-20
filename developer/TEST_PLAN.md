@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | Extension version | 2.8.2 |
-| Status last updated | 2026-11-16 |
+| Status last updated | 2026-11-21 |
 | Owner | Extension maintainers (update this file in the same pull request as any test change) |
 | Related | [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment), [FEATURES.md](FEATURES.md) (planned features) |
 
@@ -68,17 +68,17 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **322**. Done: **188**. In progress: **129**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **322**. Done: **200**. In progress: **117**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 11 | 0 | 0 | 0 | 0 | none |
-| PU-B | PHPUnit | `DoPaymentTest` | 19 | 18 | 1 | 0 | 0 | 0 | none (S1 done); PU-B19 `wip` until a CI run |
+| PU-B | PHPUnit | `DoPaymentTest` | 19 | 19 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 3 | 0 | 0 | 0 | 0 | none |
-| PU-D | PHPUnit | `ValidateContributionTest` | 21 | 12 | 9 | 0 | 0 | 0 | none (S1 done); PU-D13 to PU-D21 `wip` until a CI run |
+| PU-D | PHPUnit | `ValidateContributionTest` | 21 | 21 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-F | PHPUnit | `RecurringProcessingTest` | 41 | 41 | 0 | 0 | 0 | 0 | none (S1 done)
-| PU-G | PHPUnit | `PaymentTokenTest` | 14 | 12 | 2 | 0 | 0 | 0 | none (S1 done); PU-G13 and PU-G14 `wip` until a CI run |
+| PU-G | PHPUnit | `PaymentTokenTest` | 14 | 14 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-H | PHPUnit | `HooksAndManagedTest` | 16 | 16 | 0 | 0 | 0 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 4 | 0 | 0 | 0 | 0 | none |
 | PU-J | PHPUnit | `SettingsFormTest` | 10 | 10 | 0 | 0 | 0 | 0 | none |
@@ -95,16 +95,16 @@ Cases defined: **322**. Done: **188**. In progress: **129**. Blocked: **0**. To 
 | PW-F4 | Playwright | `specs/frontend/` | 7 | 0 | 7 | 0 | 0 | 0 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F5 | Playwright | `specs/frontend/` | 4 | 0 | 4 | 0 | 0 | 0 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F6 | Playwright | `specs/frontend/` | 7 | 0 | 6 | 0 | 0 | 1 | Pass on WordPress (GitHub); `done` once Drupal, Joomla and Standalone have run them; PW-F6-02 dropped with the deleted page |
-| PW-B-settings | Playwright | `specs/backend/` | 8 | 0 | 8 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-B-processor | Playwright | `specs/backend/` | 4 | 0 | 4 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-B-jobs | Playwright | `specs/backend/` | 5 | 0 | 5 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-B-cron | Playwright | `specs/backend/` | 8 | 0 | 8 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-B-failed | Playwright | `specs/backend/` | 13 | 0 | 13 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-B-status | Playwright | `specs/backend/` | 3 | 0 | 3 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-B-recurforms | Playwright | `specs/backend/` | 5 | 0 | 5 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-B-backoffice | Playwright | `specs/backend/` | 10 | 0 | 10 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them; one test each for PW-B-backoffice-03 (DEF-63) and PW-B-backoffice-08 (DEF-65) is pinned by `test.fail()` |
-| PW-B-permissions | Playwright | `specs/backend/` | 3 | 0 | 3 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them |
-| PW-S | Playwright | `specs/security/` | 5 | 0 | 5 | 0 | 0 | 0 | Pass on WordPress (local only, GitHub run pending); `done` once Drupal, Joomla and Standalone have run them; one test of PW-S-01 is pinned by `test.fail()` (core, DEF-76) |
+| PW-B-settings | Playwright | `specs/backend/` | 8 | 0 | 8 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-processor | Playwright | `specs/backend/` | 4 | 0 | 4 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-jobs | Playwright | `specs/backend/` | 5 | 0 | 5 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-cron | Playwright | `specs/backend/` | 8 | 0 | 8 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-failed | Playwright | `specs/backend/` | 13 | 0 | 13 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-status | Playwright | `specs/backend/` | 3 | 0 | 3 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-recurforms | Playwright | `specs/backend/` | 5 | 0 | 5 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-B-backoffice | Playwright | `specs/backend/` | 10 | 0 | 10 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them; one test each for PW-B-backoffice-03 (DEF-63) and PW-B-backoffice-08 (DEF-65) is pinned by `test.fail()` |
+| PW-B-permissions | Playwright | `specs/backend/` | 3 | 0 | 3 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
+| PW-S | Playwright | `specs/security/` | 5 | 0 | 5 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them; one test of PW-S-01 is pinned by `test.fail()` (core, DEF-76) |
 | PW-X | Playwright | `specs/sandbox/` | 5 | 0 | 5 | 0 | 0 | 0 | Pass on WordPress (local only, real eWAY sandbox, GitHub run pending; needs `EWAY_SANDBOX_API_KEY` and `EWAY_SANDBOX_API_PASSWORD`, skips without them); the two decline tests skip while the sandbox account approves every amount; wp-only, so `done` after a GitHub run with the secrets |
 
 #### Playwright status by CMS
@@ -118,8 +118,8 @@ run date in the change log.
 | --- | --- | --- | --- | --- |
 | Infrastructure (`cms.ts`, setup scripts, stub, smoke spec) | full (GitHub and local) | none | none | none |
 | Frontend (PW-F1 to PW-F6) | partial (PW-F1 to PW-F6 green on GitHub) | none | none | none |
-| Backend (PW-B-*) | partial (every PW-B group green on GitHub, run 43669242911 on `c0065b5`) | none | none | none |
-| Security (PW-S) | partial (green locally, no GitHub run yet) | none | none | none |
+| Backend (PW-B-*) | partial (every PW-B group green on GitHub, run 44823804287 on `0771308`) | none | none | none |
+| Security (PW-S) | partial (green on GitHub, run 44823804287 on `0771308`, and locally) | none | none | none |
 | Sandbox (PW-X) | partial (green locally against the real sandbox, 6 passed and 2 skipped; no GitHub run yet) | n/a | n/a | n/a |
 
 Tests that already existed before this plan (not part of the case counts above):
@@ -541,7 +541,7 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 | PU-B16 | done | Back office with `is_recur` but no recurring id: the "update the credit card manually" status message |
 | PU-B17 | done | Back office success sets `payment_status_id` Completed and `trxn_id`; declined transaction fails with the translated message |
 | PU-B18 | done | Back office one-off payment: core leaves `is_recur` out of the parameters unless the Recurring box is ticked, and the payment runs with no warning and no "update the card by hand" reminder (DEF-66). Passes locally, `done` after a CI run |
-| PU-B19 | wip | Markup in the text of an eWAY error that refuses a payment is shown to the donor as text, and the messages stay on separate lines (DEF-74) |
+| PU-B19 | done | Markup in the text of an eWAY error that refuses a payment is shown to the donor as text, and the messages stay on separate lines (DEF-74) |
 
 ### PU-C `ReturnUrlsTest`
 
@@ -567,15 +567,15 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 | PU-D10 | done | `updateCustomerDetails`: creates a new `PaymentToken` (masked number, expiry as last day of month, billing name), updates the existing token when `payment_token_id` is set, returns null when the customer has no card details |
 | PU-D11 | done | `completeEWayTransaction` marks the queue row success, silently ignores an unknown access code |
 | PU-D12 | done | `validateEwayContribution` ignores non-eWAY processors, zero-amount contributions, unknown invoice ids, and respects live/test (`is_test`) |
-| PU-D13 | wip | An invoice id with a wildcard (`%`), or in another case, matches no contribution: nothing is completed or failed, eWAY is not asked, and the exact id is still found (DEF-70) |
-| PU-D14 | wip | An access code that eWAY has no transaction and no error for is "not processed yet" and prints no warning (DEF-71) |
-| PU-D15 | wip | Markup in a decline message is shown on the return page as text (DEF-74) |
-| PU-D16 | wip | A first recurring payment whose recurring record cannot be loaded is logged at error level (recurring id, contribution id, processor id, message) and the contribution is still completed, nothing thrown (DEF-77) |
-| PU-D17 | wip | A first recurring payment whose recurring record cannot be saved (a hook refuses it) is logged the same way, no token is logged, the record keeps no token or card and the contribution is still completed (DEF-77) |
-| PU-D18 | wip | An approved first recurring payment logs nothing at error level and starts the schedule (guards against logging a failure that did not happen; passes with or without the fix) |
-| PU-D19 | wip | The verification job logs an error (contribution id, queue row, processor, message) when completing an approved payment fails after eWAY was asked, and logs none for a contribution that is no longer Pending (DEF-78). The second test guards the quiet clean-up and passes with or without the fix |
-| PU-D20 | wip | The verification job logs an error when it cannot mark a contribution Failed after the retry limit; the contribution stays Pending (DEF-78) |
-| PU-D21 | wip | The return page logs a warning (processor id and message, never the invoice id) when validating throws, and still answers 400 (DEF-79) |
+| PU-D13 | done | An invoice id with a wildcard (`%`), or in another case, matches no contribution: nothing is completed or failed, eWAY is not asked, and the exact id is still found (DEF-70) |
+| PU-D14 | done | An access code that eWAY has no transaction and no error for is "not processed yet" and prints no warning (DEF-71) |
+| PU-D15 | done | Markup in a decline message is shown on the return page as text (DEF-74) |
+| PU-D16 | done | A first recurring payment whose recurring record cannot be loaded is logged at error level (recurring id, contribution id, processor id, message) and the contribution is still completed, nothing thrown (DEF-77) |
+| PU-D17 | done | A first recurring payment whose recurring record cannot be saved (a hook refuses it) is logged the same way, no token is logged, the record keeps no token or card and the contribution is still completed (DEF-77) |
+| PU-D18 | done | An approved first recurring payment logs nothing at error level and starts the schedule (guards against logging a failure that did not happen; passes with or without the fix) |
+| PU-D19 | done | The verification job logs an error (contribution id, queue row, processor, message) when completing an approved payment fails after eWAY was asked, and logs none for a contribution that is no longer Pending (DEF-78). The second test guards the quiet clean-up and passes with or without the fix |
+| PU-D20 | done | The verification job logs an error when it cannot mark a contribution Failed after the retry limit; the contribution stays Pending (DEF-78) |
+| PU-D21 | done | The return page logs a warning (processor id and message, never the invoice id) when validating throws, and still answers 400 (DEF-79) |
 
 ### PU-E `PendingTransactionsTest`
 
@@ -663,8 +663,8 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-G10 | done | `createToken` rejects each missing billing field with `Missing field: ...`, unknown processor, unknown contact |
 | PU-G11 | done | `fillTokensMeta` picks up a token whose expiry and masked number were cleared by an in-place update, and refills them from eWAY using the new token value |
 | PU-G12 | done | `saveToken` stores the card for the contact named in the eWAY customer reference, with the processor, token, masked number and expiry (DEF-9) |
-| PU-G13 | wip | `savetoken`: a list where `pp_id` or the access code is expected is not a processor or a code and prints nothing (DEF-72); a customer reference of several lines names no contact (DEF-73) |
-| PU-G14 | wip | `createtoken`: markup in eWAY's error text is escaped in the JSON answer the script shows (DEF-74) |
+| PU-G13 | done | `savetoken`: a list where `pp_id` or the access code is expected is not a processor or a code and prints nothing (DEF-72); a customer reference of several lines names no contact (DEF-73) |
+| PU-G14 | done | `createtoken`: markup in eWAY's error text is escaped in the JSON answer the script shows (DEF-74) |
 
 (`createToken` and `saveToken` call `die()` and `CRM_Utils_JSON::output()`. The JSON output throws
 under the test framework, so the guard paths are testable as they are (PU-G9). Where `die()` still blocks
@@ -1139,6 +1139,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | All three workflows are green on `0771308` (GitHub runs 44823789528 PHPUnit, 44823795049 upgrade, 44823804287 Playwright): PHPUnit OK with 519 tests and 1792 assertions, upgrade checks all passed, Playwright 210 passed and 8 skipped (the real-sandbox cases, which skip without the secrets). That confirms the two CI-only fixes (`73635bc` for the security specs, `0771308` for PW-B-failed-02). The 12 PHPUnit cases that were `wip` are now `done` (PU-B19, PU-D13 to PU-D21, PU-G13, PU-G14): done is 200, in progress 117. Playwright cases stay `wip` until Drupal, Joomla and Standalone have run them. |
 | 2026-11-16 | Both PW-B-failed-02 tests failed on the GitHub run 43808637706 (86f1a1d, CiviCRM 6.19.5): the second click on the ID header and the click on page 1 of the pager were made within 300ms of the click before, and Search Kit's debounce on launching a search (`getResultsPronto`, leading edge, 300ms) silently dropped them, so the rows stayed in the old order and on page 2. Proved from the traces (only the searches for the first click were sent; the clicks were 199ms and 224ms apart) and core's code. Not a defect in the saved search or in the FR-4 change (the default order assertion passed). The specs now wait 400ms before each sort or page click and the pager case also checks the rows on page 1. Not yet run on GitHub. |
 | 2026-11-16 | Three PW-S tests failed on GitHub (Playwright run 43808637706 on `86f1a1d`, 205 passed, 5 failed, 8 skipped) and are fixed in the specs only, not yet re-run: PW-S-02's processor list assumed core's own test processor was processor 1 (the CI site has only the eWAY records and the Dummy one, so processor 1 was an eWAY one that the stub answered), so it now reads the non-live-eWAY processors from the site; PW-S-04 and the other security describes now allow the HTTP 500 permission page and the requests the browser cancels when a test moves to the next page (`REFUSED_STATUS` and `NAVIGATED_AWAY` in `fixtures/security.ts`); the `test.fail()` step of PW-S-01 (DEF-76) allows the 404 of its broken image, since the problem collector's check runs outside `test.fail()`. The run also showed that core 6.19.5 still runs the script on the recurring page. No case status changed. |
 | 2026-11-16 | A review of the test suite found that `Utils::updateRecurringContribution()` swallowed every failure with an empty `catch`, so a donor could be charged the first payment while the recurring record never got its token, card or schedule date and nothing said why (DEF-77, fixed: the failure is logged at error level with the ids and the message, no rethrow, the contribution still completes). A search of the production code for other swallowed exceptions found two more in the verification job (DEF-78: a failure after eWAY approved a payment deleted the queue row silently, and a failed give-up was silent) and one on the return page (DEF-79), now logged. New PHPUnit cases PU-D16 to PU-D21 in `ValidateContributionTest` (`wip` until a CI run), with a shared `CRM_eWAYRecurring_Test_LogCapture` trait; five of the seven new tests fail without the fix, the other two guard the quiet paths. Not changed, listed in the report: the other empty or fallback catches (billing country lookup, token select JS, status check, queue clean-up where the contribution is gone, JS card-save request without a failure handler). 322 cases: 188 done, 129 in progress, 5 dropped. |
