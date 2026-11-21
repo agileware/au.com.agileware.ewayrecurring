@@ -68,14 +68,14 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **325**. Done: **204**. In progress: **116**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **325**. Done: **208**. In progress: **112**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | PU-A | PHPUnit | `ProcessorBasicsTest` | 11 | 11 | 0 | 0 | 0 | 0 | none |
 | PU-B | PHPUnit | `DoPaymentTest` | 19 | 19 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 3 | 0 | 0 | 0 | 0 | none |
-| PU-D | PHPUnit | `ValidateContributionTest` | 24 | 20 | 4 | 0 | 0 | 0 | none (S1 done); PU-D19 and PU-D22 to PU-D24 `wip` until a CI run |
+| PU-D | PHPUnit | `ValidateContributionTest` | 24 | 24 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-F | PHPUnit | `RecurringProcessingTest` | 41 | 41 | 0 | 0 | 0 | 0 | none (S1 done)
 | PU-G | PHPUnit | `PaymentTokenTest` | 14 | 14 | 0 | 0 | 0 | 0 | none (S1 done) |
@@ -573,12 +573,12 @@ All tests use the fakes from 2.2. IDs are grouped by test class.
 | PU-D16 | done | A first recurring payment whose recurring record cannot be loaded is logged at error level (recurring id, contribution id, processor id, message) and the contribution is still completed, nothing thrown (DEF-77) |
 | PU-D17 | done | A first recurring payment whose recurring record cannot be saved (a hook refuses it) is logged the same way, no token is logged, the record keeps no token or card and the contribution is still completed (DEF-77) |
 | PU-D18 | done | An approved first recurring payment logs nothing at error level and starts the schedule (guards against logging a failure that did not happen; passes with or without the fix) |
-| PU-D19 | wip | When eWAY approved a payment and completing the contribution fails, the verification job keeps the queue row (tries 1, `failed_message` starts with the approved-not-completed text), logs an error (contribution id, queue row, processor, try number, message), leaves the contribution Pending and adds one note naming the eWAY transaction (DEF-78). `wip` until a CI run shows the changed test green |
+| PU-D19 | done | When eWAY approved a payment and completing the contribution fails, the verification job keeps the queue row (tries 1, `failed_message` starts with the approved-not-completed text), logs an error (contribution id, queue row, processor, try number, message), leaves the contribution Pending and adds one note naming the eWAY transaction (DEF-78). |
 | PU-D20 | done | The verification job logs an error when it cannot mark a contribution Failed after the retry limit; the contribution stays Pending (DEF-78) |
 | PU-D21 | done | The return page logs a warning (processor id and message, never the invoice id) when validating throws, and still answers 400 (DEF-79) |
-| PU-D22 | wip | A held payment is tried again on every run without a second note (tries go up); when the cause goes away it completes, the row is Success and the message is cleared (DEF-78) |
-| PU-D23 | wip | A held payment that has used up `MAX_COMPLETION_TRIES` is not tried again: eWAY is not asked, the row is Failed, the contribution stays Pending (never Failed), an error is logged, one "action needed" note is added, and a later run leaves it alone (DEF-78) |
-| PU-D24 | wip | A held payment past the ordinary `MAX_TRIES` is still tried, stays in the queue and its contribution is not marked Failed, with no second "first failure" note (DEF-78) |
+| PU-D22 | done | A held payment is tried again on every run without a second note (tries go up); when the cause goes away it completes, the row is Success and the message is cleared (DEF-78) |
+| PU-D23 | done | A held payment that has used up `MAX_COMPLETION_TRIES` is not tried again: eWAY is not asked, the row is Failed, the contribution stays Pending (never Failed), an error is logged, one "action needed" note is added, and a later run leaves it alone (DEF-78) |
+| PU-D24 | done | A held payment past the ordinary `MAX_TRIES` is still tried, stays in the queue and its contribution is not marked Failed, with no second "first failure" note (DEF-78) |
 
 ### PU-E `PendingTransactionsTest`
 
@@ -1142,6 +1142,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | PHPUnit run 44854938314 on `6da7d49` is green (522 tests, 1827 assertions), so PU-D19 and PU-D22 to PU-D24 (the DEF-78 retry) are `done`: 208 done, 112 in progress. The first run (44854390603) failed only PU-D23, whose test wrongly expected the give-up to wait for the next run; the 96th failed try gives up in the same run, so the test was corrected, not the code. Upgrade tests green on `62e81ca`. Playwright to be re-run because the verification job changed. |
 | 2026-11-21 | DEF-78 retry behaviour built on the owner's decisions (1B, 2A, 3C, 4A): an approved payment that cannot be completed is kept in the verification queue and tried again for up to 96 tries (about 24 hours), never marked Failed, and at the limit the row is marked Failed and the contribution left Pending; notes on the contribution on the first failure and at the give-up say what to do. New `CRM_eWAYRecurring_ApprovedPaymentNotCompletedException`, `Utils::MAX_COMPLETION_TRIES`, a `held` count in the job's result (the five exact-array assertions in `PendingTransactionsTest` now include it), and a section in `docs/README.md`. PU-D19 changed (now `wip`) and PU-D22 to PU-D24 added (`wip`) until a CI run: 325 cases, 204 done, 116 in progress. Feature idea FR-5 (a Search Kit report of these payments) added to FEATURES.md. |
 | 2026-11-21 | The eWAY sandbox account was set to "Use Cents Value" (steps added to `developer/TESTING.md`). GitHub run 44846967063 on `5d35a45`: 218 passed, 0 skipped, so the two decline tests ran and passed as well. PW-X-01 and PW-X-05 are now `done`, which makes all five PW-X cases `done` (wp-only). Done is 205, in progress 112. |
 | 2026-11-21 | The eWAY sandbox secrets now reach the Playwright run: the organisation secrets `EWAY_SANDBOX_API_KEY` and `EWAY_SANDBOX_API_PASSWORD` are forwarded by `frontend-tests.yml` on push and manual runs (not pull requests) through the shared workflow, which gained optional secrets in ci-workflows pull request 15. GitHub run 44842103046 on `015c28e`: 216 passed, 2 skipped. The sandbox project ran for real: PW-X-01 (approved), PW-X-02, PW-X-03, PW-X-04 (both tests) and PW-X-05 (first test) passed; the two decline tests skipped because the sandbox account approves every amount. PW-X-02 to PW-X-04 are `done` (wp-only); PW-X-01 and PW-X-05 stay `wip` until the account is set to "Use Cents Value". Done is 203, in progress 114. |
