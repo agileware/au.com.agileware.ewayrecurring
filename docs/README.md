@@ -49,6 +49,10 @@ All jobs are configurable at `civicrm/admin/job`.
 * **CiviContribute: view payment tokens** and **CiviContribute: edit payment
   tokens** control who can view or manage a contact's stored eWay card
   tokens.
+* **CiviContribute: edit contributions** controls who can open the
+  **Failed Recurring Contributions** and **Blocked Recurring Contributions**
+  lists (under **Contributions** in the menu) and use their Reactivate and
+  Cancel buttons. These users do not need any access to payment processors.
 
 ### API
 
@@ -227,7 +231,9 @@ To update the **Maximum retries** and **Retry delay (in days)** go to
 and **Retry delay** is 4 days.
 
 You will be notified if there are any failed contributions that are no longer being retried via a
-CiviCRM system status check.
+CiviCRM system status check. Recurring contributions that are not being charged because of a cancelled
+contribution have their own list and warning, see
+[Blocked Recurring Contributions](#blocked-recurring-contributions).
 
 ## Skipping an Installment by Cancelling its Contribution
 
@@ -246,6 +252,11 @@ waiting indefinitely. A cancelled contribution never causes a second charge for
 the same installment.
 
 Things to know:
+
+* Recurring contributions that were left waiting on a cancelled contribution before
+  this behaviour existed are listed on the
+  [Blocked Recurring Contributions](#blocked-recurring-contributions) page, where you
+  can reactivate or cancel them.
 
 * It applies only to a contribution that belongs to an eWay recurring
   contribution that is *In Progress*, and is dated on or after the date the
@@ -304,6 +315,9 @@ This processor includes a Search kit action to Reactivate a failed Recurring Con
 The action is not currently available to the built-in Recurring Contribution list on the contact
 card, however may be added to any Search kit on Recurring Contributions, for example the included
 "Failed Recurring Contributions" listing.
+
+This action is also on the [Blocked Recurring Contributions](#blocked-recurring-contributions) list,
+where a date after the cancelled contribution is needed for it to take effect.
 
 This action will prompt you for an optional date to reset the next scheduled date to process the
 recurring contribution, and then:
