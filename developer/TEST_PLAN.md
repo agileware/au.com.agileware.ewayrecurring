@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **330**. Done: **206**. In progress: **119**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **330**. Done: **213**. In progress: **112**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -77,7 +77,7 @@ Cases defined: **330**. Done: **206**. In progress: **119**. Blocked: **0**. To 
 | PU-C | PHPUnit | `ReturnUrlsTest` | 3 | 3 | 0 | 0 | 0 | 0 | none |
 | PU-D | PHPUnit | `ValidateContributionTest` | 24 | 24 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-E | PHPUnit | `PendingTransactionsTest` | 12 | 12 | 0 | 0 | 0 | 0 | none (S1 done) |
-| PU-F | PHPUnit | `RecurringProcessingTest` | 46 | 39 | 7 | 0 | 0 | 0 | none (S1 done); PU-F31, PU-F36 and PU-F42 to PU-F46 `wip` until a CI run
+| PU-F | PHPUnit | `RecurringProcessingTest` | 46 | 46 | 0 | 0 | 0 | 0 | none (S1 done)
 | PU-G | PHPUnit | `PaymentTokenTest` | 14 | 14 | 0 | 0 | 0 | 0 | none (S1 done) |
 | PU-H | PHPUnit | `HooksAndManagedTest` | 16 | 16 | 0 | 0 | 0 | 0 | none |
 | PU-I | PHPUnit | `PermissionsTest` | 4 | 4 | 0 | 0 | 0 | 0 | none |
@@ -638,22 +638,22 @@ Processing (`process_recurring_payments`, `process_payment`):
 | PU-F28 | done | A declined charge whose answer has no ResponseMessage raises no PHP deprecation (DEF-17, fixed: the message was split with explode() on null) |
 | PU-F29 | done | A failed charge does not move `next_sched_contribution_date`, on every route to a failure: a decline on the first attempt, a decline on a retry, a request eWAY refuses, no card token (eWAY never called), for day, week (every 2), month and year records. CiviCRM core moves the date when it records a Failed contribution, so the code puts it back (DEF-46) |
 | PU-F30 | done | A record that fails and then succeeds on a retry is next due one interval after the original due date, not two (DEF-58); the first Failed contribution does not hide it from the retry list; nothing more is charged afterwards |
-| PU-F31 | wip | A Failed contribution dated after the due date (normal list) or retry date (retry list) does not hide the record; a Pending, Completed or Cancelled one still does (DEF-68). `wip` until a CI run shows the changed test green |
+| PU-F31 | done | A Failed contribution dated after the due date (normal list) or retry date (retry list) does not hide the record; a Pending, Completed or Cancelled one still does (DEF-68). |
 | PU-F32 | done | A retry delay of 0 still retries a failed record (DEF-68) |
 | PU-F33 | done | End to end through real failed runs: a record due 70 days ago driven to Failed, then its card updated through `updateSubscriptionBillingInfo`: In Progress, `failure_count` 0, no retry date, due date unchanged; the next run charges it once with the new token, the date becomes the first date after today, and a further run charges nothing (DEF-46, DEF-13) |
 | PU-F34 | done | The same end to end through the Reactivate update |
 | PU-F35 | done | Crash safety: a run that dies after eWAY took the payment (an Error thrown from `completetransaction`) leaves the date alone and a Pending contribution, and the next run does not charge again (the Pending contribution, not the date, is the guard) |
-| PU-F36 | wip | A run that dies before the gateway answers: the same, and if staff cancel the Pending contribution the installment is skipped (the schedule moves on and the next run charges nothing). `wip` until a CI run shows the changed test green |
+| PU-F36 | done | A run that dies before the gateway answers: the same, and if staff cancel the Pending contribution the installment is skipped (the schedule moves on and the next run charges nothing). |
 | PU-F37 | done | A record several intervals overdue (day, week, every 2 weeks, month, quarter, year, including exactly three intervals) is charged once and its next date is the first date after today; it is not charged again |
 | PU-F38 | done | The last installment is Completed, with an end date, only after its charge succeeds: a declined final installment stays In Progress with no end date and is retried (DEF-67) |
 | PU-F39 | done | A successful retry of a middle installment (2 of 3) does not complete the record, because failed attempts are not installments; installment 3 then completes it (DEF-67) |
 | PU-F40 | done | Every frequency unit and an interval above 1: a failure keeps the date, the retry that succeeds moves it from the due date (DEF-46, DEF-58) |
 | PU-F41 | done | A test-mode recurring record with installments is charged and, on its last installment, Completed like a live one: the job looks up the record's own contributions with its `is_test` value, prints no warning, and counts the installments (DEF-69) |
-| PU-F42 | wip | Cancelling a contribution of an In Progress eWAY record dated on or after the due date moves the next scheduled date on (one interval from the due date, never into the past), keeps the record In Progress, adds a note naming both dates and logs it (DEF-68, option 4) |
-| PU-F43 | wip | Cancelling leaves the schedule and notes alone for a contribution dated before the due date, a record that is not In Progress, a record of another processor and a contribution with no recurring record (DEF-68) |
-| PU-F44 | wip | Two contributions cancelled for the same due date move the schedule once: the second cancel changes nothing and adds no note (DEF-68) |
-| PU-F45 | wip | Cancelling the installment of a record being retried moves the schedule on, clears the retry date and failure count, and neither list picks the record up (DEF-68) |
-| PU-F46 | wip | After a cancel the cron charges nothing and leaves the schedule alone; a Cancelled contribution dated after the due date still blocks the record if the date is put back (DEF-68) |
+| PU-F42 | done | Cancelling a contribution of an In Progress eWAY record dated on or after the due date moves the next scheduled date on (one interval from the due date, never into the past), keeps the record In Progress, adds a note naming both dates and logs it (DEF-68, option 4) |
+| PU-F43 | done | Cancelling leaves the schedule and notes alone for a contribution dated before the due date, a record that is not In Progress, a record of another processor and a contribution with no recurring record (DEF-68) |
+| PU-F44 | done | Two contributions cancelled for the same due date move the schedule once: the second cancel changes nothing and adds no note (DEF-68) |
+| PU-F45 | done | Cancelling the installment of a record being retried moves the schedule on, clears the retry date and failure count, and neither list picks the record up (DEF-68) |
+| PU-F46 | done | After a cancel the cron charges nothing and leaves the schedule alone; a Cancelled contribution dated after the due date still blocks the record if the date is put back (DEF-68) |
 
 ### PU-G `PaymentTokenTest`
 
@@ -1147,6 +1147,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | PHPUnit run 44858882369 on `4f700c0` is green (527 tests, 1860 assertions) and the upgrade tests pass (44858886527), so the cancel-skips-the-installment cases are `done`: PU-F31 and PU-F36 (changed) and PU-F42 to PU-F46 (new). Done is 213, in progress 112. Playwright run 44855281629 on `0bc83e3` (before this change): 217 passed, 1 flaky, 0 failed; the flaky one was PW-X-03 (real sandbox), whose first attempt saw "No cards found" right after adding a card and passed on the retry, probably eWAY's sandbox being slow to list a new card (a guess, not confirmed). A Playwright run on the current code is to follow. |
 | 2026-11-21 | Cancelled contributions and the schedule (DEF-68 follow-up, owner decision: option 4). The "already charged" check now ignores only Failed contributions, so a Cancelled one dated on or after the due date (or retry date) blocks the record, and a new `hook_civicrm_post` moves the next scheduled date on when such a contribution is cancelled (`Utils::skipInstallmentOfCancelledContribution()`, which also clears the retry state of a record being retried and adds a note to the contribution). `next_scheduled_date()` moved to `Utils::nextScheduledDate()` (the trait method delegates). Docs: new section in `docs/README.md` and an entry in `docs/UPGRADE.md`. PU-F31 and PU-F36 changed (`wip`), PU-F42 to PU-F46 added (`wip`) until a CI run: 330 cases, 206 done, 119 in progress. |
 | 2026-11-21 | PHPUnit run 44854938314 on `6da7d49` is green (522 tests, 1827 assertions), so PU-D19 and PU-D22 to PU-D24 (the DEF-78 retry) are `done`: 208 done, 112 in progress. The first run (44854390603) failed only PU-D23, whose test wrongly expected the give-up to wait for the next run; the 96th failed try gives up in the same run, so the test was corrected, not the code. Upgrade tests green on `62e81ca`. Playwright to be re-run because the verification job changed. |
 | 2026-11-21 | DEF-78 retry behaviour built on the owner's decisions (1B, 2A, 3C, 4A): an approved payment that cannot be completed is kept in the verification queue and tried again for up to 96 tries (about 24 hours), never marked Failed, and at the limit the row is marked Failed and the contribution left Pending; notes on the contribution on the first failure and at the give-up say what to do. New `CRM_eWAYRecurring_ApprovedPaymentNotCompletedException`, `Utils::MAX_COMPLETION_TRIES`, a `held` count in the job's result (the five exact-array assertions in `PendingTransactionsTest` now include it), and a section in `docs/README.md`. PU-D19 changed (now `wip`) and PU-D22 to PU-D24 added (`wip`) until a CI run: 325 cases, 204 done, 116 in progress. Feature idea FR-5 (a Search Kit report of these payments) added to FEATURES.md. |
