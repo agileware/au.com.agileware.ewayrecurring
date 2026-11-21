@@ -800,7 +800,7 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
 
   /**
    * The retries are not endless. When a held row has used up
-   * MAX_COMPLETION_TRIES the job stops, leaves the contribution Pending (the
+   * MAX_COMPLETION_TRIES (the last try fails, and the same run gives up) the job stops, leaves the contribution Pending (the
    * donor was charged, so it is never marked Failed), marks the row Failed,
    * logs it and adds a note that says action is needed (DEF-78).
    *
@@ -815,16 +815,14 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
     ]);
     $this->failSavingA('Contribution', 'edit');
     $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 780]));
-    (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
-    $this->assertSame(CRM_eWAYRecurring_Utils::MAX_COMPLETION_TRIES, (int) $this->queueRow($contribution['id'])['tries']);
     $this->captureLog();
-    $asked = count($this->http->requests);
 
+    // This is the last try: it fails, and the same run then gives up.
     $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
 
-    $this->assertSame($asked, count($this->http->requests), 'eWAY is not asked again.');
-    $this->assertSame(0, $result['held']);
+    $this->assertSame(1, $result['held']);
     $row = $this->queueRow($contribution['id']);
+    $this->assertSame(CRM_eWAYRecurring_Utils::MAX_COMPLETION_TRIES, (int) $row['tries']);
     $this->assertSame(CRM_eWAYRecurring_Utils::STATUS_FAILED, (int) $row['status']);
     $this->assertStringStartsWith(CRM_eWAYRecurring_Utils::APPROVED_NOT_COMPLETED_PREFIX, $row['failed_message']);
     $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
@@ -835,9 +833,13 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
     $this->assertCount(1, $notes, 'The first-failure note was added on the first try; this row was already held, so only the final one is new.');
     $this->assertStringContainsString('action needed', $notes[0]['subject']);
 
+    // Later runs leave it alone: eWAY is not asked, nothing is logged, no note is added.
+    $asked = count($this->http->requests);
     $this->releaseLog();
     $this->captureLog();
-    (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+    $again = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+    $this->assertSame($asked, count($this->http->requests), 'eWAY is not asked again.');
+    $this->assertSame(0, $again['held']);
     $this->assertSame([], $this->loggedErrors(), 'A row that has been given up on is left alone.');
     $this->assertCount(1, $this->notesOf($contribution['id']));
   }
