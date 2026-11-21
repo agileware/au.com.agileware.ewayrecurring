@@ -68,7 +68,7 @@ for id in $(grep -oE '^\| (PU|PW|UP)-[A-Za-z0-9-]+ \| done' developer/TEST_PLAN.
 
 ### 0.1 Status summary (as of the date above)
 
-Cases defined: **339**. Done: **213**. In progress: **121**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
+Cases defined: **339**. Done: **218**. In progress: **116**. Blocked: **0**. To do: **0**. Dropped (`n/a`): **5** (UP-07, PU-K4 to PU-K6, PW-F6-02).
 
 | Suite | Layer | Home | Cases | Done | WIP | Blocked | Todo | N/A | Needs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -87,7 +87,7 @@ Cases defined: **339**. Done: **213**. In progress: **121**. Blocked: **0**. To 
 | PU-M | PHPUnit | `SettlementSync gaps` | 4 | 4 | 0 | 0 | 0 | 0 | none |
 | PU-N | PHPUnit | `SubscriptionManagementTest` | 9 | 9 | 0 | 0 | 0 | 0 | none |
 | PU-O | PHPUnit | `FailedRecurringSearchTest` | 10 | 10 | 0 | 0 | 0 | 0 | none |
-| PU-P | PHPUnit | `BlockedRecurringSearchTest` | 5 | 0 | 5 | 0 | 0 | 0 | none; `wip` until a CI run |
+| PU-P | PHPUnit | `BlockedRecurringSearchTest` | 5 | 5 | 0 | 0 | 0 | 0 | none |
 | UP | Upgrade (CI) | `tests/upgrade/` | 11 | 10 | 0 | 0 | 0 | 1 | none; passing on GitHub; UP-07 dropped |
 | PW-INF | Playwright | `specs/infrastructure/` | 6 | 0 | 6 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
 | PW-F1 | Playwright | `specs/frontend/` | 13 | 0 | 13 | 0 | 0 | 0 | Pass on WordPress (GitHub and local); `done` once Drupal, Joomla and Standalone have run them |
@@ -805,11 +805,11 @@ version with seeded data are covered by the `UP` suite below.
 
 | ID | Status | Case |
 | --- | --- | --- |
-| PU-P1 | wip | The calculated field `is_blocked_by_cancelled_contribution` is set only for a due record with a Cancelled contribution dated on or after its waiting date: its next scheduled date, or its retry date while it has one. Not for no contributions, one dated before the due date, Failed, Pending or Completed ones, or a record that is not due yet (FR-6) |
-| PU-P2 | wip | The listing shows only blocked, live, In Progress eWAY records (including one being retried), run with permission checks on for a user holding "edit contributions" and no more; test-mode, Failed, other-processor and unblocked records are left out (FR-6) |
-| PU-P3 | wip | The actions: Reactivate with a date after the cancelled contribution unblocks the record and clears its failures, with no date it stays blocked; Cancel (status Cancelled, cancel date, reason) removes it from the list; cancelling a contribution through the normal save leaves nothing blocked (FR-6, PU-F42) |
-| PU-P4 | wip | The status check `ewayrecurring_blocked` says nothing when nothing is blocked, reports the count with a link to the page otherwise (live, In Progress, eWAY, blocked only), and honours the names filter and a disabled status preference (FR-6) |
-| PU-P5 | wip | The page's Afform and the menu entry need "edit contributions", the menu entry is under Contributions with the right label and route, the instructions are on the page, and the display offers Reactivate and Cancel with the task registered (FR-6) |
+| PU-P1 | done | The calculated field `is_blocked_by_cancelled_contribution` is set only for a due record with a Cancelled contribution dated on or after its waiting date: its next scheduled date, or its retry date while it has one. Not for no contributions, one dated before the due date, Failed, Pending or Completed ones, or a record that is not due yet (FR-6) |
+| PU-P2 | done | The listing shows only blocked, live, In Progress eWAY records (including one being retried), run with permission checks on for a user holding "edit contributions" and no more; test-mode, Failed, other-processor and unblocked records are left out (FR-6) |
+| PU-P3 | done | The actions: Reactivate with a date after the cancelled contribution unblocks the record and clears its failures, with no date it stays blocked; Cancel (status Cancelled, cancel date, reason) removes it from the list; cancelling a contribution through the normal save leaves nothing blocked (FR-6, PU-F42) |
+| PU-P4 | done | The status check `ewayrecurring_blocked` says nothing when nothing is blocked, reports the count with a link to the page otherwise (live, In Progress, eWAY, blocked only), and honours the names filter and a disabled status preference (FR-6) |
+| PU-P5 | done | The page's Afform and the menu entry need "edit contributions", the menu entry is under Contributions with the right label and route, the instructions are on the page, and the display offers Reactivate and Cancel with the task registered (FR-6) |
 
 ### UP upgrade tests in CI (`tests/upgrade/`)
 
@@ -1169,6 +1169,7 @@ Newest first. One line per change to coverage or to the plan itself.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | PHPUnit run 44869854476 on `0260f4f` is green (536 tests, 1911 assertions) and the upgrade tests pass (44869858353), so PU-P1 to PU-P5 (the Blocked Recurring Contributions field, list, actions, status check and declarations) are `done`: 218 done, 116 in progress. The PW-B-blocked cases are written but had not run on GitHub when this was written; a Playwright run follows. |
 | 2026-11-21 | Feature FR-6 built on the owner's decisions (1A, 2A, 3B, 4A, 5A): a Blocked Recurring Contributions list (Contributions menu, "edit contributions"), its instructions, a Reactivate button and a Cancel button (a custom Search Kit task that does what core's cancel does to the record: status, cancel date, optional reason), and a status check `ewayrecurring_blocked` that counts the records and links to the list. A record is blocked when it is due and a Cancelled contribution is dated on or after the date it is waiting on; the new calculated field `is_blocked_by_cancelled_contribution` (in `ContributionRecurEwaySpecProvider`) says so in SQL. Docs: `docs/README.md` and `docs/UPGRADE.md`. New cases PU-P1 to PU-P5 and PW-B-blocked-01 to PW-B-blocked-04, all `wip` until CI: 339 cases, 213 done, 121 in progress. The Playwright spec has not been run anywhere yet. |
 | 2026-11-21 | Playwright runs on the cancel-skips-the-installment code: 44859223280 on `20a9f0d` passed 218 with nothing flaky or skipped, and 44862391345 on `fd4951b` (sandbox specs now wait for the saved card and the sandbox project has a 30 second expect timeout) also passed 218 with nothing flaky or skipped. PW-X-03 did not flake in either, so the fix is not proven by one clean run; watch for a repeat. PHPUnit and the upgrade tests were last run on `4f700c0` (green); the commits since then change only the plan and the Playwright specs. |
 | 2026-11-21 | PW-X-03 flaked once on GitHub (run 44855281629): after adding a card the card list read "No cards found." and the test failed, then passed on retry. The owner confirmed eWAY's sandbox is very slow to respond. The test also had a real race: it waited for the list to have one option, and the empty list is also one option ("No cards found."), so it could stop too early. PW-X-03 and PW-X-05 now wait up to 90 seconds for the card itself (`1111 - mm/yyyy`) to appear, and the `sandbox` project's `expect` timeout is 30 seconds instead of 10. Not yet re-run on GitHub. |
