@@ -720,7 +720,7 @@ verification job (PU-D19 to PU-D24 already cover how a row gets into this state)
 
 | | |
 | --- | --- |
-| Status | `in progress` (built on `release-3.0.0`; its tests wait for a CI run) |
+| Status | `in progress` (built on `release-3.0.0`; PU-P1 to PU-P5 are done and PW-B-blocked-01 to 04 pass on WordPress on GitHub; it stays `in progress` until 3.0.0 is released) |
 | Raised | 2026-11-21 |
 | Target release | 3.0.0 (it deals with records left blocked by the change that makes a Cancelled contribution skip an installment) |
 | Related | DEF-68 in [TEST_PLAN.md](TEST_PLAN.md), FR-4 (the same kind of page), `docs/UPGRADE.md` (3.0.0) |
