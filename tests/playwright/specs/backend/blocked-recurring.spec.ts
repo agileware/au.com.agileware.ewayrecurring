@@ -237,5 +237,6 @@ test('PW-B-blocked-04 the System Status page counts the blocked records and link
   const message = adminPage.locator('.crm-status-item').filter({ hasText: 'eWAYRecurring - blocked recurring contributions' });
   await expect(message).toHaveCount(1);
   await expect(message).toContainText(`Found ${expected} recurring contributions`);
-  expect(await message.locator('a', { hasText: 'Blocked Recurring Contributions' }).getAttribute('href')).toContain('contribute/blockedrecurring');
+  // WordPress writes the slashes of the route as %2F, so allow either.
+  expect(await message.locator('a', { hasText: 'Blocked Recurring Contributions' }).getAttribute('href')).toMatch(/contribute(\/|%2F)blockedrecurring/);
 });
