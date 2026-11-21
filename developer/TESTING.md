@@ -45,6 +45,39 @@ phpunit9 --group e2e
 [README](../tests/playwright/README.md) for how to run them. On GitHub they run through
 `.github/workflows/frontend-tests.yml`.
 
+## Setting up the eWAY sandbox
+
+The real-sandbox Playwright cases (`PW-X-01` to `PW-X-05`, see the
+[Playwright README](../tests/playwright/README.md)) and the end-to-end tests call eWAY's sandbox, so they need a sandbox
+account. Its API key and password go in the environment variables `EWAY_SANDBOX_API_KEY` and
+`EWAY_SANDBOX_API_PASSWORD` (never in a file in the repository). On GitHub they are organisation Actions secrets of the
+same names, which `frontend-tests.yml` passes to the run on pushes and manual runs, not on pull requests.
+
+The account must also be told how to answer test transactions. Out of the box it may approve every amount, which makes
+the two decline cases skip because they would say nothing about the extension. Set it to decide by the cents value of
+the amount:
+
+1. Log in to your eWAY Sandbox account at <https://sandbox.myeway.com.au/BusinessCentre.aspx>.
+2. Open the **Settings** tab and choose **Sandbox** from the dropdown menu.
+3. Under **Transaction Responses**, select **Use Cents Value**.
+4. Click **Save Sandbox Settings**.
+
+![Customise Sandbox Behaviour with Transaction Responses set to Use Cents Value](../docs/img/eway-sandbox-settings-use-cents-value.png)
+
+The **Customise Sandbox Behaviour** section sets how the Business Centre responds to the dummy transactions you create.
+The options for **Transaction Responses** are:
+
+| Option | What it does |
+| --- | --- |
+| Always Approve | Transactions always approve. Invalid card numbers, expired cards and negative amounts still decline. |
+| Always Decline | Transactions are always declined. You can optionally set a specific response code to be returned. |
+| Use Cents Value | The cents value of the amount decides the result. For example $10.00 returns response code 00 (Transaction Approved). |
+
+The tests need **Use Cents Value**: $10.00 is approved, $10.05 is declined (Do Not Honour) and $10.51 is declined
+(Insufficient Funds). See eWAY's list of
+[response codes](http://www.eway.com.au/Developer/payment-code/transaction-results-response-codes.aspx) for which
+cents values pass or fail on the test gateway.
+
 ## Running the workflows on GitHub
 
 The PHPUnit, upgrade and Playwright workflows run on pushes to `master`, on pull requests and on demand. To run one

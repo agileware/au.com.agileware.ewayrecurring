@@ -139,7 +139,8 @@ take a screenshot or trace of a processor's admin form, and no sandbox spec open
 eWAY's sandbox declines by the cents of the amount when the sandbox account is on "Use Cents Value" (Settings > Sandbox >
 Customise Sandbox Behaviour): $10.00 is approved (A2000), $10.05 is declined with D4405 (Do Not Honour), $10.51 with D4451
 (Insufficient Funds). Source: eWAY Rapid API reference, "Sandbox Testing". An account set to "Always Approve" approves
-every amount; the decline cases then skip with a message saying so (the account used so far does this).
+every amount; the decline cases then skip with a message saying so. The steps to change the setting, with a screenshot, are in
+[`developer/TESTING.md`](../../developer/TESTING.md#setting-up-the-eway-sandbox).
 
 `npm run typecheck` checks the TypeScript without a site. `npx playwright test --list` lists the tests.
 
