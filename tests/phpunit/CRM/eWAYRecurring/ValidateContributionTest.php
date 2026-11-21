@@ -72,6 +72,24 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
   }
 
   /**
+   * The queue row of a contribution.
+   */
+  private function queueRow(int $contributionId): array {
+    return civicrm_api3('EwayContributionTransactions', 'getsingle', ['contribution_id' => $contributionId]);
+  }
+
+  /**
+   * The notes on a contribution, oldest first.
+   */
+  private function notesOf(int $contributionId): array {
+    return array_values(civicrm_api3('Note', 'get', [
+      'entity_table' => 'civicrm_contribution',
+      'entity_id' => $contributionId,
+      'options' => ['sort' => 'id ASC', 'limit' => 0],
+    ])['values']);
+  }
+
+  /**
    * The contribution row as Utils::validatePendingTransactions() reads it:
    * only these fields are requested, and the API leaves out any that are empty.
    */
@@ -667,12 +685,13 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
 
   /**
    * The verification job asks eWAY, eWAY approves, but completing the
-   * contribution fails. That is not a missing contribution, yet the job
-   * removed the queue row with no trace of why (DEF-78).
+   * contribution fails. That is not a missing contribution: the donor was
+   * charged, so the queue row is kept for another try, the failure is logged,
+   * and the contribution gets one note for staff (DEF-78).
    *
    * @testPlan PU-D19
    */
-  public function testTheVerificationJobLogsAFailureAfterEwayWasAsked(): void {
+  public function testTheVerificationJobKeepsAndLogsAnApprovedPaymentThatCouldNotBeCompleted(): void {
     [$processor, , $contribution] = $this->pendingPayment();
     $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 777]));
     $this->failSavingA('Contribution', 'edit');
@@ -680,13 +699,26 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
 
     $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
 
-    $this->assertSame(1, $result['deleted']);
-    $errors = $this->logged('error', 'eWAY Recurring: the verification job could not finish checking the payment');
+    $this->assertSame(1, $result['held']);
+    $this->assertSame(0, $result['deleted']);
+    $errors = $this->logged('error', 'eWAY Recurring: eWAY approved the payment for contribution');
     $this->assertCount(1, $errors);
     $this->assertSame((int) $contribution['id'], (int) $errors[0]['context']['contribution_id']);
     $this->assertSame((int) $processor['id'], (int) $errors[0]['context']['processor_id']);
+    $this->assertSame(1, (int) $errors[0]['context']['tries']);
     $this->assertStringContainsString('Saving the Contribution was refused by the test', $errors[0]['context']['msg']);
     $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
+
+    $row = $this->queueRow($contribution['id']);
+    $this->assertSame(CRM_eWAYRecurring_Utils::STATUS_IN_QUEUE, (int) $row['status']);
+    $this->assertSame(1, (int) $row['tries']);
+    $this->assertStringStartsWith(CRM_eWAYRecurring_Utils::APPROVED_NOT_COMPLETED_PREFIX, $row['failed_message']);
+    $this->assertStringContainsString('Saving the Contribution was refused by the test', $row['failed_message']);
+
+    $notes = $this->notesOf($contribution['id']);
+    $this->assertCount(1, $notes);
+    $this->assertStringContainsString('could not be completed', $notes[0]['subject']);
+    $this->assertStringContainsString('777', $notes[0]['note'], 'The note names the eWAY transaction.');
   }
 
   /**
@@ -731,6 +763,109 @@ class CRM_eWAYRecurring_ValidateContributionTest extends \PHPUnit\Framework\Test
     $this->assertSame((int) $contribution['id'], (int) $errors[0]['context']['contribution_id']);
     $this->assertEquals(CRM_eWAYRecurring_Utils::MAX_TRIES, $errors[0]['context']['tries']);
     $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
+  }
+
+  /**
+   * A held row is tried again on every run without adding another note, and
+   * when the cause goes away the payment completes and the "could not be
+   * completed" message is cleared (DEF-78).
+   *
+   * @testPlan PU-D22
+   */
+  public function testAHeldPaymentIsTriedAgainAndCompletesWhenTheCauseGoesAway(): void {
+    [, , $contribution] = $this->pendingPayment();
+    $this->failSavingA('Contribution', 'edit');
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 779]));
+    (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 779]));
+    $second = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $this->assertSame(1, $second['held']);
+    $this->assertSame(2, (int) $this->queueRow($contribution['id'])['tries']);
+    $this->assertCount(1, $this->notesOf($contribution['id']), 'Only the first failure adds a note.');
+
+    $listener = array_pop($this->preHookListeners);
+    \Civi::dispatcher()->removeListener('hook_civicrm_pre', $listener);
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 779]));
+    $third = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $this->assertSame(1, $third['success']);
+    $this->assertSame(0, $third['held']);
+    $this->assertSame('Completed', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
+    $row = $this->queueRow($contribution['id']);
+    $this->assertSame(CRM_eWAYRecurring_Utils::STATUS_SUCCESS, (int) $row['status']);
+    $this->assertEmpty($row['failed_message'] ?? '');
+  }
+
+  /**
+   * The retries are not endless. When a held row has used up
+   * MAX_COMPLETION_TRIES the job stops, leaves the contribution Pending (the
+   * donor was charged, so it is never marked Failed), marks the row Failed,
+   * logs it and adds a note that says action is needed (DEF-78).
+   *
+   * @testPlan PU-D23
+   */
+  public function testAHeldPaymentIsGivenUpAfterTheLimitWithoutMarkingTheContributionFailed(): void {
+    [, , $contribution] = $this->pendingPayment();
+    civicrm_api3('EwayContributionTransactions', 'create', [
+      'id' => $this->queueRow($contribution['id'])['id'],
+      'tries' => CRM_eWAYRecurring_Utils::MAX_COMPLETION_TRIES - 1,
+      'failed_message' => CRM_eWAYRecurring_Utils::APPROVED_NOT_COMPLETED_PREFIX . 'earlier failure',
+    ]);
+    $this->failSavingA('Contribution', 'edit');
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 780]));
+    (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+    $this->assertSame(CRM_eWAYRecurring_Utils::MAX_COMPLETION_TRIES, (int) $this->queueRow($contribution['id'])['tries']);
+    $this->captureLog();
+    $asked = count($this->http->requests);
+
+    $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $this->assertSame($asked, count($this->http->requests), 'eWAY is not asked again.');
+    $this->assertSame(0, $result['held']);
+    $row = $this->queueRow($contribution['id']);
+    $this->assertSame(CRM_eWAYRecurring_Utils::STATUS_FAILED, (int) $row['status']);
+    $this->assertStringStartsWith(CRM_eWAYRecurring_Utils::APPROVED_NOT_COMPLETED_PREFIX, $row['failed_message']);
+    $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
+    $errors = $this->logged('error', 'eWAY Recurring: gave up completing contribution');
+    $this->assertCount(1, $errors);
+    $this->assertSame((int) $contribution['id'], (int) $errors[0]['context']['contribution_id']);
+    $notes = $this->notesOf($contribution['id']);
+    $this->assertCount(1, $notes, 'The first-failure note was added on the first try; this row was already held, so only the final one is new.');
+    $this->assertStringContainsString('action needed', $notes[0]['subject']);
+
+    $this->releaseLog();
+    $this->captureLog();
+    (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+    $this->assertSame([], $this->loggedErrors(), 'A row that has been given up on is left alone.');
+    $this->assertCount(1, $this->notesOf($contribution['id']));
+  }
+
+  /**
+   * A held row is not out of tries at the ordinary limit of MAX_TRIES: it keeps
+   * being tried, and its contribution is not marked Failed (DEF-78).
+   *
+   * @testPlan PU-D24
+   */
+  public function testAHeldPaymentPastTheOrdinaryLimitIsStillTriedAndNotMarkedFailed(): void {
+    [, , $contribution] = $this->pendingPayment();
+    civicrm_api3('EwayContributionTransactions', 'create', [
+      'id' => $this->queueRow($contribution['id'])['id'],
+      'tries' => CRM_eWAYRecurring_Utils::MAX_TRIES,
+      'failed_message' => CRM_eWAYRecurring_Utils::APPROVED_NOT_COMPLETED_PREFIX . 'earlier failure',
+    ]);
+    $this->failSavingA('Contribution', 'edit');
+    $this->http->respond('getTransaction', Responses::transactionFound(['TransactionID' => 781]));
+
+    $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
+
+    $this->assertSame(1, $result['held']);
+    $row = $this->queueRow($contribution['id']);
+    $this->assertSame(CRM_eWAYRecurring_Utils::STATUS_IN_QUEUE, (int) $row['status']);
+    $this->assertSame(CRM_eWAYRecurring_Utils::MAX_TRIES + 1, (int) $row['tries']);
+    $this->assertSame('Pending', CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', Fixture::reloadContribution($contribution['id'])['contribution_status_id']));
+    $this->assertSame([], $this->notesOf($contribution['id']), 'The row was already held, so no second "first failure" note.');
   }
 
   /**

@@ -15,6 +15,19 @@ class CRM_eWAYRecurring_Utils {
                               // Counter starts from zero.
 
   /**
+   * How many times the job tries a payment that eWAY approved but that could not be completed in CiviCRM
+   * (DEF-78): 96 tries is about 24 hours at one run every 15 minutes, long enough to ride out an outage.
+   * Unlike MAX_TRIES it never marks the contribution Failed, because the donor has been charged.
+   */
+  public const MAX_COMPLETION_TRIES = 96;
+
+  /**
+   * The start of failed_message on a queue row that holds an approved payment that could not be completed. The row
+   * is recognised by it, so no schema change is needed.
+   */
+  public const APPROVED_NOT_COMPLETED_PREFIX = 'Approved by eWAY but could not be completed: ';
+
+  /**
    * Validate pending transactions.
    *
    * @param array $params
@@ -26,7 +39,7 @@ class CRM_eWAYRecurring_Utils {
     // Fetch all transactions to validate
     $transactionsToValidate = civicrm_api3('EwayContributionTransactions', 'get', [
       'status' => self::STATUS_IN_QUEUE,
-      'tries' => ['<' => self::MAX_TRIES],
+      'tries' => ['<' => self::MAX_COMPLETION_TRIES],
       'sequential' => TRUE,
     ]);
 
@@ -40,10 +53,17 @@ class CRM_eWAYRecurring_Utils {
       'success' => 0,
       'not_processed' => 0,
       'deleted' => 0,
+      'held' => 0,
     ];
 
     foreach ($transactionsToValidate as $transactionToValidate) {
       $contributionId = $transactionToValidate['contribution_id'];
+      $triesBefore = (int) ($transactionToValidate['tries'] ?? 0);
+      $wasHeld = self::isApprovedNotCompleted($transactionToValidate);
+      if (!$wasHeld && $triesBefore >= self::MAX_TRIES) {
+        // Out of tries: given up on below.
+        continue;
+      }
       // Set once the contribution and processor are found. A failure after that point is not "not found" (DEF-78).
       $checking = FALSE;
       try {
@@ -56,6 +76,7 @@ class CRM_eWAYRecurring_Utils {
             'contribution_page_id',
             'contribution_recur_id',
             'is_test',
+            'contact_id',
           ],
         ]);
 
@@ -85,6 +106,10 @@ class CRM_eWAYRecurring_Utils {
         else {
           if (!$response['transactionNotProcessedYet']) {
             $transactionToValidate['status'] = self::STATUS_SUCCESS;
+            if ($wasHeld) {
+              // Completed on a retry: the "could not be completed" message no longer applies.
+              $transactionToValidate['failed_message'] = '';
+            }
             $apiResponse['success']++;
           }
           else {
@@ -95,6 +120,11 @@ class CRM_eWAYRecurring_Utils {
         // Update the transaction
         civicrm_api3('EwayContributionTransactions', 'create', $transactionToValidate);
 
+      } catch (CRM_eWAYRecurring_ApprovedPaymentNotCompletedException $e) {
+        // eWAY approved the payment and completing it failed. The donor has been charged, so keep the row and try
+        // again on a later run, up to MAX_COMPLETION_TRIES (DEF-78).
+        self::holdApprovedPayment($transactionToValidate, $triesBefore, $wasHeld, $contribution ?? [], $e);
+        $apiResponse['held']++;
       } catch (CRM_Core_Exception $e) {
         if ($checking) {
           // Not a missing contribution or processor: eWAY was asked and something failed afterwards, for example
@@ -126,6 +156,13 @@ class CRM_eWAYRecurring_Utils {
 
     foreach ($transactionsPendingMaxTries as $transactionPendingMaxTries) {
       $contributionID = $transactionPendingMaxTries['contribution_id'];
+      if (self::isApprovedNotCompleted($transactionPendingMaxTries)) {
+        // An approved payment that could not be completed has its own, longer limit, and is never marked Failed.
+        if ((int) $transactionPendingMaxTries['tries'] >= self::MAX_COMPLETION_TRIES) {
+          self::giveUpOnApprovedPayment($transactionPendingMaxTries);
+        }
+        continue;
+      }
       try {
         // Mark contribution as failed
         civicrm_api3('Contribution', 'create', [
@@ -151,6 +188,118 @@ class CRM_eWAYRecurring_Utils {
 
     return $apiResponse;
 
+  }
+
+  /**
+   * Is this queue row one that holds an approved payment that could not be completed?
+   */
+  public static function isApprovedNotCompleted(array $queueRow): bool {
+    return strpos((string) ($queueRow['failed_message'] ?? ''), self::APPROVED_NOT_COMPLETED_PREFIX) === 0;
+  }
+
+  /**
+   * Keep the queue row of an approved payment that could not be completed, count the try, and say so in the log and
+   * (on the first failure) in a note on the contribution (DEF-78).
+   */
+  private static function holdApprovedPayment(array $row, int $triesBefore, bool $wasHeld, array $contribution, CRM_eWAYRecurring_ApprovedPaymentNotCompletedException $e): void {
+    $row['tries'] = $triesBefore + 1;
+    $row['status'] = self::STATUS_IN_QUEUE;
+    $row['failed_message'] = self::APPROVED_NOT_COMPLETED_PREFIX . $e->getMessage();
+    try {
+      civicrm_api3('EwayContributionTransactions', 'create', $row);
+    }
+    catch (CRM_Core_Exception $saveFailure) {
+      Civi::log()->error('eWAY Recurring: could not save the retry count of queue row {id}: {msg}', [
+        'id' => $row['id'],
+        'msg' => $saveFailure->getMessage(),
+      ]);
+    }
+    Civi::log()->error('eWAY Recurring: eWAY approved the payment for contribution {contribution_id} but it could not be completed (queue row {id}, payment processor {processor_id}, try {tries} of {max}), it will be tried again: {msg}', [
+      'contribution_id' => $row['contribution_id'],
+      'id' => $row['id'],
+      'processor_id' => $row['payment_processor_id'],
+      'tries' => $row['tries'],
+      'max' => self::MAX_COMPLETION_TRIES,
+      'msg' => $e->getMessage(),
+    ]);
+    if (!$wasHeld) {
+      self::addContributionNote(
+        (int) $row['contribution_id'],
+        $contribution['contact_id'] ?? NULL,
+        E::ts('eWAY approved this payment but it could not be completed'),
+        E::ts('eWAY approved this payment, but CiviCRM could not mark the contribution Completed. The donor has been charged. eWAY transaction ID: %1. Reason: %2. The eWAY Recurring verification job will try again on each run for about a day. If it still fails, see "Payments eWay approved but CiviCRM could not complete" in the eWay Recurring documentation: check in the eWAY Business Centre that the payment was taken, fix the reason shown here, then complete the contribution by hand (set it to Completed and enter the eWAY transaction ID).', [
+          1 => $e->getTransactionId() !== '' ? $e->getTransactionId() : E::ts('not known'),
+          2 => $e->getMessage(),
+        ])
+      );
+    }
+  }
+
+  /**
+   * The job has used up MAX_COMPLETION_TRIES on an approved payment: stop trying, leave the contribution Pending
+   * (the donor was charged, so it must not be marked Failed), and leave a note for staff (DEF-78).
+   */
+  private static function giveUpOnApprovedPayment(array $row): void {
+    $row['status'] = self::STATUS_FAILED;
+    try {
+      civicrm_api3('EwayContributionTransactions', 'create', $row);
+    }
+    catch (CRM_Core_Exception $e) {
+      // Left in the queue: the next run tries to give up again.
+      Civi::log()->error('eWAY Recurring: could not stop the retries of queue row {id}: {msg}', [
+        'id' => $row['id'],
+        'msg' => $e->getMessage(),
+      ]);
+      return;
+    }
+    Civi::log()->error('eWAY Recurring: gave up completing contribution {contribution_id} after {tries} tries (queue row {id}); eWAY approved the payment, so the contribution was left Pending and needs completing by hand: {msg}', [
+      'contribution_id' => $row['contribution_id'],
+      'tries' => $row['tries'],
+      'id' => $row['id'],
+      'msg' => $row['failed_message'],
+    ]);
+    try {
+      $contactId = civicrm_api3('Contribution', 'getvalue', [
+        'id' => $row['contribution_id'],
+        'return' => 'contact_id',
+      ]);
+    }
+    catch (CRM_Core_Exception $e) {
+      return;
+    }
+    self::addContributionNote(
+      (int) $row['contribution_id'],
+      $contactId,
+      E::ts('eWAY approved this payment but it was never completed: action needed'),
+      E::ts('The verification job gave up after %1 tries. eWAY approved this payment, so the donor has been charged, but the contribution is still Pending. Check in the eWAY Business Centre that the payment was taken, fix the reason below, then complete the contribution by hand (set it to Completed and enter the eWAY transaction ID). Last message: %2', [
+        1 => $row['tries'],
+        2 => $row['failed_message'],
+      ])
+    );
+  }
+
+  /**
+   * Add a note to a contribution. A failure is logged, never thrown: the note is a courtesy to staff.
+   */
+  private static function addContributionNote(int $contributionId, $contactId, string $subject, string $note): void {
+    if (!$contactId) {
+      return;
+    }
+    try {
+      civicrm_api3('Note', 'create', [
+        'entity_table' => 'civicrm_contribution',
+        'entity_id' => $contributionId,
+        'contact_id' => $contactId,
+        'subject' => $subject,
+        'note' => $note,
+      ]);
+    }
+    catch (CRM_Core_Exception $e) {
+      Civi::log()->warning('eWAY Recurring: could not add a note to contribution {contribution_id}: {msg}', [
+        'contribution_id' => $contributionId,
+        'msg' => $e->getMessage(),
+      ]);
+    }
   }
 
   /**
@@ -456,34 +605,43 @@ class CRM_eWAYRecurring_Utils {
 
     if (!$transactionNotProcessedYet) {
       if (!$hasTransactionFailed) {
-        if ($isRecurring) {
-          $customerTokenID = self::getCustomerTokenFromResponse($transactionResponse);
-          self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $accessCodeResponse, $transactionID);
-        }
+        try {
+          if ($isRecurring) {
+            $customerTokenID = self::getCustomerTokenFromResponse($transactionResponse);
+            self::updateRecurringContribution($contribution, $customerTokenID, $paymentProcessor['id'], $accessCodeResponse, $transactionID);
+          }
 
-        $result = civicrm_api3('Contribution', 'get', [
-          'sequential' => 1,
-          'contribution_status_id' => 'Pending',
-          'return' => ['receipt_date', 'contribution_status_id'],
-          'id' => $contributionID,
-        ]);
-
-        // Only complete pending transactions
-        if($result['count'] > 0) {
-          // check if receipt should be sent
-          $result = civicrm_api3('EwayContributionTransactions', 'get', [
+          $result = civicrm_api3('Contribution', 'get', [
             'sequential' => 1,
-            'return' => ['is_email_receipt'],
-            'contribution_id' => $contributionID,
-          ]);
-          $send_email = $result['values'][0]['is_email_receipt'];
-
-          civicrm_api3('Contribution', 'completetransaction', [
+            'contribution_status_id' => 'Pending',
+            'return' => ['receipt_date', 'contribution_status_id'],
             'id' => $contributionID,
-            'trxn_id' => $transactionID,
-            'payment_processor_id' => $paymentProcessor['id'],
-            'is_email_receipt' => $send_email,
           ]);
+
+          // Only complete pending transactions
+          if($result['count'] > 0) {
+            // check if receipt should be sent
+            $result = civicrm_api3('EwayContributionTransactions', 'get', [
+              'sequential' => 1,
+              'return' => ['is_email_receipt'],
+              'contribution_id' => $contributionID,
+            ]);
+            $send_email = $result['values'][0]['is_email_receipt'];
+
+            civicrm_api3('Contribution', 'completetransaction', [
+              'id' => $contributionID,
+              'trxn_id' => $transactionID,
+              'payment_processor_id' => $paymentProcessor['id'],
+              'is_email_receipt' => $send_email,
+            ]);
+          }
+        }
+        catch (CRM_eWAYRecurring_ApprovedPaymentNotCompletedException $e) {
+          throw $e;
+        }
+        catch (CRM_Core_Exception $e) {
+          // eWAY approved the payment, so say so: the verification job keeps the queue row and tries again (DEF-78).
+          throw new CRM_eWAYRecurring_ApprovedPaymentNotCompletedException($e->getMessage(), $transactionID, $e);
         }
       }
       else {

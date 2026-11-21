@@ -151,6 +151,45 @@ button or if the contribution was made via a Drupal Webform.
 This job is enabled by default; visit `civicrm/admin/job` if you need to
 review or adjust it.
 
+## Payments eWay Approved but CiviCRM Could Not Complete
+
+Rarely, eWay approves a payment and the donor is charged, but CiviCRM then fails
+to mark the contribution *Completed* (for example because a hook or another
+extension refused the save, or the database was unavailable at that moment).
+The eWay Transaction Verifications job does not drop these. It keeps the payment
+in its queue and tries again on every run, for up to 96 tries (about 24 hours
+when the job runs every 15 minutes). The contribution stays *Pending* and is
+never marked *Failed*, because the donor has been charged.
+
+How to recognise one:
+
+* The contribution is *Pending* and has a note titled *eWAY approved this payment
+  but it could not be completed*. The note gives the eWay transaction ID and the
+  reason.
+* The CiviCRM log has an error that starts with *eWAY Recurring: eWAY approved the
+  payment for contribution*.
+
+What to do:
+
+1. Check in the eWay Business Centre that the payment was taken, using the
+   transaction ID in the note.
+2. Fix the reason given in the note or the log.
+3. If the job is still retrying, nothing else is needed: the next run completes
+   the contribution and the note's reason stops applying. If you cannot wait,
+   complete it by hand as in step 5.
+4. When the job has given up, the contribution has a second note titled *eWAY
+   approved this payment but it was never completed: action needed*, and the log
+   has an error that starts with *eWAY Recurring: gave up completing
+   contribution*. The job does not try again.
+5. Complete the contribution by hand: edit it, set its status to *Completed* and
+   enter the eWay transaction ID as its transaction ID.
+6. For the first payment of a recurring contribution, also check that the
+   recurring contribution is *In Progress* with a next scheduled date. If it is
+   not, eWay's saved-card token was not stored, and the donor needs to add their
+   card again.
+7. If the Business Centre shows that the payment was not taken, set the
+   contribution to *Failed* (or *Cancelled*) instead.
+
 ## Failed eWay Transactions
 
 Recurring contribution transactions could fail for one of several reasons; in

@@ -115,7 +115,7 @@ class CRM_eWAYRecurring_PendingTransactionsTest extends \PHPUnit\Framework\TestC
 
     $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
 
-    $this->assertSame(['failed' => 0, 'success' => 1, 'not_processed' => 0, 'deleted' => 0], $result);
+    $this->assertSame(['failed' => 0, 'success' => 1, 'not_processed' => 0, 'deleted' => 0, 'held' => 0], $result);
     $updated = $this->queueRow($row['id']);
     $this->assertEquals(CRM_eWAYRecurring_Utils::STATUS_SUCCESS, $updated['status']);
     $this->assertEquals(1, $updated['tries']);
@@ -204,7 +204,7 @@ class CRM_eWAYRecurring_PendingTransactionsTest extends \PHPUnit\Framework\TestC
 
     $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
 
-    $this->assertSame(['failed' => 0, 'success' => 0, 'not_processed' => 0, 'deleted' => 0], $result);
+    $this->assertSame(['failed' => 0, 'success' => 0, 'not_processed' => 0, 'deleted' => 0, 'held' => 0], $result);
     $this->assertEquals(CRM_eWAYRecurring_Utils::STATUS_FAILED, $this->queueRow($row['id'])['status']);
     $this->assertSame('Failed', $this->statusName(Fixture::reloadContribution($contribution['id'])));
     $this->assertSame([], $this->http->requests, 'No more calls are made once a row is out of tries.');
@@ -232,7 +232,7 @@ class CRM_eWAYRecurring_PendingTransactionsTest extends \PHPUnit\Framework\TestC
 
     $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
 
-    $this->assertSame(['failed' => 0, 'success' => 0, 'not_processed' => 0, 'deleted' => 0], $result);
+    $this->assertSame(['failed' => 0, 'success' => 0, 'not_processed' => 0, 'deleted' => 0, 'held' => 0], $result);
     $this->assertSame([], $this->http->requests);
   }
 
@@ -245,7 +245,7 @@ class CRM_eWAYRecurring_PendingTransactionsTest extends \PHPUnit\Framework\TestC
 
     $result = civicrm_api3('EwayContributionTransactions', 'validate');
 
-    $this->assertSame(['failed' => 0, 'success' => 1, 'not_processed' => 0, 'deleted' => 0], $result['values']);
+    $this->assertSame(['failed' => 0, 'success' => 1, 'not_processed' => 0, 'deleted' => 0, 'held' => 0], $result['values']);
   }
 
   /**
@@ -262,7 +262,7 @@ class CRM_eWAYRecurring_PendingTransactionsTest extends \PHPUnit\Framework\TestC
 
     $result = (new CRM_eWAYRecurring_Utils())->validatePendingTransactions();
 
-    $this->assertSame(['failed' => 1, 'success' => 1, 'not_processed' => 1, 'deleted' => 1], $result);
+    $this->assertSame(['failed' => 1, 'success' => 1, 'not_processed' => 1, 'deleted' => 1, 'held' => 0], $result);
     $this->assertSame('Completed', $this->statusName(Fixture::reloadContribution($ok['id'])));
     $this->assertSame('Failed', $this->statusName(Fixture::reloadContribution($declined['id'])));
     $this->assertSame('Pending', $this->statusName(Fixture::reloadContribution($later['id'])));

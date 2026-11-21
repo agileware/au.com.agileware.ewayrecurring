@@ -49,6 +49,7 @@ documentation (that lives in `docs/`).
 | [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `in progress` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
 | [FR-3](#fr-3-check-a-new-card-with-the-issuer-when-it-is-added) | Check a new card with the issuer when it is added | `idea` | to be decided | Group to be added once decisions C1 to C6 are settled; PW-X-05 is the first step |
 | [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `in progress` | 3.0.0 | PU-O6 to PU-O10, PW-B-failed-01, PW-B-failed-13 |
+| [FR-5](#fr-5-search-kit-report-of-payments-eway-approved-but-civicrm-could-not-complete) | Search Kit report of payments eWAY approved but CiviCRM could not complete, with actions and instructions | `idea` | to be decided | Group to be added once decisions A1 to A5 are settled |
 
 ---
 
@@ -628,6 +629,90 @@ What happens on a site that is upgraded:
 
 ---
 
+## FR-5 Search Kit report of payments eWAY approved but CiviCRM could not complete
+
+| | |
+| --- | --- |
+| Status | `idea` |
+| Raised | 2026-11-21 |
+| Target release | to be decided (not needed for 3.0.0: the log and a note on the contribution already say what happened) |
+| Related | DEF-78 in [TEST_PLAN.md](TEST_PLAN.md), FR-4 (the same kind of Search Kit page), the "Payments eWay Approved but CiviCRM Could Not Complete" section of `docs/README.md` |
+
+### Summary
+
+A Search Kit report that lists every payment eWAY approved but the verification job could not complete in CiviCRM, with
+the actions a person can take on each row and plain instructions for what to do next. Today (since DEF-78) such a payment
+is kept in the verification queue and tried again for about 24 hours, then left `Pending` with its queue row marked
+`Failed`. The only signs are an error in the log and a note on the contribution, so staff must know to look for them.
+
+### Why
+
+The donor has been charged but the contribution is `Pending`, so the payment is easy to miss and no receipt has been
+sent. A finance user needs one place that shows which payments are in this state, why, and what to do about each, without
+reading the log or querying the database.
+
+### What the report shows
+
+One row per queue row that holds an approved payment that could not be completed. These are the rows of the
+`EwayContributionTransactions` entity whose `failed_message` starts with "Approved by eWAY but could not be completed: "
+(`CRM_eWAYRecurring_Utils::APPROVED_NOT_COMPLETED_PREFIX`), in either state:
+
+* **Retrying**: still in the queue (status 0), with the number of tries so far out of the limit.
+* **Gave up**: status 2 after the limit, the contribution still `Pending`. These need a person.
+
+Suggested columns: the contribution (link), the contact, the amount and date, the eWAY transaction ID, the reason (the rest of
+`failed_message`), the number of tries, and the state (Retrying or Gave up).
+
+### Actions and instructions
+
+A box above the list says what to do next, in the same words as the documentation:
+
+1. Check in the eWAY Business Centre that the payment was taken, using the transaction ID.
+2. Fix the reason shown.
+3. If the row is Retrying, wait: the next run completes it. If it Gave up, complete the contribution by hand.
+4. If eWAY shows the payment was not taken, set the contribution to Failed or Cancelled.
+
+Row actions to consider (each one is a decision, A2):
+
+| Action | What it does |
+| --- | --- |
+| Open contribution | Opens the contribution so the person can set it to Completed and enter the eWAY transaction ID |
+| Try again now | Sets the tries back to 0 and the status back to in queue, so the next run asks eWAY again (only after the reason is fixed) |
+| Mark as handled | Removes the queue row once the contribution has been completed or failed by hand, so it leaves the report |
+| Open in eWAY | A link to the Business Centre transaction search |
+
+### Design options
+
+| Option | How | Notes |
+| --- | --- | --- |
+| A | A saved search and Search Kit display (an APIv4 filter on `failed_message`) with the instructions in the page's description | Matches FR-4 and the Failed Recurring Contributions list. No schema change |
+| B | As A, plus a CiviCRM system status check that warns while any row has Gave up | Same idea as the existing check for failed recurring contributions. Small addition |
+| C | A new `status` value for "approved, not completed" instead of the message prefix | Cleaner to filter on, but needs an upgrade step (DEF-78 chose the message, decision 4A) |
+
+### Decisions still open
+
+| ID | Question | Status |
+| --- | --- | --- |
+| A1 | Where does the page live and which permission does it need? The Failed Recurring Contributions page uses "edit contributions" (FR-4 F2) | Open |
+| A2 | Which row actions are built (the table above)? "Try again now" and "Mark as handled" change data, so they need a permission and a confirmation | Open |
+| A3 | Add a system status check (option B) so someone is told when a payment has been given up on? | Open |
+| A4 | Should the report also show the rows that gave up on a payment eWAY declined or never answered, or only approved ones? Today those are not in this list | Open |
+| A5 | Does "Try again now" reset to 0 tries (24 more hours) or add a fixed number of tries? | Open |
+
+### Acceptance criteria
+
+1. A payment eWAY approved but the job could not complete appears in the report while it is Retrying and after it has Gave up, with its contribution, amount, eWAY transaction ID, reason and tries.
+2. Payments that completed, failed normally or were never approved do not appear.
+3. The instructions are on the page, and match `docs/README.md`.
+4. A user without the page's permission is refused, and no payment processor data is readable through the page.
+5. Each row action does what the table says, and none of them marks an approved payment Failed.
+
+### Test coverage
+
+To be written once decisions A1 to A5 are settled. Likely: PHPUnit cases for the saved search's filter and the permission,
+and Playwright cases for the page, the instructions and each action, with a fixture that creates a held payment through the
+verification job (PU-D19 to PU-D24 already cover how a row gets into this state).
+
 ---
 
 ## 2. Change log
@@ -636,6 +721,7 @@ Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | FR-5 added as `idea`: a Search Kit report of payments eWAY approved but CiviCRM could not complete (the rows DEF-78 now keeps in the verification queue), with row actions and instructions for what to do next, five open decisions (A1 to A5). |
 | 2026-11-15 | FR-4 built (`in progress`): decisions F1 (a calculated `is_eway_processor` field on ContributionRecur through a spec provider replaces the join to the payment processor) and F2 ("edit contributions" for the page and menu entry) decided and recorded with the options weighed and the evidence. Page and menu entry back to "edit contributions". PU-O6 to PU-O10 and PW-B-failed-13 added. |
 | 2026-11-15 | FR-4 added as `planned`: let finance staff open the Failed Recurring Contributions list without access to payment processors (the better follow-up to DEF-62, which now needs "administer CiviCRM"). |
 | 2026-11-15 | FR-1 decision D3 decided by the owner: a failure does not move the schedule date, a successful charge moves it from the due date to the first date after today, so a recovered record is charged once by the next run (built and tested as DEF-46 and DEF-58, PU-F29 to PU-F40). |
