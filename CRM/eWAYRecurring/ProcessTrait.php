@@ -353,17 +353,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
    * @return string Y-m-d 00:00:00
    */
   protected function next_scheduled_date($due, int $interval, string $unit): string {
-    $interval = max(1, $interval);
-    $base = $due ? strtotime($due) : strtotime('today');
-    $today = strtotime('today');
-    // Each step is counted from the due date, not from the last step, so a month end does not drift.
-    $steps = 1;
-    do {
-      $next = strtotime(date('Y-m-d 00:00:00', $base) . ' +' . ($steps * $interval) . " {$unit}s");
-      $steps++;
-    } while ($next <= $today && $steps < 100000);
-
-    return date('Y-m-d 00:00:00', $next);
+    return CRM_eWAYRecurring_Utils::nextScheduledDate($due, $interval, $unit);
   }
 
   /**
@@ -470,9 +460,10 @@ trait CRM_eWAYRecurring_ProcessTrait {
     $ct = CRM_Contribute_BAO_Contribution::getTableName();
     $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
 
-    // Exclude contributions that have already been processed. A Failed or Cancelled contribution does not count:
-    // a failure leaves the schedule date where it was, so a record that failed and was then recovered (new card,
-    // Reactivate) still has a Failed contribution dated after its due date and must be charged.
+    // Exclude contributions that have already been processed. A Failed contribution does not count: a failure
+    // leaves the schedule date where it was, so a record that failed and was then recovered (new card, Reactivate)
+    // still has a Failed contribution dated after its due date and must be charged. A Cancelled one does count: it
+    // means a person decided not to collect that installment.
     $notCharged = $this->not_charged_status_ids();
     $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`next_sched_contribution_date` AND `{$ct}`.`contribution_status_id` NOT IN ({$notCharged}) AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
 
@@ -488,12 +479,13 @@ trait CRM_eWAYRecurring_ProcessTrait {
   }
 
   /**
-   * The contribution statuses that mean a charge attempt took no money, as a list for SQL.
+   * The contribution statuses that mean a charge attempt took no money, as a list for SQL. Only Failed: a Cancelled
+   * contribution is a person's decision to skip that installment (the extension moves the schedule on when one is
+   * cancelled, see Utils::skipInstallmentOfCancelledContribution()), so it is never charged again behind their back.
    */
   private function not_charged_status_ids() {
     return implode(', ', [
       (int) CRM_eWAYRecurring_Utils::contribution_status_id('Failed'),
-      (int) CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled'),
     ]);
   }
 
@@ -526,7 +518,7 @@ trait CRM_eWAYRecurring_ProcessTrait {
     $ct = CRM_Contribute_BAO_Contribution::getTableName();
     $scheduled_today->whereAdd("EXISTS (SELECT 1 FROM `{$ct}` WHERE `contribution_status_id` = 1 AND `{$t}`.id = `contribution_recur_id`)");
 
-    // Exclude contributions that have already been processed (a Failed or Cancelled one does not count)
+    // Exclude contributions that have already been processed (a Failed one does not count, a Cancelled one does)
     $notCharged = $this->not_charged_status_ids();
     $scheduled_today->whereAdd("NOT EXISTS (SELECT 1 FROM `{$ct}` WHERE `{$ct}`.`receive_date` >= `{$t}`.`failure_retry_date` AND `{$ct}`.`contribution_status_id` NOT IN ({$notCharged}) AND `{$t}`.id = `{$ct}`.`contribution_recur_id`)");
 

@@ -14,6 +14,7 @@ failed payments. Provides:
 * Secure, tokenised "pay with saved card" for repeat/recurring contributions, without re-entering card details
 * Configurable automatic retries for failed recurring payments, with a system status check for contributions that have exhausted their retries
 * A Search Kit action to reactivate a failed Recurring Contribution
+* Cancelling one contribution of a recurring contribution skips that installment and moves the next scheduled date on, so the recurring contribution is never left waiting
 * Background verification of pending/unconfirmed transactions, which keeps retrying a payment eWay approved but CiviCRM could not complete and leaves a note on the contribution saying what to do
 * Automatic backfill of saved card metadata (expiry date, masked number) via the eWay Rapid API
 * Automated reconciliation of a contribution's Fee Amount / Net Amount against eWay's Settlement Reports API (opt-in, disabled by default)
@@ -226,6 +227,48 @@ and **Retry delay** is 4 days.
 
 You will be notified if there are any failed contributions that are no longer being retried via a
 CiviCRM system status check.
+
+## Skipping an Installment by Cancelling its Contribution
+
+If you set a contribution of an eWay recurring contribution to *Cancelled*, the
+extension treats that as a decision not to collect that installment. It moves
+the recurring contribution's **Next Scheduled Contribution Date** on, as it does
+after a successful charge: one interval after the date that was due, or the
+first date after today if that has already passed. The donor is not charged for
+the cancelled installment, and the next installment is charged on the new date.
+The contribution gets a note that says the installment was skipped and shows the
+old and new dates.
+
+Without this, a cancelled contribution dated on or after the due date would stop
+the scheduled job from charging the recurring contribution, and it would sit
+waiting indefinitely. A cancelled contribution never causes a second charge for
+the same installment.
+
+Things to know:
+
+* It applies only to a contribution that belongs to an eWay recurring
+  contribution that is *In Progress*, and is dated on or after the date the
+  recurring contribution was waiting on. Cancelling an older contribution, a
+  contribution of another payment processor's recurring contribution, or one
+  that is not part of a recurring contribution changes nothing.
+* If the recurring contribution was being retried after failed attempts,
+  cancelling the installment it was retrying skips it: the retry date and the
+  number of failures are cleared as well.
+* A skipped installment does not count towards the number of installments of a
+  recurring contribution that has a fixed number, so that plan runs for one
+  interval longer.
+* Setting the contribution back from *Cancelled* does not move the date back.
+* To collect the installment anyway, set the cancelled contribution to *Failed*
+  and put the recurring contribution's next scheduled date back to the date shown
+  in the note. An administrator can change the date, for example with the
+  Reactivate action on a Search Kit list of recurring contributions, which asks
+  for the new date.
+* A charge that was interrupted leaves a *Pending* contribution, and the
+  recurring contribution is not charged again while it is there (the
+  verification job normally settles it). Cancelling that contribution skips the
+  installment. Before you do, check in the eWay Business Centre that no money
+  was taken: a payment that was taken but is cancelled in CiviCRM is not
+  recorded.
 
 ## Reactivating Failed Contributions
 

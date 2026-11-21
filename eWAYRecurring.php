@@ -272,6 +272,25 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
 }
 
 /**
+ * Implements hook_civicrm_post().
+ *
+ * A contribution of an eWAY recurring record that is set to Cancelled skips that installment: the record's next
+ * scheduled date moves on, so the record is not left waiting on a decision not to collect (see
+ * CRM_eWAYRecurring_Utils::skipInstallmentOfCancelledContribution()). Does nothing for anything else, and costs
+ * nothing for a save that does not set the status.
+ */
+function ewayrecurring_civicrm_post($op, $objectName, $objectId, &$objectRef) {
+  if ($objectName !== 'Contribution' || !$objectId || !in_array($op, ['create', 'edit'], TRUE)) {
+    return;
+  }
+  $status = is_object($objectRef) ? ($objectRef->contribution_status_id ?? NULL) : ($objectRef['contribution_status_id'] ?? NULL);
+  if ($status === NULL || $status === '' || (int) $status !== (int) CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled')) {
+    return;
+  }
+  CRM_eWAYRecurring_Utils::skipInstallmentOfCancelledContribution((int) $objectId);
+}
+
+/**
  * Implements hook_civicrm_preProcess().
  *
  * @param $formName

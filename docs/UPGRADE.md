@@ -27,6 +27,19 @@ periods it missed while it was Failed are not charged as arrears.
 Recurring contributions that are already failing when you upgrade keep the date the earlier release
 gave them. The upgrade does not change any date.
 
+### Cancelling a contribution skips that installment
+
+A contribution of an eWay recurring contribution that is set to *Cancelled* now makes the extension
+move the recurring contribution's next scheduled date on, so that installment is skipped and the
+donor is not charged for it. A cancelled contribution dated on or after the due date no longer lets
+the scheduled job charge the recurring contribution again for that installment. See
+[Skipping an Installment by Cancelling its Contribution](README.md#skipping-an-installment-by-cancelling-its-contribution).
+
+The upgrade does not change any date. A recurring contribution that already has a cancelled
+contribution dated on or after its due date, from before the upgrade, stays as it is and is not
+charged by the scheduled job until its next scheduled date is moved on or that contribution is set
+to *Failed*.
+
 ### Finance staff can open the Failed Recurring Contributions list
 
 The Failed Recurring Contributions page (Contributions, Failed Recurring Contributions) and its Reactivate button are

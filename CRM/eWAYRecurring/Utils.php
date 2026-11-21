@@ -191,6 +191,110 @@ class CRM_eWAYRecurring_Utils {
   }
 
   /**
+   * The date after a successful charge, or after a skipped installment: one frequency interval on from the date that
+   * was due, stepping on by further intervals until it is after today (midnight, as the schedule dates are), so that
+   * months missed while a record was Failed are not charged as arrears.
+   *
+   * @param string|null $due
+   *   The date the charge was due. Empty means today.
+   * @param int $interval
+   * @param string $unit
+   *   day, week, month or year.
+   *
+   * @return string Y-m-d 00:00:00
+   */
+  public static function nextScheduledDate($due, int $interval, string $unit): string {
+    $interval = max(1, $interval);
+    $base = $due ? strtotime($due) : strtotime('today');
+    $today = strtotime('today');
+    // Each step is counted from the due date, not from the last step, so a month end does not drift.
+    $steps = 1;
+    do {
+      $next = strtotime(date('Y-m-d 00:00:00', $base) . ' +' . ($steps * $interval) . " {$unit}s");
+      $steps++;
+    } while ($next <= $today && $steps < 100000);
+
+    return date('Y-m-d 00:00:00', $next);
+  }
+
+  /**
+   * A contribution of an eWAY recurring record was Cancelled: skip that installment by moving the record's next
+   * scheduled date on, so the record is not left waiting (a Cancelled contribution dated on or after the due date
+   * stops the cron charging the record, because it is a person's decision not to collect it).
+   *
+   * Acts only when the contribution belongs to an eWAY recurring record that is In Progress and is dated on or after
+   * the date the record is waiting on (the retry date while it is being retried, otherwise the next scheduled date).
+   * The date then moves as it does after a successful charge: one interval on from the due date, never into the past.
+   * A record that was being retried also has its retry date and failure count cleared, because the installment it was
+   * retrying is the one skipped. Once the date has moved the same contribution no longer qualifies, so a second call
+   * does nothing. Nothing is thrown: this runs inside the save of a contribution.
+   *
+   * @return bool TRUE when the schedule was moved on.
+   */
+  public static function skipInstallmentOfCancelledContribution(int $contributionId): bool {
+    try {
+      $contribution = civicrm_api3('Contribution', 'getsingle', [
+        'id' => $contributionId,
+        'return' => ['contribution_recur_id', 'receive_date', 'contribution_status_id', 'contact_id'],
+      ]);
+      $recurId = (int) ($contribution['contribution_recur_id'] ?? 0);
+      if (!$recurId || (int) $contribution['contribution_status_id'] !== (int) self::contribution_status_id('Cancelled')) {
+        return FALSE;
+      }
+
+      $recur = \Civi\Api4\ContributionRecur::get(FALSE)
+        ->addSelect('id', 'contribution_status_id:name', 'next_sched_contribution_date', 'failure_retry_date', 'failure_count', 'frequency_interval', 'frequency_unit', 'is_eway_processor')
+        ->addWhere('id', '=', $recurId)
+        ->execute()
+        ->first();
+      if (!$recur || !$recur['is_eway_processor'] || $recur['contribution_status_id:name'] !== 'In Progress' || empty($recur['next_sched_contribution_date'])) {
+        return FALSE;
+      }
+
+      $wasRetrying = !empty($recur['failure_retry_date']);
+      $waitingOn = $wasRetrying ? $recur['failure_retry_date'] : $recur['next_sched_contribution_date'];
+      if (empty($contribution['receive_date']) || strtotime($contribution['receive_date']) < strtotime($waitingOn)) {
+        return FALSE;
+      }
+
+      $was = date('Y-m-d', strtotime($recur['next_sched_contribution_date']));
+      $next = self::nextScheduledDate($recur['next_sched_contribution_date'], (int) $recur['frequency_interval'], (string) $recur['frequency_unit']);
+      CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur', $recurId, 'next_sched_contribution_date', CRM_Utils_Date::isoToMysql($next));
+      if ($wasRetrying) {
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur', $recurId, 'failure_retry_date', '');
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur', $recurId, 'failure_count', 0);
+      }
+
+      Civi::log()->info('eWAY Recurring: contribution {contribution_id} was cancelled, so the next scheduled date of recurring contribution {recur_id} moved from {was} to {next}{retry}', [
+        'contribution_id' => $contributionId,
+        'recur_id' => $recurId,
+        'was' => $was,
+        'next' => date('Y-m-d', strtotime($next)),
+        'retry' => $wasRetrying ? ' and its retry state was cleared' : '',
+      ]);
+      self::addContributionNote(
+        $contributionId,
+        $contribution['contact_id'] ?? NULL,
+        E::ts('Recurring payment skipped because this contribution was cancelled'),
+        E::ts('This contribution was cancelled, so the eWAY Recurring extension skipped this installment: the next scheduled date of recurring contribution %1 moved from %2 to %3%4. The donor will not be charged for this installment. To collect it anyway, set this contribution to Failed and put the recurring contribution\'s next scheduled date back to %2.', [
+          1 => $recurId,
+          2 => $was,
+          3 => date('Y-m-d', strtotime($next)),
+          4 => $wasRetrying ? E::ts(' and its failed attempts and retry date were cleared') : '',
+        ])
+      );
+      return TRUE;
+    }
+    catch (\Throwable $e) {
+      Civi::log()->warning('eWAY Recurring: could not move the schedule on after contribution {contribution_id} was cancelled: {msg}', [
+        'contribution_id' => $contributionId,
+        'msg' => $e->getMessage(),
+      ]);
+      return FALSE;
+    }
+  }
+
+  /**
    * Is this queue row one that holds an approved payment that could not be completed?
    */
   public static function isApprovedNotCompleted(array $queueRow): bool {

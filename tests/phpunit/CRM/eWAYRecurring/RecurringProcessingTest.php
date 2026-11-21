@@ -24,6 +24,8 @@ use CRM_eWAYRecurring_Test_FakeEwayResponses as Responses;
  */
 class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestCase implements HeadlessInterface, HookInterface, TransactionalInterface {
 
+  use CRM_eWAYRecurring_Test_LogCapture;
+
   /**
    * @var \CRM_eWAYRecurring_Test_FakeEwayHttp
    */
@@ -46,6 +48,7 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
   }
 
   public function tearDown(): void {
+    $this->releaseLog();
     unset($_REQUEST['crid'], $_REQUEST['contact_payment_token']);
     FakeHttp::uninstall();
     foreach (['eway_recurring_contribution_max_retry', 'eway_recurring_contribution_retry_delay', 'eway_recurring_keep_sending_receipts'] as $setting) {
@@ -1064,6 +1067,30 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
       ->execute();
   }
 
+  /**
+   * A Pending contribution of a recurring record, as the cron leaves one while a charge is in progress.
+   */
+  private function pendingChargeFor(array $recur, string $receiveDate = 'now'): array {
+    return Fixture::contribution($recur['contact_id'], [
+      'total_amount' => $recur['amount'],
+      'contribution_recur_id' => $recur['id'],
+      'contribution_status_id' => 'Pending',
+      'receive_date' => date('Y-m-d H:i:s', strtotime($receiveDate)),
+    ]);
+  }
+
+  private function cancelContribution(array $contribution): void {
+    civicrm_api3('Contribution', 'create', ['id' => $contribution['id'], 'contribution_status_id' => 'Cancelled']);
+  }
+
+  private function notesOf(int $contributionId): array {
+    return array_values(civicrm_api3('Note', 'get', [
+      'entity_table' => 'civicrm_contribution',
+      'entity_id' => $contributionId,
+      'options' => ['sort' => 'id ASC', 'limit' => 0],
+    ])['values']);
+  }
+
   public function failureProvider(): array {
     return [
       'monthly, first attempt declined' => ['month', 1, [], 'decline'],
@@ -1146,27 +1173,35 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
 
   /**
    * The lists skip a record that already has a contribution since its due date (or retry date), so that a record
-   * is not charged twice. Only a contribution that took or may yet take money counts: Failed and Cancelled ones do
-   * not. A failure leaves the due date in the past, so a record that failed and was then recovered always has a
-   * Failed contribution after its due date, and would never be charged again if that counted. A Pending contribution
-   * (a charge in progress or interrupted) and a Completed one still hide it.
+   * is not charged twice. Only a Failed contribution is ignored: a failure leaves the due date in the past, so a
+   * record that failed and was then recovered always has a Failed contribution after its due date, and would never
+   * be charged again if that counted. A Pending contribution (a charge in progress or interrupted), a Completed one
+   * and a Cancelled one (a person's decision not to collect the installment) still hide the record.
    *
    * @testPlan PU-F31
    */
-  public function testOnlyAFailedOrCancelledContributionIsIgnoredWhenWorkingOutWhatIsAlreadyCharged(): void {
+  public function testOnlyAFailedContributionIsIgnoredWhenWorkingOutWhatIsAlreadyCharged(): void {
     $processor = Fixture::processor();
     $due = date('Y-m-d 00:00:00', strtotime('-1 day'));
-    $expected = ['Failed' => TRUE, 'Cancelled' => TRUE, 'Pending' => FALSE, 'Completed' => FALSE];
+    $expected = ['Failed' => TRUE, 'Cancelled' => FALSE, 'Pending' => FALSE, 'Completed' => FALSE];
 
     foreach (['normal list' => [], 'retry list' => ['failure_count' => 1, 'failure_retry_date' => '-1 hour']] as $list => $values) {
       foreach ($expected as $status => $listed) {
         [, $recur] = $this->dueRecurring($values + ['next_sched_contribution_date' => $due], $processor);
-        Fixture::contribution($recur['contact_id'], [
+        $contribution = Fixture::contribution($recur['contact_id'], [
           'total_amount' => $recur['amount'],
-          'contribution_status_id' => $status,
+          'contribution_status_id' => $status === 'Cancelled' ? 'Pending' : $status,
           'contribution_recur_id' => $recur['id'],
           'receive_date' => date('Y-m-d H:i:s'),
         ]);
+        if ($status === 'Cancelled') {
+          // Straight to the table: cancelling through the API makes the extension skip the installment (PU-F42),
+          // and it is the lists that are under test here.
+          CRM_Core_DAO::executeQuery('UPDATE civicrm_contribution SET contribution_status_id = %1 WHERE id = %2', [
+            1 => [(int) CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled'), 'Integer'],
+            2 => [(int) $contribution['id'], 'Integer'],
+          ]);
+        }
         // Core moves the date when it records a Completed or Failed payment.
         $this->setSchedule($recur, $due);
 
@@ -1314,12 +1349,12 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
 
   /**
    * A run that dies after it created the Pending contribution but before eWAY answered also leaves the date alone and
-   * is not charged again by the next run. It stays off the list until staff settle the Pending contribution; once
-   * they cancel it (no money was taken) the record is charged by the next run.
+   * is not charged again by the next run. It stays off the list until staff settle the Pending contribution; if they
+   * cancel it the installment is skipped: the schedule moves on and the next run charges nothing.
    *
    * @testPlan PU-F36
    */
-  public function testARunThatDiesBeforeTheGatewayAnswersIsNotChargedAgainUntilStaffCancelThePendingContribution(): void {
+  public function testARunThatDiesBeforeTheGatewayAnswersIsNotChargedAgainAndCancellingThePendingContributionSkipsTheInstallment(): void {
     $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
     [$processor, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
     $this->http->respond('postTransaction', function () {
@@ -1341,12 +1376,152 @@ class CRM_eWAYRecurring_RecurringProcessingTest extends \PHPUnit\Framework\TestC
 
     civicrm_api3('Contribution', 'create', ['id' => $this->charges($recur)[0]['id'], 'contribution_status_id' => 'Cancelled']);
 
-    $this->assertContains((int) $recur['id'], $this->dueIds($processor));
-    $this->approveNextCharge();
-    $this->runCron($processor);
-    $this->assertCount(2, $this->http->callsTo('postTransaction'));
-    $this->assertSame(['Cancelled' => 1, 'Completed' => 1], $this->chargeStatuses($recur));
+    // Cancelling is a decision not to collect this installment: the schedule moves on and nothing is charged (PU-F42).
     $this->assertSame($this->firstDateAfterToday($due, 1, 'month'), $this->scheduleOf($recur));
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+    $this->runCron($processor);
+    $this->assertCount(1, $this->http->callsTo('postTransaction'), 'The cancelled installment is not charged.');
+    $this->assertSame(['Cancelled' => 1], $this->chargeStatuses($recur));
+  }
+
+  /**
+   * Cancelling a contribution of an In Progress eWAY record, dated on or after the due date, is a decision not to
+   * collect that installment: the next scheduled date moves on as it does after a charge (one interval from the due
+   * date, never into the past) and the contribution gets a note that names both dates. The record stays In Progress.
+   *
+   * @testPlan PU-F42
+   */
+  public function testCancellingAnInstallmentSkipsItAndMovesTheScheduleOn(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    [, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
+    $charge = $this->pendingChargeFor($recur);
+    $this->assertSame($due, $this->scheduleOf($recur));
+    $this->captureLog();
+
+    $this->cancelContribution($charge);
+
+    $expected = $this->firstDateAfterToday($due, 1, 'month');
+    $this->assertSame($expected, $this->scheduleOf($recur));
+    $this->assertSame('In Progress', $this->recurStatus(Fixture::reloadRecurring($recur['id'])));
+    $notes = $this->notesOf($charge['id']);
+    $this->assertCount(1, $notes);
+    $this->assertStringContainsString('skipped', $notes[0]['subject']);
+    $this->assertStringContainsString(date('Y-m-d', strtotime($due)), $notes[0]['note']);
+    $this->assertStringContainsString(date('Y-m-d', strtotime($expected)), $notes[0]['note']);
+    $logged = $this->logged('info', 'eWAY Recurring: contribution {contribution_id} was cancelled');
+    $this->assertCount(1, $logged);
+    $this->assertSame((int) $recur['id'], (int) $logged[0]['context']['recur_id']);
+  }
+
+  /**
+   * Cancelling does nothing to the schedule unless it is an installment the record is waiting on: a contribution
+   * dated before the due date, a record that is not In Progress, a record of another processor, and a contribution
+   * that belongs to no recurring record are all left alone, with no note.
+   *
+   * @testPlan PU-F43
+   */
+  public function testCancellingAContributionThatIsNotTheInstallmentBeingWaitedOnLeavesTheScheduleAlone(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    $dummyType = (int) \Civi\Api4\PaymentProcessorType::get(FALSE)->addWhere('name', '=', 'Dummy')->addSelect('id')->execute()->first()['id'];
+
+    $cases = [
+      'dated before the due date' => [[], '-3 months'],
+      'record not In Progress' => [['contribution_status_id:name' => 'Failed'], 'now'],
+      'record of another processor' => [['dummy' => TRUE], 'now'],
+    ];
+    foreach ($cases as $label => [$values, $receiveDate]) {
+      $processor = !empty($values['dummy']) ? Fixture::processor(FALSE, ['payment_processor_type_id' => $dummyType]) : NULL;
+      unset($values['dummy']);
+      [, $recur] = $this->dueRecurring($values + ['next_sched_contribution_date' => $due], $processor);
+      $charge = $this->pendingChargeFor($recur, $receiveDate);
+      $this->setSchedule($recur, $due);
+
+      $this->cancelContribution($charge);
+
+      $this->assertSame($due, $this->scheduleOf($recur), "Cancelling a contribution: $label");
+      $this->assertSame([], $this->notesOf($charge['id']), "No note: $label");
+    }
+
+    $loose = Fixture::contribution(Fixture::contact(), ['contribution_status_id' => 'Pending']);
+    $this->cancelContribution($loose);
+    $this->assertSame([], $this->notesOf($loose['id']), 'A contribution with no recurring record');
+  }
+
+  /**
+   * Two contributions cancelled for the same due date move the schedule once, not twice: after the first the
+   * schedule is past both of them.
+   *
+   * @testPlan PU-F44
+   */
+  public function testCancellingTwoContributionsOfTheSameInstallmentMovesTheScheduleOnlyOnce(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    [, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
+    $first = $this->pendingChargeFor($recur);
+    $second = $this->pendingChargeFor($recur);
+    $this->assertSame($due, $this->scheduleOf($recur));
+
+    $this->cancelContribution($first);
+    $this->cancelContribution($second);
+
+    $this->assertSame($this->firstDateAfterToday($due, 1, 'month'), $this->scheduleOf($recur));
+    $this->assertCount(1, $this->notesOf($first['id']));
+    $this->assertSame([], $this->notesOf($second['id']), 'The second cancellation changed nothing, so it says nothing.');
+  }
+
+  /**
+   * A record that was being retried: cancelling the installment it was retrying skips it, so the retry date and the
+   * failure count are cleared as well as the schedule moving on, and neither list picks the record up.
+   *
+   * @testPlan PU-F45
+   */
+  public function testCancellingTheInstallmentOfARecordBeingRetriedSkipsItAndClearsTheRetry(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    [$processor, $recur] = $this->dueRecurring([
+      'next_sched_contribution_date' => $due,
+      'failure_count' => 1,
+      'failure_retry_date' => '-1 hour',
+    ]);
+    $charge = $this->pendingChargeFor($recur);
+    $this->assertSame($due, $this->scheduleOf($recur));
+
+    $this->cancelContribution($charge);
+
+    $after = Fixture::reloadRecurring($recur['id']);
+    $this->assertSame($this->firstDateAfterToday($due, 1, 'month'), $this->scheduleOf($recur));
+    $this->assertEmpty($after['failure_retry_date']);
+    $this->assertSame(0, (int) $after['failure_count']);
+    $this->assertSame('In Progress', $this->recurStatus($after));
+    $this->assertNotContains((int) $recur['id'], $this->retryIds($processor));
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
+    $notes = $this->notesOf($charge['id']);
+    $this->assertCount(1, $notes);
+    $this->assertStringContainsString('retry', $notes[0]['note']);
+  }
+
+  /**
+   * A Cancelled contribution dated on or after the due date blocks the lists (it is a person's decision, so the
+   * cron never charges that installment behind their back), and the cron run after a cancel charges nothing and
+   * leaves the schedule where the cancel put it.
+   *
+   * @testPlan PU-F46
+   */
+  public function testTheCronChargesNothingForAnInstallmentThatWasCancelled(): void {
+    $due = date('Y-m-d 00:00:00', strtotime('-2 days'));
+    [$processor, $recur] = $this->dueRecurring(['next_sched_contribution_date' => $due]);
+    $charge = $this->pendingChargeFor($recur);
+    $this->cancelContribution($charge);
+    $moved = $this->scheduleOf($recur);
+
+    $this->runCron($processor);
+
+    $this->assertSame([], $this->http->callsTo('postTransaction'), 'Nothing is charged.');
+    $this->assertSame($moved, $this->scheduleOf($recur), 'The run left the schedule alone.');
+    $this->assertSame(['Cancelled' => 1], $this->chargeStatuses($recur));
+
+    // Put the schedule back, as a person might to collect it anyway: the cancelled contribution still blocks it,
+    // so nothing is charged until that contribution is dealt with too.
+    $this->setSchedule($recur, $due);
+    $this->assertNotContains((int) $recur['id'], $this->dueIds($processor));
   }
 
   public function catchUpProvider(): array {
