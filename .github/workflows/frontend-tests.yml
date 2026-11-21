@@ -17,6 +17,10 @@ jobs:
     secrets:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      # The real eWAY sandbox cases (PW-X) need these. They are withheld from pull_request runs, so code in a
+      # pull request cannot read them; the cases skip there.
+      EWAY_SANDBOX_API_KEY: ${{ github.event_name != 'pull_request' && secrets.EWAY_SANDBOX_API_KEY || '' }}
+      EWAY_SANDBOX_API_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.EWAY_SANDBOX_API_PASSWORD || '' }}
     with:
       EXTENSION_NAME: au.com.agileware.ewayrecurring
       SETUP_SCRIPT: tests/playwright/fixtures/setup-environment.sh
