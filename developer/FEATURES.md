@@ -51,6 +51,7 @@ documentation (that lives in `docs/`).
 | [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `in progress` | 3.0.0 | PU-O6 to PU-O10, PW-B-failed-01, PW-B-failed-13 |
 | [FR-5](#fr-5-search-kit-report-of-payments-eway-approved-but-civicrm-could-not-complete) | Search Kit report of payments eWAY approved but CiviCRM could not complete, with actions and instructions | `idea` | to be decided | Group to be added once decisions A1 to A5 are settled |
 | [FR-6](#fr-6-blocked-recurring-contributions-list-with-reactivate-and-cancel) | Blocked Recurring Contributions list with Reactivate and Cancel, and a status check | `in progress` | 3.0.0 | PU-P1 to PU-P5, PW-B-blocked-01 to PW-B-blocked-04 |
+| [FR-7](#fr-7-survey-of-backend-users) | Survey of backend users (staff who run the extension day to day) | `idea` | to be decided | Group to be added once decisions S1 to S5 are settled |
 
 ---
 
@@ -779,12 +780,72 @@ PU-P1 to PU-P5 (`BlockedRecurringSearchTest`) and PW-B-blocked-01 to PW-B-blocke
 
 ---
 
+## FR-7 Survey of backend users
+
+| | |
+| --- | --- |
+| Status | `idea` |
+| Raised | 2026-11-21 |
+| Target release | to be decided (not needed for 3.0.0) |
+| Related | FR-4 and FR-6 (the Failed and Blocked lists staff use), FR-5 (the approved-but-not-completed report), the end-user guide `docs/README.md` |
+
+### Summary
+
+A short survey for the backend users of the extension: the finance and administration staff who set up the payment
+processor, watch the Failed and Blocked Recurring Contributions lists, fix stuck payments and answer donor questions.
+The aim is to learn what they find hard, what they do by hand today and which of the planned features (FR-1, FR-3,
+FR-5) would help most, so the next work is chosen from what staff say and not from guesses.
+
+### Why
+
+Most of the 3.0.0 work came from defects found by tests and from owner decisions. Nobody has yet asked the people who
+use the pages every week. Their answers could change the order of the open features and show gaps in the end-user guide.
+
+### What it could ask
+
+* How often they open the Failed and Blocked lists, and what they do next.
+* Whether the instructions on those pages and in `docs/README.md` were enough, and where they got stuck.
+* Which tasks they still do outside CiviCRM (the eWAY Business Centre, spreadsheets, the database).
+* Whether the notes, system status checks and emails tell them early enough that something needs attention.
+* How they rate the planned features, to rank FR-1, FR-3 and FR-5.
+* Free text for anything else.
+
+### Design options
+
+| Option | How | Notes |
+| --- | --- | --- |
+| A | An external form (a survey tool or an Afform on the owner's own site) sent to staff, with the results kept outside the repository | No extension code. Easiest. Nothing about the sites or people goes into the repository |
+| B | A one-off Afform shipped in the extension, shown to users with "edit contributions" | Needs code, a place to store answers and a way to switch it off. Probably too heavy for a survey |
+| C | A link and a short prompt on the Failed and Blocked pages, opening the survey from option A | Reaches the users at the moment they use the page. Small change |
+
+### Decisions still open
+
+| ID | Question | Status |
+| --- | --- | --- |
+| S1 | Who is surveyed: staff of the owner's own sites only, or any site that installs the extension? | Open |
+| S2 | Option A, B or C (the table above)? | Open |
+| S3 | Who writes the questions, and who reads and acts on the answers? | Open |
+| S4 | Where are the answers kept, given they may name people and organisations? They must stay out of the repository | Open |
+| S5 | When is it run: before 3.0.0 is released, or after the first sites have used it for a while? | Open |
+
+### Acceptance criteria
+
+To be written once decisions S1 to S5 are settled.
+
+### Test coverage
+
+None yet. Option A needs no tests. Options B and C would need a PHPUnit case for the permission check and a Playwright
+case for the link.
+
+---
+
 ## 2. Change log
 
 Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | FR-7 added as `idea`: a survey of backend users, with what it could ask, three options and five open decisions (S1 to S5). Not scheduled. |
 | 2026-11-21 | FR-6 added and built (`in progress`): the Blocked Recurring Contributions list with Reactivate and Cancel buttons, its instructions and a status check, for records left blocked by a Cancelled contribution. All five decisions (B1 to B5) taken by the owner. |
 | 2026-11-21 | FR-5 added as `idea`: a Search Kit report of payments eWAY approved but CiviCRM could not complete (the rows DEF-78 now keeps in the verification queue), with row actions and instructions for what to do next, five open decisions (A1 to A5). |
 | 2026-11-15 | FR-4 built (`in progress`): decisions F1 (a calculated `is_eway_processor` field on ContributionRecur through a spec provider replaces the join to the payment processor) and F2 ("edit contributions" for the page and menu entry) decided and recorded with the options weighed and the evidence. Page and menu entry back to "edit contributions". PU-O6 to PU-O10 and PW-B-failed-13 added. |
