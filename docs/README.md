@@ -14,7 +14,7 @@ failed payments. Provides:
 * Secure, tokenised "pay with saved card" for repeat/recurring contributions, without re-entering card details
 * Configurable automatic retries for failed recurring payments, with a system status check for contributions that have exhausted their retries
 * A Search Kit action to reactivate a failed Recurring Contribution
-* Background verification of pending/unconfirmed transactions
+* Background verification of pending/unconfirmed transactions, which keeps retrying a payment eWay approved but CiviCRM could not complete and leaves a note on the contribution saying what to do
 * Automatic backfill of saved card metadata (expiry date, masked number) via the eWay Rapid API
 * Automated reconciliation of a contribution's Fee Amount / Net Amount against eWay's Settlement Reports API (opt-in, disabled by default)
 
@@ -151,6 +151,10 @@ button or if the contribution was made via a Drupal Webform.
 This job is enabled by default; visit `civicrm/admin/job` if you need to
 review or adjust it.
 
+If eWay approves a payment but CiviCRM cannot complete the contribution, the job
+keeps trying and leaves a note for staff; see
+[Payments eWay Approved but CiviCRM Could Not Complete](#payments-eway-approved-but-civicrm-could-not-complete).
+
 ## Payments eWay Approved but CiviCRM Could Not Complete
 
 Rarely, eWay approves a payment and the donor is charged, but CiviCRM then fails
@@ -160,6 +164,25 @@ The eWay Transaction Verifications job does not drop these. It keeps the payment
 in its queue and tries again on every run, for up to 96 tries (about 24 hours
 when the job runs every 15 minutes). The contribution stays *Pending* and is
 never marked *Failed*, because the donor has been charged.
+
+What happens, in order:
+
+1. eWay approves the payment, and the donor is charged.
+2. CiviCRM cannot mark the contribution *Completed*. The contribution stays
+   *Pending*, so no receipt is sent yet.
+3. The first time this happens, the contribution gets a note that says what
+   went wrong and gives the eWay transaction ID, and an error is written to the
+   CiviCRM log.
+4. The verification job tries again on each run. Each try is counted, and each
+   failed try is logged (the note is added only once). If the cause has gone
+   away, the contribution is completed as normal and the receipt is sent.
+5. After 96 tries the job stops. The contribution is left *Pending*, the queue
+   entry is marked failed so it is not tried again, a second note says that
+   action is needed, and a final error is logged. From here a person has to
+   finish it (see below).
+
+The number of tries is fixed, not a setting. A payment that eWay declined is
+not handled this way: the contribution is marked *Failed* as usual.
 
 How to recognise one:
 
