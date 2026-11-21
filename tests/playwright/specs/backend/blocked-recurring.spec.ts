@@ -20,7 +20,10 @@ import { reactivateDialog, SCREEN_NOISE } from '../../fixtures/recurring-screens
  * month is always after it. Every record a case makes is cancelled afterwards so none stays blocked for other cases.
  */
 
-test.use({ allowedProblems: [SCREEN_NOISE, /Warning: Debug is enabled in system settings/] });
+/** test.use() reads a two item list as a value and its options, so more than one pattern is joined into one. */
+const either = (...patterns: RegExp[]) => new RegExp(patterns.map((pattern) => pattern.source).join('|'));
+
+test.use({ allowedProblems: [either(SCREEN_NOISE, /Warning: Debug is enabled in system settings/)] });
 
 /** A refused user gets HTTP 403 on a development site and 500 on a fresh CI site (core's own permission page). */
 const REFUSAL_STATUS = [403, 500];
@@ -39,6 +42,11 @@ function blockedRecord(label: string): RecurringRecord {
   const record = createRecurring({ label, nextDue: '-70 days' });
   made.push(record.recurId);
   evaluate(`
+    // Recording the seeded Completed contribution made core move the date on, so put the due date back.
+    \\Civi\\Api4\\ContributionRecur::update(FALSE)
+      ->addWhere('id', '=', ${record.recurId})
+      ->addValue('next_sched_contribution_date', date('Y-m-d 00:00:00', strtotime('-70 days')))
+      ->execute();
     $created = civicrm_api3('Contribution', 'create', [
       'contact_id' => ${record.contactId},
       'financial_type_id' => 1,
@@ -149,7 +157,7 @@ test('PW-B-blocked-01 the finance user is offered the list under Contributions w
 });
 
 test.describe('refused users', () => {
-  test.use({ allowedProblems: [SCREEN_NOISE, /Cannot set response code|status of (403|500)|HTTP (403|500)/] });
+  test.use({ allowedProblems: [either(SCREEN_NOISE, /Cannot set response code|status of (403|500)|HTTP (403|500)/)] });
 
   test('PW-B-blocked-01 the limited user (no "edit contributions") is refused: no list, and no menu entry', async ({ limitedPage }) => {
     const record = blockedRecord('blocked01refused');
