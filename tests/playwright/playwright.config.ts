@@ -41,6 +41,8 @@ export default defineConfig({
       // selected with --project=sandbox or --grep @sandbox.
       name: 'sandbox',
       testMatch: /specs\/sandbox\/.*\.spec\.ts/,
+      // eWAY's sandbox is slow to answer, so give every wait on it longer than the 10 seconds of the other specs.
+      expect: { timeout: 30_000 },
       use: { ...devices['Desktop Chrome'] },
     },
   ],

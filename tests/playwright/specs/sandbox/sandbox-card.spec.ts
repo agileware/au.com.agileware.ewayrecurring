@@ -149,8 +149,9 @@ test.describe('adding a card and charging it on the real sandbox', { tag: '@sand
     // Locale independent: the expiry is the last day of a month in the future.
     expect(String(cards[0].expiry_date).slice(0, 10) > new Date().toISOString().slice(0, 10)).toBeTruthy();
     // The list on the form shows it (last four digits, then month and year).
-    await expect.poll(() => cardOptions(adminPage)).toHaveLength(1);
-    expect((await cardOptions(adminPage))[0]).toMatch(/^1111 - \d{2}\/\d{4}$/);
+    // The list is reloaded from eWAY's slow sandbox. Wait for the card itself: the empty list is also one option
+    // ("No cards found."), so waiting for one option can stop too early.
+    await expect.poll(async () => (await cardOptions(adminPage))[0] ?? '', { timeout: 90_000 }).toMatch(/^1111 - \d{2}\/\d{4}$/);
     // Adding a card takes no payment.
     expect(contributionsOfContact(contactId)).toHaveLength(0);
 
@@ -184,7 +185,7 @@ test.describe('adding a card and charging it on the real sandbox', { tag: '@sand
     await openCardForm(adminPage, contactId);
     await addTestCard(adminPage);
     expect(savedCards(contactId)).toHaveLength(1);
-    await expect.poll(() => cardOptions(adminPage)).toHaveLength(1);
+    await expect.poll(async () => (await cardOptions(adminPage))[0] ?? '', { timeout: 90_000 }).toMatch(/^1111 - \d{2}\/\d{4}$/);
 
     // $10.05 is D4405, Do Not Honour, on a sandbox account that uses the cents of the amount (see fixtures/sandbox.ts).
     await fillPayment(adminPage, AMOUNTS.declined);
