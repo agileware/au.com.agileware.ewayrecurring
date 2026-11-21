@@ -1,0 +1,25 @@
+<div id="bootstrap-theme" crm-dialog="crmSearchTask">
+  <form name="crmSearchTaskCancelRecur" ng-controller="crmSearchTaskCancelRecur as $ctrl">
+    <div class="alert alert-warning">
+      <p><i class="fa fa-exclamation-triangle"></i> {{ $ctrl.statusMessage }}</p>
+    </div>
+
+    <div ng-if="! $ctrl.run" class="crm-section form-inline">
+      <label for="crm-search-task-cancel-reason">{{:: ts('Cancellation Reason') }}</label>
+      <input class="form-control" id="crm-search-task-cancel-reason" ng-model="$ctrl.reason" />
+      <div class="description">
+        {{:: ts('Optional. Saved with the recurring contribution.') }}
+      </div>
+    </div>
+
+    <div ng-if="$ctrl.run" class="crm-search-task-progress">
+      <h5>{{:: ts('Cancelling Recurring Contributions...') }}</h5>
+      <crm-search-batch-runner entity="'ContributionRecur'" action="update" params="$ctrl.run" ids="$ctrl.ids" id-field="id" success="$ctrl.onSuccess(result)" error="$ctrl.onError(error)"></crm-search-batch-runner>
+    </div>
+
+    <crm-dialog-button text="ts('Go Back')" icons="{primary: 'fa-times'}" on-click="$ctrl.cancel()"
+      disabled="$ctrl.run" />
+    <crm-dialog-button text="ts('Cancel Recurring Contributions')" icons="{primary: 'fa-ban'}"
+      on-click="$ctrl.submit()" disabled="$ctrl.run" />
+  </form>
+</div>

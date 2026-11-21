@@ -1,0 +1,25 @@
+<div af-fieldset="">
+  <div class="alert alert-info" role="note">
+    <p><strong>What this list shows.</strong> Recurring contributions paid through eWAY that are due to be charged, but
+      that the scheduled job will not charge because one of their contributions is <em>Cancelled</em> and is dated on or
+      after the date the recurring contribution is waiting on. Cancelling a contribution makes the extension skip that
+      installment and move the next scheduled date on, so a record appears here only if it was left that way before the
+      upgrade, or if the contribution was cancelled in a way that did not trigger the skip. The list is empty when nothing
+      is blocked.</p>
+    <p><strong>What to do for each record.</strong> Click its Recurring ID to see the recurring contribution and its
+      contributions, and find the cancelled one. Then choose:</p>
+    <ol>
+      <li><strong>Carry on and skip that installment:</strong> press <em>Reactivate</em> and enter a Next Scheduled Date
+        that is after the cancelled contribution's date (for example the date of the next installment). If you leave the
+        date blank nothing changes and the record stays blocked. The record is charged when that date arrives.</li>
+      <li><strong>Collect that installment after all:</strong> set the cancelled contribution to <em>Failed</em>, then
+        press <em>Reactivate</em> and enter today's date. The next run of the scheduled job charges it. Do this only after
+        checking in the eWAY Business Centre that the donor was not already charged for it.</li>
+      <li><strong>Stop it for good:</strong> press <em>Cancel</em>. The recurring contribution is set to Cancelled and is
+        never charged again. This does not contact eWAY.</li>
+    </ol>
+    <p>A record leaves this list as soon as it is no longer blocked, cancelled or no longer In Progress. A warning in the
+      system status check counts the records on this list.</p>
+  </div>
+  <crm-search-display-table search-name="Blocked_Recurring_Contributions" display-name="Blocked_Recurring_Contribution_Listing"></crm-search-display-table>
+</div>

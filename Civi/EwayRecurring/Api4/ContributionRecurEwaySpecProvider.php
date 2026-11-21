@@ -7,7 +7,8 @@ use Civi\Api4\Service\Spec\Provider\Generic\SpecProviderInterface;
 use Civi\Api4\Service\Spec\RequestSpec;
 
 /**
- * Adds one calculated yes/no field to ContributionRecur: is_eway_processor.
+ * Adds two calculated yes/no fields to ContributionRecur: is_eway_processor (this file's first part) and
+ * is_blocked_by_cancelled_contribution (FEATURES.md, FR-6).
  *
  * The Failed Recurring Contributions list shows only records paid through eWAY. It used to find them by joining the
  * payment processor, but APIv4 drops a join to an entity the user may not read, and PaymentProcessor (which holds the API
@@ -30,6 +31,11 @@ class ContributionRecurEwaySpecProvider implements SpecProviderInterface {
   const PROCESSOR_TYPE = 'eWay_Recurring';
 
   /**
+   * The name of the second calculated field (FR-6).
+   */
+  const BLOCKED_FIELD = 'is_blocked_by_cancelled_contribution';
+
+  /**
    * @param \Civi\Api4\Service\Spec\RequestSpec $spec
    */
   public function modifySpec(RequestSpec $spec): void {
@@ -44,6 +50,17 @@ class ContributionRecurEwaySpecProvider implements SpecProviderInterface {
       ->setReadonly(TRUE)
       ->setSqlRenderer([__CLASS__, 'renderSql']);
     $spec->addFieldSpec($field);
+
+    $blocked = new FieldSpec(self::BLOCKED_FIELD, $spec->getEntity(), 'Boolean');
+    $blocked->setLabel(ts('Waiting on a Cancelled Contribution'))
+      ->setTitle(ts('Waiting on a Cancelled Contribution'))
+      ->setDescription(ts('Yes when the record is due to be charged but a Cancelled contribution dated on or after the date it is waiting on stops the scheduled job charging it.'))
+      ->setColumnName('id')
+      ->setType('Extra')
+      ->setInputType('CheckBox')
+      ->setReadonly(TRUE)
+      ->setSqlRenderer([__CLASS__, 'renderBlockedSql']);
+    $spec->addFieldSpec($blocked);
   }
 
   /**
@@ -55,6 +72,30 @@ class ContributionRecurEwaySpecProvider implements SpecProviderInterface {
    */
   public function applies($entity, $action): bool {
     return $entity === 'ContributionRecur' && $action === 'get';
+  }
+
+  /**
+   * The SQL for is_blocked_by_cancelled_contribution: 1 when the record's waiting date has passed (its retry date while it
+   * has one, otherwise its next scheduled date) and it has a Cancelled contribution dated on or after that date. That is
+   * the contribution that makes the scheduled job skip the record (ProcessTrait::get_scheduled_contributions()), so the
+   * record would be charged but for it. Other conditions (eWAY, In Progress, live) are for the caller to add.
+   *
+   * @param array $field
+   *   The field, with `sql_name` set to the recurring record's id column (table alias, then column).
+   * @return string
+   */
+  public static function renderBlockedSql(array $field): string {
+    $idColumn = $field['sql_name'];
+    $t = substr($idColumn, 0, strrpos($idColumn, '.'));
+    $waitingOn = "IF({$t}.`failure_retry_date` IS NOT NULL, {$t}.`failure_retry_date`, {$t}.`next_sched_contribution_date`)";
+    $cancelled = (int) \CRM_Core_PseudoConstant::getKey('CRM_Contribute_BAO_Contribution', 'contribution_status_id', 'Cancelled');
+    return "IF(EXISTS ("
+      . "SELECT 1 FROM `civicrm_contribution` `blocked_c` "
+      . "WHERE `blocked_c`.`contribution_recur_id` = {$idColumn} "
+      . "AND `blocked_c`.`contribution_status_id` = {$cancelled} "
+      . "AND {$waitingOn} <= NOW() "
+      . "AND `blocked_c`.`receive_date` >= {$waitingOn}"
+      . "), 1, 0)";
   }
 
   /**

@@ -50,6 +50,7 @@ documentation (that lives in `docs/`).
 | [FR-3](#fr-3-check-a-new-card-with-the-issuer-when-it-is-added) | Check a new card with the issuer when it is added | `idea` | to be decided | Group to be added once decisions C1 to C6 are settled; PW-X-05 is the first step |
 | [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `in progress` | 3.0.0 | PU-O6 to PU-O10, PW-B-failed-01, PW-B-failed-13 |
 | [FR-5](#fr-5-search-kit-report-of-payments-eway-approved-but-civicrm-could-not-complete) | Search Kit report of payments eWAY approved but CiviCRM could not complete, with actions and instructions | `idea` | to be decided | Group to be added once decisions A1 to A5 are settled |
+| [FR-6](#fr-6-blocked-recurring-contributions-list-with-reactivate-and-cancel) | Blocked Recurring Contributions list with Reactivate and Cancel, and a status check | `in progress` | 3.0.0 | PU-P1 to PU-P5, PW-B-blocked-01 to PW-B-blocked-04 |
 
 ---
 
@@ -715,12 +716,76 @@ verification job (PU-D19 to PU-D24 already cover how a row gets into this state)
 
 ---
 
+## FR-6 Blocked Recurring Contributions list with Reactivate and Cancel
+
+| | |
+| --- | --- |
+| Status | `in progress` (built on `release-3.0.0`; its tests wait for a CI run) |
+| Raised | 2026-11-21 |
+| Target release | 3.0.0 (it deals with records left blocked by the change that makes a Cancelled contribution skip an installment) |
+| Related | DEF-68 in [TEST_PLAN.md](TEST_PLAN.md), FR-4 (the same kind of page), `docs/UPGRADE.md` (3.0.0) |
+
+### Summary
+
+A Search Kit page, "Blocked Recurring Contributions", under the Contributions menu, listing the eWAY recurring contributions that
+are due to be charged but that the scheduled job will not charge, because one of their contributions is Cancelled and is dated on
+or after the date the record is waiting on. Each row has a Reactivate button (to set a new next scheduled date) and a Cancel
+button (to stop the recurring contribution for good), and the page carries instructions for what to do. A system status check
+counts the records and links to the page.
+
+### Why
+
+Cancelling a contribution now makes the extension skip that installment and move the date on, so new records are not left
+waiting. A record that already had such a contribution before the upgrade, or whose contribution was cancelled in a way that did
+not trigger the skip, stays blocked, and nothing says so. This page and the status check make those records visible and give
+staff the two ways out. It replaces the earlier idea of an upgrade step, an SQL query in the docs or a log line.
+
+### What it does
+
+* **Blocked record**: live (not test), In Progress, paid through eWAY, and due (its retry date while it has one, otherwise its
+  next scheduled date, is not in the future), with a Cancelled contribution dated on or after that date. The calculated field
+  `is_blocked_by_cancelled_contribution` on ContributionRecur says so, in SQL, like `is_eway_processor` (FR-4).
+* **Page**: `civicrm/contribute/blockedrecurring`, menu entry "Blocked Recurring Contributions" under Contributions, permission
+  "edit contributions". Columns: contact, Recurring ID (opens the recurring contribution and its contributions), next scheduled
+  date, retry date, amount, frequency.
+* **Reactivate**: the existing action. With a date after the cancelled contribution it unblocks the record. With no date it
+  changes nothing about the block, which the instructions say.
+* **Cancel**: a new Search Kit task. It sets the status Cancelled with the cancel date and an optional reason, as core's
+  Cancel Subscription does to the record, and sends nothing to eWAY.
+* **Status check** `ewayrecurring_blocked`: "Found N recurring contributions that are not being charged ...", with a link to the page.
+  It can be disabled like any status check.
+
+### Decisions
+
+| ID | Question | Status |
+| --- | --- | --- |
+| B1 | Build it, in place of an upgrade step | **Decided 2026-11-21** (owner, option 6) |
+| B2 | Name | **Decided 2026-11-21**: "Blocked Recurring Contributions" |
+| B3 | How Cancel works | **Decided 2026-11-21**: a custom task that does what core's cancel does to the record, not the built-in Update task |
+| B4 | Where it is recorded | **Decided 2026-11-21**: this entry (FR-6). FR-5, the report of approved but not completed payments, is a different list and stays an `idea` |
+| B5 | Permission | **Decided 2026-11-21**: "edit contributions", as the Failed Recurring Contributions page |
+
+### Acceptance criteria
+
+1. A user with only "edit contributions" sees the entry under Contributions and the blocked records, and nothing else. (PU-P2, PW-B-blocked-01)
+2. A user without that permission is refused and has no menu entry. (PU-P5, PW-B-blocked-01)
+3. Reactivate with a later date removes a record from the list; Cancel stops it and removes it. (PU-P3, PW-B-blocked-02, PW-B-blocked-03)
+4. The status check counts exactly the records on the list and links to it. (PU-P4, PW-B-blocked-04)
+5. Cancelling a contribution through the normal save leaves nothing on the list. (PU-P3, PU-F42)
+
+### Test coverage
+
+PU-P1 to PU-P5 (`BlockedRecurringSearchTest`) and PW-B-blocked-01 to PW-B-blocked-04 (`blocked-recurring.spec.ts`).
+
+---
+
 ## 2. Change log
 
 Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | FR-6 added and built (`in progress`): the Blocked Recurring Contributions list with Reactivate and Cancel buttons, its instructions and a status check, for records left blocked by a Cancelled contribution. All five decisions (B1 to B5) taken by the owner. |
 | 2026-11-21 | FR-5 added as `idea`: a Search Kit report of payments eWAY approved but CiviCRM could not complete (the rows DEF-78 now keeps in the verification queue), with row actions and instructions for what to do next, five open decisions (A1 to A5). |
 | 2026-11-15 | FR-4 built (`in progress`): decisions F1 (a calculated `is_eway_processor` field on ContributionRecur through a spec provider replaces the join to the payment processor) and F2 ("edit contributions" for the page and menu entry) decided and recorded with the options weighed and the evidence. Page and menu entry back to "edit contributions". PU-O6 to PU-O10 and PW-B-failed-13 added. |
 | 2026-11-15 | FR-4 added as `planned`: let finance staff open the Failed Recurring Contributions list without access to payment processors (the better follow-up to DEF-62, which now needs "administer CiviCRM"). |

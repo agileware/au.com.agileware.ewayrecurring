@@ -15,6 +15,7 @@ failed payments. Provides:
 * Configurable automatic retries for failed recurring payments, with a system status check for contributions that have exhausted their retries
 * A Search Kit action to reactivate a failed Recurring Contribution
 * Cancelling one contribution of a recurring contribution skips that installment and moves the next scheduled date on, so the recurring contribution is never left waiting
+* A list of blocked recurring contributions, with Reactivate and Cancel buttons and a System Status warning, for records that a cancelled contribution stops being charged
 * Background verification of pending/unconfirmed transactions, which keeps retrying a payment eWay approved but CiviCRM could not complete and leaves a note on the contribution saying what to do
 * Automatic backfill of saved card metadata (expiry date, masked number) via the eWay Rapid API
 * Automated reconciliation of a contribution's Fee Amount / Net Amount against eWay's Settlement Reports API (opt-in, disabled by default)
@@ -269,6 +270,33 @@ Things to know:
   installment. Before you do, check in the eWay Business Centre that no money
   was taken: a payment that was taken but is cancelled in CiviCRM is not
   recorded.
+
+## Blocked Recurring Contributions
+
+The **Blocked Recurring Contributions** list (under **Contributions** in the menu, for users who can edit
+contributions) shows the eWay recurring contributions that are due to be charged but that the scheduled job will
+not charge, because one of their contributions is *Cancelled* and is dated on or after the date the recurring
+contribution is waiting on. Cancelling a contribution now skips that installment and moves the next scheduled
+date on (see [Skipping an Installment by Cancelling its Contribution](#skipping-an-installment-by-cancelling-its-contribution)),
+so a recurring contribution appears here only if it was left that way before the upgrade, or if the contribution
+was cancelled in a way that did not trigger the skip. The list is normally empty.
+
+A warning in CiviCRM's System Status (*eWAYRecurring - blocked recurring contributions*) counts the records on
+this list and links to it.
+
+For each record, click its **Recurring ID** to see the recurring contribution and its contributions and find
+the cancelled one, then choose one of these:
+
+* **Carry on and skip that installment.** Press **Reactivate** and enter a **Next Scheduled Date** that is after
+  the cancelled contribution's date, for example the date of the next installment. If you leave the date blank
+  nothing changes and the record stays on the list. The record is charged when that date arrives.
+* **Collect that installment after all.** Set the cancelled contribution to *Failed*, then press **Reactivate**
+  and enter today's date. The next run of the scheduled job charges it. Do this only after checking in the eWay
+  Business Centre that the donor was not already charged for it.
+* **Stop it for good.** Press **Cancel**. The recurring contribution is set to *Cancelled*, with the cancellation
+  date and an optional reason, and is never charged again. This does not contact eWay.
+
+A record leaves the list as soon as it is no longer blocked, or it is cancelled.
 
 ## Reactivating Failed Contributions
 

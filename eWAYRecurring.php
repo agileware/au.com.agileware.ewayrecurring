@@ -420,47 +420,83 @@ function ewayrecurring_civicrm_searchKitTasks(array &$tasks, bool $checkPermissi
     'module' => 'ewayrecurring',
     'uiDialog' => [ 'templateUrl' => '~/ewayrecurring/crmSearchTaskResetRecur.html', ],
   ];
+  $tasks['ContributionRecur']['cancel_recur'] = [
+    'title' => E::ts('Cancel Recurring Contribution'),
+    'icon' => 'fa-ban',
+    'module' => 'ewayrecurring',
+    'uiDialog' => [ 'templateUrl' => '~/ewayrecurring/crmSearchTaskCancelRecur.html', ],
+  ];
 }
 
 /**
  * Implements hook_civicrm_check()
  */
 function ewayrecurring_civicrm_check(&$messages, $statusNames, $includeDisabled) {
-  if($statusNames && !in_array('ewayrecurring_failed', $statusNames)) {
-    return;
+  if (_ewayrecurring_check_wanted('ewayrecurring_failed', $statusNames, $includeDisabled)) {
+    try {
+      $failed = ContributionRecur::get(FALSE)
+        ->addWhere('is_test', '=', FALSE)
+        ->addWhere('contribution_status_id:name', '=', 'Failed')
+        ->addWhere('failure_retry_date', '<', 'now - 4 hours')
+        ->selectRowCount()
+        ->execute()
+        ->count();
+
+      if ($failed > 0) {
+        $messages[] = new CRM_Utils_Check_Message(
+          'ewayrecurring_failed',
+          E::ts('Found %1 failed recurring contributions that may be stuck due to e.g. invalid card details. Visit <a href="%2">Failed Recurring Contributions</a> for more details .', [1 => $failed, 2 => CRM_Utils_System::url('civicrm/contribute/failedrecurring')]),
+          E::ts('eWAYRecurring - failed recurring contributions')
+        );
+      }
+    } catch (CRM_Core_Exception $e) {
+      // ...
+    }
   }
 
+  if (_ewayrecurring_check_wanted('ewayrecurring_blocked', $statusNames, $includeDisabled)) {
+    try {
+      $blocked = ContributionRecur::get(FALSE)
+        ->addWhere('is_test', '=', FALSE)
+        ->addWhere('contribution_status_id:name', '=', 'In Progress')
+        ->addWhere('is_eway_processor', '=', TRUE)
+        ->addWhere('is_blocked_by_cancelled_contribution', '=', TRUE)
+        ->selectRowCount()
+        ->execute()
+        ->count();
+
+      if ($blocked > 0) {
+        $messages[] = new CRM_Utils_Check_Message(
+          'ewayrecurring_blocked',
+          E::ts('Found %1 recurring contributions that are not being charged because a cancelled contribution is dated on or after the date they are waiting on. Visit <a href="%2">Blocked Recurring Contributions</a> to reactivate or cancel them.', [1 => $blocked, 2 => CRM_Utils_System::url('civicrm/contribute/blockedrecurring')]),
+          E::ts('eWAYRecurring - blocked recurring contributions')
+        );
+      }
+    } catch (CRM_Core_Exception $e) {
+      // ...
+    }
+  }
+}
+
+/**
+ * Should the status check with this name run? It does when no names were asked for or this one was, and it has not been
+ * disabled (unless disabled checks are asked for).
+ */
+function _ewayrecurring_check_wanted(string $name, $statusNames, $includeDisabled): bool {
+  if ($statusNames && !in_array($name, $statusNames)) {
+    return FALSE;
+  }
   if (!$includeDisabled) {
     $disabled = StatusPreference::get(FALSE)
       ->addWhere('is_active', '=', FALSE)
       ->addWhere('domain_id', '=', 'current_domain')
-      ->addWhere('name', '=', 'ewayrecurring_failed')
+      ->addWhere('name', '=', $name)
       ->selectRowCount()
       ->execute()
       ->count() > 0;
-
     if ($disabled) {
-      return;
+      return FALSE;
     }
   }
-
-  try {
-    $failed = ContributionRecur::get(FALSE)
-      ->addWhere('is_test', '=', FALSE)
-      ->addWhere('contribution_status_id:name', '=', 'Failed')
-      ->addWhere('failure_retry_date', '<', 'now - 4 hours')
-      ->selectRowCount()
-      ->execute()
-      ->count();
-
-    if ($failed > 0) {
-      $messages[] = new CRM_Utils_Check_Message(
-        'ewayrecurring_failed',
-        E::ts('Found %1 failed recurring contributions that may be stuck due to e.g. invalid card details. Visit <a href="%2">Failed Recurring Contributions</a> for more details .', [1 => $failed, 2 => CRM_Utils_System::url('civicrm/contribute/failedrecurring')]),
-        E::ts('eWAYRecurring - failed recurring contributions')
-      );
-    }
-  } catch (CRM_Core_Exception $e) {
-    // ...
-  }
+  return TRUE;
 }

@@ -37,8 +37,11 @@ the scheduled job charge the recurring contribution again for that installment. 
 
 The upgrade does not change any date. A recurring contribution that already has a cancelled
 contribution dated on or after its due date, from before the upgrade, stays as it is and is not
-charged by the scheduled job until its next scheduled date is moved on or that contribution is set
-to *Failed*.
+charged by the scheduled job until it is dealt with. Such records are listed on the new
+[Blocked Recurring Contributions](README.md#blocked-recurring-contributions) page (under
+**Contributions** in the menu), where you can reactivate each one with a new next scheduled date or
+cancel it, and a System Status warning counts them. After upgrading, open that page once to see
+whether any need attention.
 
 ### Finance staff can open the Failed Recurring Contributions list
 
