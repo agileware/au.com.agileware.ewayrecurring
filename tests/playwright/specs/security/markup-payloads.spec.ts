@@ -207,16 +207,13 @@ test.describe('through the data, on the staff screens', () => {
     expect(adminDialogs).toEqual([]);
   });
 
-  // The payload's image is a broken address, so the page also logs a 404 for it (and on CiviCRM 6.19.5, where the page still runs
-  // the script, the browser reports that as a console error).
+  // The payload's image is a broken address, so the page also logs a 404 for it.
   test.describe('a page that runs the payload', () => {
     test.use({ allowedProblems: [new RegExp(`${SCREEN_NOISE.source}|${NAVIGATED_AWAY.source}|status of 404`)] });
 
-    // KNOWN DEFECT IN CORE (upstream-issues/14): core's Recurring Contribution page prints the record's cancel reason without
-    // escaping (templates/CRM/Contribute/Page/ContributionRecur.tpl) and runs a script in a contribution's source. This case
-    // asserts the right behaviour and is expected to fail until core is fixed.
-    test('PW-S-01 core\'s Recurring Contribution page shows a cancel reason and a contribution source with markup in them as text', async ({ adminPage }) => {
-      test.fail(true, 'core: the recurring contribution page does not escape the cancel reason or a contribution\'s source (upstream-issues/14)');
+    // Known defect in core, expected to fail until core is fixed (upstream-issues/14).
+    test('PW-S-01 the recurring contribution view page shows the stored payloads as text (pinned, core)', async ({ adminPage }) => {
+      test.fail(true, 'known defect in core (upstream-issues/14)');
       const dialogs = failOnDialog(adminPage);
       const record = recordWithPayloads('s01recurview');
       await adminPage.goto(recurringViewUrl(record));
