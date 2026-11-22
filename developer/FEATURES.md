@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Extension version | 2.8.2 (work in progress on branch `version-3.0.0`) |
+| Extension version | 3.0.0 (on branch `version-3.0.0`, not yet merged or tagged) |
 | Status last updated | 2026-11-15 |
 | Owner | Extension maintainers |
 | Related | [TEST_PLAN.md](TEST_PLAN.md) (test coverage and status), [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment) |

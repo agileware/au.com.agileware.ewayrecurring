@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Extension version | 2.8.2 |
+| Extension version | 3.0.0 |
 | Status last updated | 2026-11-22 |
 | Owner | Extension maintainers (update this file in the same pull request as any test change) |
 | Related | [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment), [FEATURES.md](FEATURES.md) (planned features) |
