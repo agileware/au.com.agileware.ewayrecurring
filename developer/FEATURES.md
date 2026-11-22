@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Extension version | 3.0.0 (on branch `version-3.0.0`, not yet merged or tagged) |
+| Extension version | 3.0.0 (released 2026-11-22) |
 | Status last updated | 2026-11-15 |
 | Owner | Extension maintainers |
 | Related | [TEST_PLAN.md](TEST_PLAN.md) (test coverage and status), [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment) |
@@ -46,11 +46,11 @@ documentation (that lives in `docs/`).
 | ID | Feature | Status | Target release | Test plan |
 | --- | --- | --- | --- | --- |
 | [FR-1](#fr-1-donor-facing-update-my-stored-card-page) | Donor-facing "update my stored card" page | `planned` | to be decided | Group to be added once decisions D1 to D5 are settled; supporting cases listed below |
-| [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `in progress` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
+| [FR-2](#fr-2-upgrade-step-repair-recurring-contributions-left-stuck-by-the-old-retry-behaviour) | Upgrade step: repair recurring contributions left stuck by the old retry behaviour | `released` | 3.0.0 | PU-L6 to PU-L10, UP-10, UP-11 |
 | [FR-3](#fr-3-check-a-new-card-with-the-issuer-when-it-is-added) | Check a new card with the issuer when it is added | `idea` | to be decided | Group to be added once decisions C1 to C6 are settled; PW-X-05 is the first step |
-| [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `in progress` | 3.0.0 | PU-O6 to PU-O10, PW-B-failed-01, PW-B-failed-13 |
+| [FR-4](#fr-4-let-finance-staff-open-the-failed-recurring-contributions-list) | Let finance staff open the Failed Recurring Contributions list | `released` | 3.0.0 | PU-O6 to PU-O10, PW-B-failed-01, PW-B-failed-13 |
 | [FR-5](#fr-5-search-kit-report-of-payments-eway-approved-but-civicrm-could-not-complete) | Search Kit report of payments eWAY approved but CiviCRM could not complete, with actions and instructions | `idea` | to be decided | Group to be added once decisions A1 to A5 are settled |
-| [FR-6](#fr-6-blocked-recurring-contributions-list-with-reactivate-and-cancel) | Blocked Recurring Contributions list with Reactivate and Cancel, and a status check | `in progress` | 3.0.0 | PU-P1 to PU-P5, PW-B-blocked-01 to PW-B-blocked-04 |
+| [FR-6](#fr-6-blocked-recurring-contributions-list-with-reactivate-and-cancel) | Blocked Recurring Contributions list with Reactivate and Cancel, and a status check | `released` | 3.0.0 | PU-P1 to PU-P5, PW-B-blocked-01 to PW-B-blocked-04 |
 | [FR-7](#fr-7-survey-of-backend-users) | Survey of backend users (staff who run the extension day to day) | `idea` | to be decided | Group to be added once decisions S1 to S5 are settled |
 
 ---
@@ -216,7 +216,7 @@ New cases will be added to the test plan once decisions D1 to D5 are settled. Th
 
 | | |
 | --- | --- |
-| Status | `in progress` |
+| Status | `released` (3.0.0) |
 | Raised | 2026-11-14 |
 | Target release | 3.0.0 |
 
@@ -520,7 +520,7 @@ To be written once the options are decided.
 
 | | |
 | --- | --- |
-| Status | `in progress` (built on `version-3.0.0`, green locally; PU-O6 to PU-O10 and PW-B-failed-13 wait for a GitHub run) |
+| Status | `released` (3.0.0) |
 | Raised | 2026-11-15 |
 | Target release | 3.0.0 (the owner asked for it with the DEF-62 fix) |
 | Related | DEF-62 in [TEST_PLAN.md](TEST_PLAN.md) |
@@ -721,7 +721,7 @@ verification job (PU-D19 to PU-D24 already cover how a row gets into this state)
 
 | | |
 | --- | --- |
-| Status | `in progress` (built on `version-3.0.0`; PU-P1 to PU-P5 are done and PW-B-blocked-01 to 04 pass on WordPress on GitHub; it stays `in progress` until 3.0.0 is released) |
+| Status | `released` (3.0.0; PU-P1 to PU-P5 are done and PW-B-blocked-01 to 04 pass on WordPress on GitHub) |
 | Raised | 2026-11-21 |
 | Target release | 3.0.0 (it deals with records left blocked by the change that makes a Cancelled contribution skip an installment) |
 | Related | DEF-68 in [TEST_PLAN.md](TEST_PLAN.md), FR-4 (the same kind of page), `docs/UPGRADE.md` (3.0.0) |
@@ -846,6 +846,7 @@ Newest first. One line per change to this file.
 | Date | Change |
 | --- | --- |
 | 2026-11-21 | FR-7 added as `idea`: a survey of backend users, with what it could ask, three options and five open decisions (S1 to S5). Not scheduled. |
+| 2026-11-22 | 3.0.0 released. FR-2, FR-4 and FR-6 changed from `in progress` to `released` (3.0.0). |
 | 2026-11-21 | FR-6 added and built (`in progress`): the Blocked Recurring Contributions list with Reactivate and Cancel buttons, its instructions and a status check, for records left blocked by a Cancelled contribution. All five decisions (B1 to B5) taken by the owner. |
 | 2026-11-21 | FR-5 added as `idea`: a Search Kit report of payments eWAY approved but CiviCRM could not complete (the rows DEF-78 now keeps in the verification queue), with row actions and instructions for what to do next, five open decisions (A1 to A5). |
 | 2026-11-15 | FR-4 built (`in progress`): decisions F1 (a calculated `is_eway_processor` field on ContributionRecur through a spec provider replaces the join to the payment processor) and F2 ("edit contributions" for the page and menu entry) decided and recorded with the options weighed and the evidence. Page and menu entry back to "edit contributions". PU-O6 to PU-O10 and PW-B-failed-13 added. |
