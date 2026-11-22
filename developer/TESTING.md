@@ -84,9 +84,9 @@ The PHPUnit, upgrade and Playwright workflows run on pushes to `master`, on pull
 on a branch without opening a pull request:
 
 ```bash
-gh workflow run phpunit-tests.yml --ref version-3.0.0
-gh workflow run upgrade-tests.yml --ref version-3.0.0
-gh workflow run frontend-tests.yml --ref version-3.0.0
+gh workflow run phpunit-tests.yml --ref <branch>
+gh workflow run upgrade-tests.yml --ref <branch>
+gh workflow run frontend-tests.yml --ref <branch>
 ```
 
 The run uses the workflow file as it is on that branch, so push the branch first if the file changed. A workflow
