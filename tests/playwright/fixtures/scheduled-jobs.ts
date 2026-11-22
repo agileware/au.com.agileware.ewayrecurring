@@ -47,6 +47,12 @@ export async function openRowActions(row: Locator): Promise<void> {
   const menu = row.getByRole('button', { name: 'Row Actions' });
   if (await menu.count()) {
     await menu.click();
+    return;
+  }
+  // CiviCRM 6.16 draws the Search Kit table's row menu as an icon-only button with no accessible name, in the last cell.
+  const iconMenu = row.getByRole('cell').last().getByRole('button');
+  if (await iconMenu.count()) {
+    await iconMenu.first().click();
   } else {
     await row.locator('.btn-slide').click();
   }

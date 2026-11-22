@@ -89,6 +89,9 @@ function failOnDialog(page: Page): string[] {
   return dialogs;
 }
 
+/** The page CiviCRM's intrusion filter (CRM_Core_IDS) shows when it refuses a request. */
+const IDS_REFUSAL = /Your activity is a bit suspicious/;
+
 test.describe('through the donor\'s form', () => {
   test.use({ allowedProblems: [new RegExp(`${REFUSED_STATUS.source}|${NAVIGATED_AWAY.source}`)] });
 
@@ -107,7 +110,12 @@ test.describe('through the donor\'s form', () => {
       await anonPage.waitForLoadState('load');
 
       const confirm = anonPage.locator('#_qf_Confirm_next-bottom');
-      if (await confirm.count() === 0) {
+      if (await confirm.count() === 0 && await anonPage.getByText(IDS_REFUSAL).count() > 0) {
+        // CiviCRM's intrusion filter (PHPIDS) stopped the request before the form saw it. Stock CiviCRM does this for
+        // payloads like these; the Agileware pipeline image has the filter switched off, so the form handles them.
+        await expectNothingInjected(anonPage, `${name}: the filter's refusal page`);
+        test.info().annotations.push({ type: 'core', description: `${name}: refused by core's intrusion filter` });
+      } else if (await confirm.count() === 0) {
         // CiviCRM's own filter refused the payload: the form is shown again, with the message and the payload as the value.
         await expectNothingInjected(anonPage, `${name}: the form after a refusal`);
         await expect(anonPage.locator('#billing_first_name')).toBeVisible();
