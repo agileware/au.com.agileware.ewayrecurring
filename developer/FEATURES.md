@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Extension version | 2.8.2 (work in progress on branch `release-3.0.0`) |
+| Extension version | 2.8.2 (work in progress on branch `version-3.0.0`) |
 | Status last updated | 2026-11-15 |
 | Owner | Extension maintainers |
 | Related | [TEST_PLAN.md](TEST_PLAN.md) (test coverage and status), [TESTING.md](TESTING.md) (how to run tests), [LOCAL_DEV.md](LOCAL_DEV.md) (local environment) |
@@ -253,7 +253,7 @@ it, so there are probably few, but nothing ever picks them up.
 
 ### Behaviour
 
-Built on `release-3.0.0` (PU-L6 to PU-L10 are done and passing in CI; UP-10 and UP-11 are in `tests/upgrade/` and pass on GitHub).
+Built on `version-3.0.0` (PU-L6 to PU-L10 are done and passing in CI; UP-10 and UP-11 are in `tests/upgrade/` and pass on GitHub).
 
 - A new revision, `upgrade_30000`, in `CRM_eWAYRecurring_Upgrader`. It calls
   `markStuckRecurringContributionsFailed()`, which does the work and returns the ids changed.
@@ -520,7 +520,7 @@ To be written once the options are decided.
 
 | | |
 | --- | --- |
-| Status | `in progress` (built on `release-3.0.0`, green locally; PU-O6 to PU-O10 and PW-B-failed-13 wait for a GitHub run) |
+| Status | `in progress` (built on `version-3.0.0`, green locally; PU-O6 to PU-O10 and PW-B-failed-13 wait for a GitHub run) |
 | Raised | 2026-11-15 |
 | Target release | 3.0.0 (the owner asked for it with the DEF-62 fix) |
 | Related | DEF-62 in [TEST_PLAN.md](TEST_PLAN.md) |
@@ -721,7 +721,7 @@ verification job (PU-D19 to PU-D24 already cover how a row gets into this state)
 
 | | |
 | --- | --- |
-| Status | `in progress` (built on `release-3.0.0`; PU-P1 to PU-P5 are done and PW-B-blocked-01 to 04 pass on WordPress on GitHub; it stays `in progress` until 3.0.0 is released) |
+| Status | `in progress` (built on `version-3.0.0`; PU-P1 to PU-P5 are done and PW-B-blocked-01 to 04 pass on WordPress on GitHub; it stays `in progress` until 3.0.0 is released) |
 | Raised | 2026-11-21 |
 | Target release | 3.0.0 (it deals with records left blocked by the change that makes a Cancelled contribution skip an installment) |
 | Related | DEF-68 in [TEST_PLAN.md](TEST_PLAN.md), FR-4 (the same kind of page), `docs/UPGRADE.md` (3.0.0) |
@@ -854,7 +854,7 @@ Newest first. One line per change to this file.
 | 2026-11-14 | FR-3 added as `idea`: check a new card with the issuer when it is added (recorded as DEF-33, reclassified as not a defect), with what eWAY's documentation says, three options and six open decisions (C1 to C6). Not scheduled. |
 | 2026-11-14 | FR-2 upgrade tests UP-10 and UP-11 written (`tests/upgrade/`) and passed a local rehearsal; waiting for a GitHub run. |
 | 2026-11-14 | FR-2 tests PU-L6 to PU-L10 passing in CI. UP-10 and UP-11 still to be written; FR-2 stays `in progress` until they are done. |
-| 2026-11-14 | FR-2 built on `release-3.0.0`: `upgrade_30000` and `markStuckRecurringContributionsFailed()` added to the upgrader, with tests PU-L6 to PU-L10 (`wip` until CI passes). UP-10 and UP-11 not written yet. Status `in progress`. |
+| 2026-11-14 | FR-2 built on `version-3.0.0`: `upgrade_30000` and `markStuckRecurringContributionsFailed()` added to the upgrader, with tests PU-L6 to PU-L10 (`wip` until CI passes). UP-10 and UP-11 not written yet. Status `in progress`. |
 | 2026-11-14 | FR-2 decision U5 settled: no new preview feature for 3.0.0. The two SQL checks (before upgrading) plus the step's log and upgrade output are the preview. All FR-2 decisions U1 to U6 are now decided; status stays `planned` until the step is built. |
 | 2026-11-14 | FR-2 decision U4 changed from option B to option C: Rule 2 marks records with a retry date and no failures Failed (no charge) instead of clearing the retry date. FR-2 text, risks, SQL check and acceptance criteria updated. Added the catch-up charge test result to FR-1 decision D3. |
 | 2026-11-14 | FR-2 decision U4 settled: the step also repairs records with a retry date and no failures (Rule 2) by clearing the retry date, so the next cron run charges them once. FR-2 renamed and reworked into two rules; added the Rule 2 risk (donors are charged), a second SQL check, and a guard that Rule 1 needs `failure_count` above 0. |
