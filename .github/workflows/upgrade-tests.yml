@@ -12,7 +12,13 @@ on:
   push:
     branches: [master]
   pull_request:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      civicrm_version:
+        description: 'CiviCRM version to test against, e.g. 6.16.5. Empty uses the version in the shared workflow image (the current release).'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   upgrade:
@@ -22,6 +28,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     with:
       EXTENSION_NAME: au.com.agileware.ewayrecurring
+      CIVICRM_VERSION: ${{ inputs.civicrm_version }}
       # The last release the upgrade must support (test plan decision 9). The
       # seed data in tests/upgrade/seed-v2.8.1.php is written for this version.
       FROM_REF: 2.8.1
