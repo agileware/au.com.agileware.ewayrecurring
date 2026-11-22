@@ -1,0 +1,34 @@
+name: Upgrade tests
+
+# Installs release 2.8.1, seeds it with data, upgrades to the commit under test
+# and checks nothing was lost or changed. See tests/upgrade/ and the UP suite in
+# developer/TEST_PLAN.md.
+#
+# It starts a full WordPress and CiviCRM site, so it takes a few minutes. It runs on pushes to master, on pull
+# requests and on demand, like the other extensions' workflows. To run it on a branch on demand:
+#   gh workflow run upgrade-tests.yml --ref <branch>
+# The run uses this file as it is on that branch.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      civicrm_version:
+        description: 'CiviCRM version to test against, e.g. 6.16.5. Empty uses the version in the shared workflow image (the current release).'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  upgrade:
+    uses: agileware/ci-workflows/.github/workflows/civicrm-extension-upgrade-tests.yml@main
+    secrets:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    with:
+      EXTENSION_NAME: au.com.agileware.ewayrecurring
+      CIVICRM_VERSION: ${{ inputs.civicrm_version }}
+      # The last release the upgrade must support (test plan decision 9). The
+      # seed data in tests/upgrade/seed-v2.8.1.php is written for this version.
+      FROM_REF: 2.8.1

@@ -15,7 +15,22 @@ use CRM_eWAYRecurring_ExtensionUtil as E;
  */
 function ewayrecurring_civicrm_config(&$config) {
   _ewayrecurring_civix_civicrm_config($config);
-  Civi::dispatcher()->addListener('civi.api.authorize', ['CRM_eWAYRecurring_APIWrapper', 'authorize'], -100);
+  // Just ahead of core's own permission checks (priority -100). APIv3 throws as soon as core's check
+  // fails, so a listener that ran after it could never grant access to a user without core's permission.
+  Civi::dispatcher()->addListener('civi.api.authorize', ['CRM_eWAYRecurring_APIWrapper', 'authorize'], -99);
+}
+
+/**
+ * Implements hook_civicrm_container().
+ *
+ * Registers the calculated ContributionRecur field is_eway_processor, which the Failed Recurring Contributions list
+ * filters on instead of joining the payment processor (DEF-62, FR-4).
+ *
+ * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_container/
+ */
+function ewayrecurring_civicrm_container(\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
+  $container->register(\Civi\EwayRecurring\Api4\ContributionRecurEwaySpecProvider::class, \Civi\EwayRecurring\Api4\ContributionRecurEwaySpecProvider::class)
+    ->addTag('spec_provider');
 }
 
 /**
@@ -33,8 +48,10 @@ function ewayrecurring_civicrm_install() {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
  */
 function ewayrecurring_civicrm_postInstall() {
-  // Update schemaVersion if added new version in upgrade process.
-  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', 20200);
+  // A fresh install already has everything the upgrade steps would add, so record the newest step as
+  // applied. Read it from the upgrader so it cannot fall behind when a step is added.
+  $revisions = (new CRM_eWAYRecurring_Upgrader())->getRevisions();
+  CRM_Core_BAO_Extension::setSchemaVersion('au.com.agileware.ewayrecurring', max($revisions));
 }
 
 /**
@@ -44,11 +61,40 @@ function ewayrecurring_civicrm_postInstall() {
  */
 function ewayrecurring_civicrm_enable() {
   // Ensure payment processor is active, will be deactivated if extension is disabled and user has no way to reactivate
-  \Civi\Api4\PaymentProcessorType::update()
+  // No permission check: the extension can be enabled with nobody logged in (cv, an installer or a
+  // deployment script), and a check there fails the whole install with "Authorization failed".
+  \Civi\Api4\PaymentProcessorType::update(FALSE)
                                  ->addValue('is_active', TRUE)
                                  ->addWhere('name', '=', 'eWay_Recurring')
                                  ->execute();
+  _ewayrecurring_reactivate_jobs();
   _ewayrecurring_civix_civicrm_enable();
+}
+
+/**
+ * Switch the extension's scheduled jobs back on after it has been disabled and enabled again.
+ *
+ * Disabling an extension makes core switch its managed jobs off. Enabling it again does not switch them back on:
+ * core reconciles the managed records after the enable has finished, when the extension no longer counts as being
+ * enabled, so a job is left as it is. Without this the recurring payments, the transaction verification and the
+ * token metadata jobs stayed off for good, and nothing said so. Only the jobs declared active are touched: the
+ * settlement sync job is shipped switched off and stays that way.
+ */
+function _ewayrecurring_reactivate_jobs() {
+  $entities = [];
+  ewayrecurring_civicrm_managed($entities);
+  $names = [];
+  foreach ($entities as $entity) {
+    if ($entity['entity'] === 'Job' && !empty($entity['params']['is_active'])) {
+      $names[] = $entity['params']['name'];
+    }
+  }
+  if ($names) {
+    \Civi\Api4\Job::update(FALSE)
+      ->addValue('is_active', TRUE)
+      ->addWhere('name', 'IN', $names)
+      ->execute();
+  }
 }
 
 /**
@@ -166,34 +212,82 @@ function ewayrecurring_civicrm_buildForm($formName, &$form) {
   if (($form instanceof CRM_Contribute_Form_CancelSubscription) &&
     ($form->_paymentProcessor['payment_processor_type'] == 'eWay_Recurring')) {
     $form->removeElement('send_cancel_request');
+    // Core's template draws one row for each of the form's entity fields, and "send_cancel_request" is one of
+    // them. With the element gone the row printed PHP warnings, so take the field out of the list as well.
+    $entityFields = CRM_Core_Smarty::singleton()->getTemplateVars('entityFields');
+    if (is_array($entityFields) && isset($entityFields['send_cancel_request'])) {
+      unset($entityFields['send_cancel_request']);
+      $form->assign('entityFields', $entityFields);
+    }
   }
 }
 
 function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
-  $paymentProcessorID = \Civi\Api4\Managed::get(FALSE)
-    ->addSelect('entity_id')
-    ->addWhere('module', '=', 'au.com.agileware.ewayrecurring')
-    ->addWhere('name', '=', 'eWay_Recurring')
-    ->setLimit(1)
-    ->execute()
-    ->first()
-    ['entity_id'];
-
   switch($formName) {
     case'CRM_Admin_Form_PaymentProcessor':
-      if(($fields['payment_processor_type_id'] ?? NULL) != $paymentProcessorID) {
+      // Look the type up by name. The managed record that links it can be missing on a site whose
+      // processor type pre-dates managed entities, and then reading it printed a warning on every form.
+      $paymentProcessorID = \Civi\Api4\PaymentProcessorType::get(FALSE)
+        ->addSelect('id')
+        ->addWhere('name', '=', 'eWay_Recurring')
+        ->setLimit(1)
+        ->execute()
+        ->first()['id'] ?? NULL;
+
+      if($paymentProcessorID === NULL || ($fields['payment_processor_type_id'] ?? NULL) != $paymentProcessorID) {
         break;
       }
 
-      if (empty($fields['user_name'])) {
-        $errors['user_name'] = E::ts('API Key is a required field.');
+      // A processor has a live section and a test (sandbox) section. At least one of them must be complete, and a
+      // section that has only a key or only a password is refused whichever one it is (DEF-56).
+      $filled = function (string $field) use ($fields): bool {
+        return trim((string) ($fields[$field] ?? '')) !== '';
+      };
+      $sections = [
+        ['user_name' => E::ts('API Key is a required field.'), 'password' => E::ts('API Password is a required field.')],
+        ['test_user_name' => E::ts('Test API Key is a required field.'), 'test_password' => E::ts('Test API Password is a required field.')],
+      ];
+      $complete = FALSE;
+      $partial = FALSE;
+      foreach ($sections as $section) {
+        $present = array_filter(array_keys($section), $filled);
+        if (count($present) === count($section)) {
+          $complete = TRUE;
+        }
+        elseif (count($present) === 1) {
+          // Only one of the pair is filled in: name the one that is missing.
+          $partial = TRUE;
+          foreach (array_diff(array_keys($section), $present) as $missing) {
+            $errors[$missing] = $section[$missing];
+          }
+        }
       }
-
-      if (empty($fields['password'])) {
-        $errors['password'] = E::ts('API Password is a required field.');
+      if (!$complete && !$partial) {
+        // Nothing usable in either section: ask for the live credentials, as the form always has.
+        $errors['user_name'] = $sections[0]['user_name'];
+        $errors['password'] = $sections[0]['password'];
       }
       break;
   }
+}
+
+/**
+ * Implements hook_civicrm_post().
+ *
+ * A contribution of an eWAY recurring record that is set to Cancelled skips that installment: the record's next
+ * scheduled date moves on, so the record is not left waiting on a decision not to collect (see
+ * CRM_eWAYRecurring_Utils::skipInstallmentOfCancelledContribution()). Does nothing for anything else, and costs
+ * nothing for a save that does not set the status.
+ */
+function ewayrecurring_civicrm_post($op, $objectName, $objectId, &$objectRef) {
+  if ($objectName !== 'Contribution' || !$objectId || !in_array($op, ['create', 'edit'], TRUE)) {
+    return;
+  }
+  $status = is_object($objectRef) ? ($objectRef->contribution_status_id ?? NULL) : ($objectRef['contribution_status_id'] ?? NULL);
+  if ($status === NULL || $status === '' || (int) $status !== (int) CRM_eWAYRecurring_Utils::contribution_status_id('Cancelled')) {
+    return;
+  }
+  CRM_eWAYRecurring_Utils::skipInstallmentOfCancelledContribution((int) $objectId);
 }
 
 /**
@@ -205,7 +299,6 @@ function ewayrecurring_civicrm_validateForm($formName, &$fields, &$files, &$form
  * @throws \Civi\Payment\Exception\PaymentProcessorException
  */
 function ewayrecurring_civicrm_preProcess($formName, &$form) {
-  Civi::$statics['openedeWayForm'] = $formName;
 	switch($formName) {
     case 'CRM_Contribute_Form_Contribution_ThankYou':
       $paymentProcessor = $form->getVar('_paymentProcessor');
@@ -214,6 +307,8 @@ function ewayrecurring_civicrm_preProcess($formName, &$form) {
       $validated = &Civi::$statics[__FUNCTION__ . '::validated'];
       if(!isset($validated[$invoiceID])) {
         CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $invoiceID);
+        // Remember it, so the page asks eWAY once per invoice.
+        $validated[$invoiceID] = TRUE;
       }
       // fixme CIVIEWAY-144 temporary fix, remove this if the issue is solved in core
       if (!$form->_priceSetId || CRM_Core_DAO::getFieldValue('CRM_Price_DAO_PriceSet', $form->_priceSetId, 'is_quick_config')) {
@@ -325,47 +420,83 @@ function ewayrecurring_civicrm_searchKitTasks(array &$tasks, bool $checkPermissi
     'module' => 'ewayrecurring',
     'uiDialog' => [ 'templateUrl' => '~/ewayrecurring/crmSearchTaskResetRecur.html', ],
   ];
+  $tasks['ContributionRecur']['cancel_recur'] = [
+    'title' => E::ts('Cancel Recurring Contribution'),
+    'icon' => 'fa-ban',
+    'module' => 'ewayrecurring',
+    'uiDialog' => [ 'templateUrl' => '~/ewayrecurring/crmSearchTaskCancelRecur.html', ],
+  ];
 }
 
 /**
  * Implements hook_civicrm_check()
  */
 function ewayrecurring_civicrm_check(&$messages, $statusNames, $includeDisabled) {
-  if($statusNames && !in_array('ewayrecurring_failed', $statusNames)) {
-    return;
+  if (_ewayrecurring_check_wanted('ewayrecurring_failed', $statusNames, $includeDisabled)) {
+    try {
+      $failed = ContributionRecur::get(FALSE)
+        ->addWhere('is_test', '=', FALSE)
+        ->addWhere('contribution_status_id:name', '=', 'Failed')
+        ->addWhere('failure_retry_date', '<', 'now - 4 hours')
+        ->selectRowCount()
+        ->execute()
+        ->count();
+
+      if ($failed > 0) {
+        $messages[] = new CRM_Utils_Check_Message(
+          'ewayrecurring_failed',
+          E::ts('Found %1 failed recurring contributions that may be stuck due to e.g. invalid card details. Visit <a href="%2">Failed Recurring Contributions</a> for more details .', [1 => $failed, 2 => CRM_Utils_System::url('civicrm/contribute/failedrecurring')]),
+          E::ts('eWAYRecurring - failed recurring contributions')
+        );
+      }
+    } catch (CRM_Core_Exception $e) {
+      // ...
+    }
   }
 
+  if (_ewayrecurring_check_wanted('ewayrecurring_blocked', $statusNames, $includeDisabled)) {
+    try {
+      $blocked = ContributionRecur::get(FALSE)
+        ->addWhere('is_test', '=', FALSE)
+        ->addWhere('contribution_status_id:name', '=', 'In Progress')
+        ->addWhere('is_eway_processor', '=', TRUE)
+        ->addWhere('is_blocked_by_cancelled_contribution', '=', TRUE)
+        ->selectRowCount()
+        ->execute()
+        ->count();
+
+      if ($blocked > 0) {
+        $messages[] = new CRM_Utils_Check_Message(
+          'ewayrecurring_blocked',
+          E::ts('Found %1 recurring contributions that are not being charged because a cancelled contribution is dated on or after the date they are waiting on. Visit <a href="%2">Blocked Recurring Contributions</a> to reactivate or cancel them.', [1 => $blocked, 2 => CRM_Utils_System::url('civicrm/contribute/blockedrecurring')]),
+          E::ts('eWAYRecurring - blocked recurring contributions')
+        );
+      }
+    } catch (CRM_Core_Exception $e) {
+      // ...
+    }
+  }
+}
+
+/**
+ * Should the status check with this name run? It does when no names were asked for or this one was, and it has not been
+ * disabled (unless disabled checks are asked for).
+ */
+function _ewayrecurring_check_wanted(string $name, $statusNames, $includeDisabled): bool {
+  if ($statusNames && !in_array($name, $statusNames)) {
+    return FALSE;
+  }
   if (!$includeDisabled) {
     $disabled = StatusPreference::get(FALSE)
       ->addWhere('is_active', '=', FALSE)
       ->addWhere('domain_id', '=', 'current_domain')
-      ->addWhere('name', '=', 'ewayrecurring_failed')
+      ->addWhere('name', '=', $name)
       ->selectRowCount()
       ->execute()
       ->count() > 0;
-
     if ($disabled) {
-      return;
+      return FALSE;
     }
   }
-
-  try {
-    $failed = ContributionRecur::get(FALSE)
-      ->addWhere('is_test', '=', FALSE)
-      ->addWhere('contribution_status_id:name', '=', 'Failed')
-      ->addWhere('failure_retry_date', '<', 'now - 4 hours')
-      ->selectRowCount()
-      ->execute()
-      ->count();
-
-    if ($failed > 0) {
-      $messages[] = new CRM_Utils_Check_message(
-        'ewayrecurring_failed',
-        E::ts('Found %1 failed recurring contributions that may be stuck due to e.g. invalid card details. Visit <a href="%2">Failed Recurring Contributions</a> for more details .', [1 => $failed, 2 => CRM_Utils_System::url('civicrm/contribute/failedrecurring')]),
-        E::ts('eWAYRecurring - failed recurring contributions')
-      );
-    }
-  } catch (CRM_Core_Exception $e) {
-    // ...
-  }
+  return TRUE;
 }

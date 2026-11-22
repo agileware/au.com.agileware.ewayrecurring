@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<extension key="ewayrecurring_playwright_stub" type="module">
+  <file>ewayrecurring_playwright_stub</file>
+  <name>eWay Recurring Playwright stub</name>
+  <description>Test support only. Replaces eWAY's HTTP service with a fake that answers from a queue kept in a CiviCRM setting, so browser tests can script what eWAY says. Never install it on a real site.</description>
+  <license>AGPL-3.0</license>
+  <maintainer>
+    <author>Agileware</author>
+    <email>support@agileware.com.au</email>
+  </maintainer>
+  <releaseDate>2026-11-14</releaseDate>
+  <version>1.0.0</version>
+  <develStage>alpha</develStage>
+  <compatibility>
+    <ver>5.51</ver>
+  </compatibility>
+  <comments>Used by tests/playwright in au.com.agileware.ewayrecurring. Needs that extension's Utils::setHttpServiceFactory().</comments>
+</extension>

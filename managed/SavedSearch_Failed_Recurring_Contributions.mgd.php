@@ -27,14 +27,16 @@ return [
             'frequency_unit:label',
             'failure_count',
             'failure_retry_date',
-            'ContributionRecur_PaymentProcessor_payment_processor_id_01.title',
           ],
           'orderBy' => [],
           'where' => [
+            // A calculated yes/no field the extension adds to ContributionRecur (see
+            // Civi\EwayRecurring\Api4\ContributionRecurEwaySpecProvider). It replaces a join to the payment processor,
+            // which APIv4 drops for anyone who may not read payment processors, and which broke the list for them (DEF-62).
             [
-              'ContributionRecur_PaymentProcessor_payment_processor_id_01.payment_processor_type_id:name',
+              'is_eway_processor',
               '=',
-              'eWay_Recurring',
+              TRUE,
             ],
             [
               'OR',
@@ -56,15 +58,6 @@ return [
                 'payment_token_id',
                 '=',
                 'ContributionRecur_PaymentToken_payment_token_id_01.id',
-              ],
-            ],
-            [
-              'PaymentProcessor AS ContributionRecur_PaymentProcessor_payment_processor_id_01',
-              'INNER',
-              [
-                'payment_processor_id',
-                '=',
-                'ContributionRecur_PaymentProcessor_payment_processor_id_01.id',
               ],
             ],
           ],

@@ -1,8 +1,16 @@
 name: PHPUnit tests
 
 on:
-  push: {}
-  workflow_dispatch: {}
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      civicrm_version:
+        description: 'CiviCRM version to test against, e.g. 6.16.5. Empty uses the version in the shared workflow image (the current release).'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   phpunit:
@@ -12,3 +20,4 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     with:
       EXTENSION_NAME: au.com.agileware.ewayrecurring
+      CIVICRM_VERSION: ${{ inputs.civicrm_version }}

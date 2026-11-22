@@ -16,13 +16,21 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 
   public $_mode = 'live';
 
+  /**
+   * Whether the contribution being validated is a test one. CiviCRM core reads it when it builds some return
+   * addresses and validateContribution() sets it; declared here because PHP 8.2 deprecates creating it on the fly.
+   *
+   * @var bool
+   */
+  public $_is_test = FALSE;
+
   protected $eWayClient;
 
   public static function getInstance(&$paymentProcessor) {
     [ 'domain_id' => $domain, 'id' => $id ] = $paymentProcessor;
 
     if(empty(self::$instances["$domain/$id"])) {
-      $mode = empty( $paymentProcessor['is_test'] ) ? 'test' : 'live';
+      $mode = empty( $paymentProcessor['is_test'] ) ? 'live' : 'test';
       self::$instances["$domain/$id"] = new self( $mode, $paymentProcessor );
     }
 
@@ -48,11 +56,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    */
   protected function getEWayClient() {
     if (!$this->eWayClient) {
-      $eWayApiKey = $this->_paymentProcessor['user_name'];   // eWay Api Key
-      $eWayApiPassword = $this->_paymentProcessor['password']; // eWay Api Password
-      $eWayEndPoint = ($this->_paymentProcessor['is_test']) ? \Eway\Rapid\Client::MODE_SANDBOX : \Eway\Rapid\Client::MODE_PRODUCTION;
-
-      $this->eWayClient = \Eway\Rapid::createClient($eWayApiKey, $eWayApiPassword, $eWayEndPoint);
+      $this->eWayClient = CRM_eWAYRecurring_Utils::getEWayClient($this->_paymentProcessor);
     }
 
     return $this->eWayClient;
@@ -68,7 +72,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     $this->_is_test = $contribution['is_test'];
 
     $response = CRM_eWAYRecurring_Utils::validateContribution($eWayAccessCode, $contribution, $paymentProcessor);
-    CRM_eWAYRecurring_Utils::completeEWayTransaction($eWayAccessCode);
+    // Leave the queue row waiting when eWAY has no result yet, so the verification job still settles it later.
+    if (empty($response['transactionNotProcessedYet'])) {
+      CRM_eWAYRecurring_Utils::completeEWayTransaction($eWayAccessCode);
+    }
 
     $hasTransactionFailed = $response['hasTransactionFailed'];
     $transactionResponseError = $response['transactionResponseError'];
@@ -83,7 +90,9 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       ]);
 
       if ($transactionResponseError != '') {
-        CRM_Core_Session::setStatus($transactionResponseError, ts('Error'), 'error');
+        // The text is eWAY's (messages for its codes, or the code itself when the SDK does not know it), and status messages
+        // are shown as HTML.
+        CRM_Core_Session::setStatus(htmlspecialchars($transactionResponseError, ENT_QUOTES, 'UTF-8'), ts('Error'), 'error');
       }
       $failUrl = $this->getReturnFailUrl($qfKey);
       CRM_Utils_System::redirect($failUrl);
@@ -173,6 +182,7 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       'add_credit_card' => [
         'htmlType' => 'button',
         'name' => 'add_credit_card',
+        'is_required' => FALSE,
         'class' => 'eway_credit_card_field',
         'title' => ts('Add Credit Card'),
         'attributes' => [
@@ -257,15 +267,15 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     $eWayCustomer = [
         'Reference' => substr((isset($params['contactID'])) ? 'Civi-' . $params['contactID'] : '',0,16),
         // Referencing eWay customer with CiviCRM id if we have.
-        'FirstName' => substr($params['first_name'],0,50),
-        'LastName' => substr($params['last_name'],0,50),
-        'Street1' => substr(self::getBillingParam('street_address', $params),0,50),
-        'City' => substr(self::getBillingParam('city', $params),0,50),
-        'State' => substr(self::getBillingParam('state_province', $params),0,50),
-        'PostalCode' => substr(self::getBillingParam('postal_code', $params),0,30),
+        'FirstName' => substr((string) $params['first_name'],0,50),
+        'LastName' => substr((string) $params['last_name'],0,50),
+        'Street1' => substr((string) self::getBillingParam('street_address', $params),0,50),
+        'City' => substr((string) self::getBillingParam('city', $params),0,50),
+        'State' => substr((string) self::getBillingParam('state_province', $params),0,50),
+        'PostalCode' => substr((string) self::getBillingParam('postal_code', $params),0,30),
         'Country' => $params['country'],
         // Email is not accessible for updateSubscriptionBillingInfo method.
-        'Email' => substr(self::getBillingParam('email', $params),0,50)
+        'Email' => substr((string) self::getBillingParam('email', $params),0,50)
     ];
 
     if (isset($params['subscriptionId']) && !empty($params['subscriptionId'])) {
@@ -330,7 +340,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     // Prepare some composite data from _paymentProcessor fields, data that is shared across one off and recurring payments.
     //-------------------------------------------------------------
 
-    $amountInCents = round(((float) preg_replace('/[\s,]/', '', $params['amount'])) * 100);
+    // The property bag has already refused anything that is not a plain number.
+    $amountInCents = round(((float) $propertyBag->getAmount()) * 100);
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
 
     //----------------------------------------------------------------------------------------------------
@@ -372,6 +383,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       $payment_token = CRM_Utils_Request::retrieve('contact_payment_token', CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
       $payment_token = isset($params['contact_payment_token']) ? $params['contact_payment_token'] : $payment_token;
       $params['payment_token_id'] = $payment_token;
+      // An empty id is ignored by the API as a filter, so with one token on the site it would be charged.
+      if (empty($payment_token)) {
+        $this->paymentFailed($params, 'Please select a valid credit card token.');
+      }
       try {
         $result = civicrm_api3('PaymentToken', 'getsingle', [
           'sequential' => 1,
@@ -380,8 +395,13 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       } catch (CRM_Core_Exception $e) {
         $this->paymentFailed($params, 'Please select a valid credit card token.');
       }
-      if ($result['is_error']) {
+      if (!empty($result['is_error'])) {
         $this->paymentFailed($params, 'Cannot find the payment token.');
+      }
+      // The card id comes from the request: only charge a card that is this contact's, for this processor, unexpired.
+      $cardProblem = $this->getTokenProblem($result, (int) ($params['contactID'] ?? 0), (int) ($this->_paymentProcessor['id'] ?? 0));
+      if ($cardProblem !== NULL) {
+        $this->paymentFailed($params, $cardProblem);
       }
       $token = $result['token'];
       $eWayTransaction = [
@@ -401,10 +421,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
         'Customer' => $eWayCustomer,
         'RedirectUrl' => $this->getSuccessfulPaymentReturnUrl($params, $component),
         'CancelUrl' => $this->getCancelPaymentReturnUrl($params, $component),
-        'TransactionType' => (($this->isBackOffice() && !Civi::settings()
-            ->get('cvv_backoffice_required'))
-          ? \Eway\Rapid\Enum\TransactionType::MOTO
-          : \Eway\Rapid\Enum\TransactionType::PURCHASE),
+        // Back-office payments use the saved card branch above (MOTO), so this is always a donor on the shared page.
+        'TransactionType' => \Eway\Rapid\Enum\TransactionType::PURCHASE,
         'Payment' => [
           'TotalAmount' => substr($amountInCents,0,10),
           'InvoiceNumber' => substr($uniqueTrnxNum,0,64),
@@ -445,18 +463,20 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
         'sort' => 'id DESC',
       ]);
 
-      if($priorAccessCode = $priorTransaction['values'][0]['access_code'] ?? NULL) {
+      $priorRow = $priorTransaction['values'][0] ?? NULL;
+      $priorAccessCode = $priorRow['access_code'] ?? NULL;
+      if ($priorAccessCode) {
         $eWAYResponse = unserialize(CRM_Core_Session::singleton()->get('eWAYResponse', $params['qfKey'])) ?? NULL;
 
         // Avoid reprocessing completed transactions.
         if (!isset($eWAYResponse->AccessCode) || ($eWAYResponse->AccessCode != $priorAccessCode)) {
           $this->paymentFailed($params, 'An existing transaction was found that does not match this session - you may have already completed payment.<br>Please check your email inbox for a receipt.');
         }
-        elseif ($priorAccessCode['status'] == CRM_eWAYRecurring_Utils::STATUS_SUCCESS) {
+        elseif ($priorRow['status'] == CRM_eWAYRecurring_Utils::STATUS_SUCCESS) {
           return $params;
         }
-        elseif ($priorAccessCode['status'] == CRM_eWAYRecurring_Utils::STATUS_FAILED) {
-          $this->paymentFailed($params, 'A previous attempt to complete this transaction already failed - ' . $priorAccessCode['failed_message']);
+        elseif ($priorRow['status'] == CRM_eWAYRecurring_Utils::STATUS_FAILED) {
+          $this->paymentFailed($params, 'A previous attempt to complete this transaction already failed - ' . htmlspecialchars((string) $priorRow['failed_message'], ENT_QUOTES, 'UTF-8'));
         }
       }
       else {
@@ -479,7 +499,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     //----------------------------------------------------------------------------------------------------
     $transactionErrors = $this->getEWayResponseErrors($eWAYResponse);
     if (count($transactionErrors)) {
-      $this->paymentFailed($params, implode("<br>", $transactionErrors));
+      // eWAY's own words, shown as HTML: escape each, then join with the line break.
+      $this->paymentFailed($params, implode("<br>", array_map(function ($error) {
+        return htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8');
+      }, $transactionErrors)));
     }
 
     $paymentProcessor = $this->getPaymentProcessor();
@@ -502,14 +525,15 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 
     if ($this->backOffice) {
       // assign the payment token to the recurring contribution
-      if ($params['contributionRecurID']) {
+      // Core sets contributionRecurID on every form payment, but leaves is_recur out unless the Recurring box is ticked.
+      if (!empty($params['contributionRecurID'])) {
         $cr =  new CRM_Contribute_BAO_ContributionRecur();
         $cr->id = $params['contributionRecurID'];
         $cr->find(TRUE);
         $cr->processor_id = $token;
         $cr->payment_token_id = $payment_token;
         $cr->save();
-      } else if ($params['is_recur']) {
+      } else if (!empty($params['is_recur'])) {
         // remind user to fix the token
         CRM_Core_Session::setStatus(
           ts('Please update the credit card manually.'),
@@ -526,9 +550,9 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       } else {
         $errorMessage = implode(', ', array_map(
             '\Eway\Rapid::getMessage',
-            explode(', ', $eWAYResponse->ResponseMessage))
+            explode(', ', (string) $eWAYResponse->ResponseMessage))
         );
-        $this->paymentFailed($params, $errorMessage);
+        $this->paymentFailed($params, htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'));
       }
     } else {
       if($ewayParams['access_code'] !== $priorAccessCode) {
@@ -570,20 +594,12 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    *
    * @return string
    */
-  function getCancelPaymentReturnUrl($params, $component = 'contribute', $recurringContribution = NULL) {
+  function getCancelPaymentReturnUrl($params, $component = 'contribute') {
     if ($this->cancelUrl) {
       return $this->cancelUrl;
     }
     else if ($this->isFromContributionPage($params)) {
       return $this->getCancelUrl($params['qfKey'], '');
-    }
-
-    if (Civi::$statics['openedeWayForm'] == 'CRM_Contribute_Form_UpdateBilling' && $recurringContribution != NULL) {
-      return CRM_Utils_System::url('civicrm/contribute/updatebilling', [
-        'cid' => $recurringContribution['contact_id'],
-        'context' => 'contribution',
-        'crid' => $recurringContribution['id'],
-      ], TRUE, NULL, FALSE);
     }
 
     if ($component == 'event') {
@@ -609,20 +625,12 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    * @return string
    */
 
-  function getSuccessfulPaymentReturnUrl($params, $component, $recurringContribution = NULL) {
+  function getSuccessfulPaymentReturnUrl($params, $component) {
     if ($this->successUrl) {
       return $this->successUrl;
     }
     else if ($this->isFromContributionPage($params)) {
       return $this->getReturnSuccessUrl($params['qfKey']);
-    }
-
-    if (Civi::$statics['openedeWayForm'] == 'CRM_Contribute_Form_UpdateBilling' && $recurringContribution != NULL) {
-      return CRM_Utils_System::url('civicrm/ewayrecurring/verifyupdatetoken', [
-        'recurringContributionID' => $recurringContribution['id'],
-        'qfKey' => $params['qfKey'],
-        'paymentProcessorID' => ($this->getPaymentProcessor())['id'],
-      ], TRUE, NULL, FALSE);
     }
 
     return CRM_Utils_System::url('civicrm/ewayrecurring/verifypayment', [
@@ -706,8 +714,8 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
    */
   function changeSubscriptionAmount(&$message = '', $params = []) {
     // Process Schedule updates here.
-    if ($params['next_scheduled_date']) {
-      $submitted_nsd = strtotime($params['next_scheduled_date'] . ' ' . $params['next_scheduled_date_time']);
+    if (!empty($params['next_scheduled_date'])) {
+      $submitted_nsd = strtotime($params['next_scheduled_date'] . ' ' . ($params['next_scheduled_date_time'] ?? ''));
       CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur',
         $params['id'],
         'next_sched_contribution_date',
@@ -753,6 +761,10 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
     $eWayCustomer = $this->getEWayClientDetailsArray($params);
     $crid = CRM_Utils_Request::retrieve('crid',
       CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
+    // When the form is opened as a full page its address (and so crid) is not in the POST, but core passes the id.
+    if (empty($crid) && !empty($params['contributionRecurID'])) {
+      $crid = (int) $params['contributionRecurID'];
+    }
     $tokenid = CRM_Utils_Request::retrieve('contact_payment_token',
       CRM_Utils_Type::typeToString(CRM_Utils_Type::T_INT));
     if (empty($crid) || empty($tokenid)) {
@@ -788,10 +800,12 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
 
       CRM_Utils_Hook::alterPaymentProcessorParams($this, $params, $eWayTransaction);
 
+      // The card id comes from the request, so check it before anything is saved.
+      $tokenResult = $this->getChosenToken((int) $tokenid, $contribution);
+
       $this->updateContactBillingAddress($params, $contribution);
       //update token
       // store token in processor_id is the legacy way
-      $tokenResult = civicrm_api3('PaymentToken', 'getsingle', ['id' => $tokenid]);
       // Modify passed in params to set the credit_card_number and the credit_card_exiry_date for use in emails
       $params['credit_card_number'] = $tokenResult['masked_account_number'];
       $params['credit_card_exp_date'] = [
@@ -800,12 +814,82 @@ class CRM_Core_Payment_eWAYRecurring extends CRM_Core_Payment {
       ];
       $contribution['payment_token_id'] = $tokenid;
       $contribution['processor_id'] = $tokenResult['token'];
+
+      // Updating the card is how a donor fixes a failed recurring contribution, so a
+      // Failed record goes back to In Progress with its failures cleared, as Reactivate
+      // does. The schedule date is left alone, so the next cron run charges the new card.
+      // A record that is still being retried keeps its status and its retry state.
+      $recovered = $contribution['contribution_status_id'] == CRM_eWAYRecurring_Utils::contribution_status_id('Failed', TRUE);
+      if ($recovered) {
+        $contribution['contribution_status_id'] = CRM_eWAYRecurring_Utils::contribution_status_id('In Progress', TRUE);
+        $contribution['failure_count'] = 0;
+        unset($contribution['failure_retry_date']);
+      }
+
       civicrm_api3('ContributionRecur', 'create', $contribution);
+
+      if ($recovered) {
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur', $contribution['id'], 'failure_retry_date', '');
+      }
 
       return TRUE;
     } catch (Exception $e) {
       throw new PaymentProcessorException($e->getMessage(), 9010);
     }
+  }
+
+  /**
+   * Load the saved card chosen on the Update Billing Details form, and refuse
+   * it unless it can legitimately be used for this recurring contribution.
+   *
+   * The id is taken from the request, so it is not trusted: the browser only
+   * offers the contact's own unexpired cards for this processor, but a posted
+   * id could name any card, including another donor's.
+   *
+   * @param int $tokenId
+   * @param array $recur
+   *   The recurring contribution being updated.
+   *
+   * @return array The PaymentToken.
+   * @throws \Exception When the card may not be used.
+   */
+  /**
+   * Why a saved card may not be charged for a contact on this processor.
+   *
+   * @return string|null The reason, or NULL when the card can be used.
+   */
+  private function getTokenProblem(array $token, int $contactId, int $processorId): ?string {
+    if ($contactId === 0 || (int) $token['contact_id'] !== $contactId) {
+      return 'The selected card does not belong to this contact.';
+    }
+    if ((int) $token['payment_processor_id'] !== $processorId) {
+      return 'The selected card was saved for a different payment processor.';
+    }
+    // Cards saved by older versions can have no expiry date until the fill-metadata job runs.
+    if (!empty($token['expiry_date']) && strtotime($token['expiry_date']) < strtotime('today')) {
+      return 'The selected card has expired.';
+    }
+    return NULL;
+  }
+
+  private function getChosenToken(int $tokenId, array $recur): array {
+    $tokens = civicrm_api3('PaymentToken', 'get', ['id' => $tokenId, 'sequential' => 1]);
+    if (empty($tokens['values'])) {
+      throw new Exception(ts('The selected card could not be found.'));
+    }
+    $token = $tokens['values'][0];
+
+    if ((int) $token['contact_id'] !== (int) $recur['contact_id']) {
+      throw new Exception(ts('The selected card does not belong to this contact.'));
+    }
+    if ((int) $token['payment_processor_id'] !== (int) $recur['payment_processor_id']) {
+      throw new Exception(ts('The selected card was saved for a different payment processor.'));
+    }
+    // Cards saved by older versions can have no expiry date until the fill-metadata job runs.
+    if (!empty($token['expiry_date']) && strtotime($token['expiry_date']) < strtotime('today')) {
+      throw new Exception(ts('The selected card has expired.'));
+    }
+    return $token;
   }
 
   private function updateContactBillingAddress($params, $contribution) {

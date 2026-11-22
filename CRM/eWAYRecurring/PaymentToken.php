@@ -41,15 +41,15 @@ class CRM_eWAYRecurring_PaymentToken {
           'id' => $data,
           'return' => ["iso_code"],
         ]);
-        $country = array_shift($country['values']);
-        $billingDetails['billing_country'] = $country['iso_code'];
+        $country = array_shift($country['values']) ?: [];
+        $billingDetails['billing_country'] = $country['iso_code'] ?? '';
       }
       elseif (strpos($key, 'billing_state_province_id') !== FALSE) {
         $country = civicrm_api3('StateProvince', 'get', [
           'id' => $data,
         ]);
-        $country = array_shift($country['values']);
-        $billingDetails['billing_state_province'] = $country['name'];
+        $country = array_shift($country['values']) ?: [];
+        $billingDetails['billing_state_province'] = $country['name'] ?? '';
       }
     }
     $requiredBillingFields = [
@@ -80,26 +80,29 @@ class CRM_eWAYRecurring_PaymentToken {
     }
 
     // get contact info
-    $contact = civicrm_api3('Contact', 'getsingle', [
-      'return' => [
-        "formal_title",
-        "first_name",
-        "last_name",
-        "country",
-        "street_address",
-        "city",
-        "state_province",
-        "postal_code",
-        "email",
-        'phone',
-      ],
-      'id' => $contact_id,
-      'api.Country.getsingle' => [
-        'id' => "\$value.country_id",
-        'return' => ["iso_code"],
-      ],
-    ]);
-    if ($contact['is_error']) {
+    // getsingle throws for an unknown contact, it never returns an error array.
+    try {
+      $contact = civicrm_api3('Contact', 'getsingle', [
+        'return' => [
+          "formal_title",
+          "first_name",
+          "last_name",
+          "country",
+          "street_address",
+          "city",
+          "state_province",
+          "postal_code",
+          "email",
+          'phone',
+        ],
+        'id' => $contact_id,
+        'api.Country.getsingle' => [
+          'id' => "\$value.country_id",
+          'return' => ["iso_code"],
+        ],
+      ]);
+    }
+    catch (CRM_Core_Exception $e) {
       // TODO add error header
       CRM_Utils_JSON::output([
         'is_error' => 1,
@@ -145,9 +148,10 @@ class CRM_eWAYRecurring_PaymentToken {
         $response->getErrors())
     );
     if (!empty($errorMessage)) {
+      // eWAY's own words, which the page's script shows as HTML.
       CRM_Utils_JSON::output([
         'is_error' => 1,
-        'message' => $errorMessage,
+        'message' => htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'),
       ]);
     }
 
@@ -175,15 +179,17 @@ class CRM_eWAYRecurring_PaymentToken {
    */
   public static function saveToken() {
     $pp_id = CRM_Utils_Request::retrieve('pp_id', 'String');
-    if (!$pp_id) {
+    // A list (pp_id[]=1) is not a processor id.
+    if (!$pp_id || !is_scalar($pp_id)) {
       echo "<script>window.close();</script>";
-      die();
+      // civiExit() ends the request like die() does, and lets the test framework catch it.
+      CRM_Utils_System::civiExit();
     }
 
     // eway will have access code in url
     $isFromeWay = TRUE;
     $accessCode = CRM_Utils_Request::retrieve('AccessCode', 'String');
-    if (!$accessCode) {
+    if (!$accessCode || !is_scalar($accessCode)) {
       $accessCode = CRM_Core_Session::singleton()->get('eway_accesscode');
       $isFromeWay = FALSE;
     }
@@ -207,7 +213,15 @@ class CRM_eWAYRecurring_PaymentToken {
     }
 
     $client = CRM_eWAYRecurring_Utils::getEWayClient($paymentProcessor);
-    $response = $client->queryTransaction($accessCode)->Transactions[0];
+    $transactions = $client->queryTransaction($accessCode)->Transactions ?? [];
+    $response = $transactions[0] ?? NULL;
+    if (!$response) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no transaction.',
+      ]);
+      die();
+    }
     $token = $response->TokenCustomerID;
     if (empty($token)) {
       CRM_Utils_JSON::output([
@@ -217,10 +231,32 @@ class CRM_eWAYRecurring_PaymentToken {
       // TODO handle error
       die();
     }
-    $response = $client->queryCustomer($token)->Customers[0];
-    // contact id from eWay reference field
-    preg_match('/civi-(.*)/m', $response->Reference, $matches);
-    $cid = $matches[1];
+    $customers = $client->queryCustomer($token)->Customers ?? [];
+    $response = $customers[0] ?? NULL;
+    if (!$response) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no customer.',
+      ]);
+      die();
+    }
+    // contact id from eWay reference field, which this extension sets to "civi-<contact id>"
+    // The whole reference, on one line: with the m flag a second line of "civi-<id>" would count.
+    $cid = preg_match('/\Acivi-(\d+)\z/', (string) $response->Reference, $matches) ? (int) $matches[1] : 0;
+    if (!$cid || !CRM_Core_DAO::singleValueQuery('SELECT COUNT(*) FROM civicrm_contact WHERE id = %1', [1 => [$cid, 'Integer']])) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no contact.',
+      ]);
+      die();
+    }
+    if (empty($response->CardDetails)) {
+      CRM_Utils_JSON::output([
+        'is_error' => 1,
+        'message' => 'no card details.',
+      ]);
+      die();
+    }
 
     $expiryDate = new DateTime();
     $expiryDate->setDate($response->CardDetails->ExpiryYear, $response->CardDetails->ExpiryMonth, 1);
@@ -288,6 +324,10 @@ class CRM_eWAYRecurring_PaymentToken {
    * @throws \CRM_Core_Exception
    */
   public static function getPaymentProcessorById($id) {
+    // Only this extension's own processors: another type has no eWAY credentials to build a client from.
+    if (!is_scalar($id) || !ctype_digit((string) $id) || !CRM_eWAYRecurring_Utils::isEwayProcessor((int) $id)) {
+      return NULL;
+    }
     $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [
       'id' => $id,
       'sequential' => 1,
@@ -345,8 +385,8 @@ class CRM_eWAYRecurring_PaymentToken {
           $error = E::ts('Error retrieving data for token id %1: %2', [1 => $token['id'], 2 => $error]);
         }
 
-        $result['errors'] = array_merge($result['errors'] ?? [], $errors);
-        $result['is_error'] = TRUE;
+        $results['errors'] = array_merge($results['errors'] ?? [], $errors);
+        $results['is_error'] = TRUE;
         continue;
       }
 

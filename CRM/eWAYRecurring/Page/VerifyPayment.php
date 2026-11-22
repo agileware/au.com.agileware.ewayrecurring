@@ -10,10 +10,42 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
     $qfKey = CRM_Utils_Request::retrieve('qfKey', 'String', $store, FALSE, "");
     $component = CRM_Utils_Request::retrieve('component', 'String', $store, FALSE, "");
 
-    // Missing any parameter should be a bad request
-    if (empty($contributionInvoiceID) || empty($paymentProcessorID) || empty($component)) {
+    $outcome = $this->resolve($contributionInvoiceID, $paymentProcessorID, $qfKey, $component);
+
+    if (!isset($outcome['redirect'])) {
       header("HTTP/1.1 400 Bad Request");
       die();
+    }
+
+    CRM_Utils_System::redirect($outcome['redirect']);
+  }
+
+  /**
+   * Decide what the return page does, without sending anything to the browser.
+   *
+   * The only thing that can leave this method early is the failure redirect
+   * inside CRM_eWAYRecurring_Utils::validateEwayContribution(), which redirects
+   * and exits when eWAY declined the payment.
+   *
+   * @param string $contributionInvoiceID
+   * @param string $paymentProcessorID
+   * @param string $qfKey
+   * @param string $component
+   *   "event" or any other value for a contribution page.
+   *
+   * @return array
+   *   ['redirect' => URL] when the payment succeeded, or ['status' => 400]
+   *   when the request is not a valid return from eWAY.
+   */
+  public function resolve($contributionInvoiceID, $paymentProcessorID, $qfKey, $component): array {
+    // Missing any parameter should be a bad request
+    if (empty($contributionInvoiceID) || empty($paymentProcessorID) || empty($component)) {
+      return ['status' => 400];
+    }
+
+    // The id comes from the address: it must be a plain number and name an eWAY processor.
+    if (!ctype_digit((string) $paymentProcessorID) || !CRM_eWAYRecurring_Utils::isEwayProcessor((int) $paymentProcessorID)) {
+      return ['status' => 400];
     }
 
     $paymentProcessorInfo = civicrm_api3('PaymentProcessor', 'get', [
@@ -26,36 +58,36 @@ class CRM_eWAYRecurring_Page_VerifyPayment extends CRM_Core_Page {
       $paymentProcessorInfo = $paymentProcessorInfo[0];
       $paymentProcessor = new CRM_Core_Payment_eWAYRecurring(($paymentProcessorInfo['is_test']) ? 'test' : 'live', $paymentProcessorInfo);
 
+      $response = NULL;
       try {
         // This function will do redirect if the payment failed
         $response = CRM_eWAYRecurring_Utils::validateEwayContribution($paymentProcessor, $contributionInvoiceID);
       } catch (CRM_Core_Exception $e) {
-      } catch (CRM_Core_Exception $e) {
+        // Treated as neither success nor failure: the request is rejected below. A donor who paid may be told the
+        // payment could not be verified, and the queued verification job then settles it, so leave a trace of why
+        // (DEF-79). The invoice id is the secret that names the payment, so it is not logged.
+        Civi::log()->warning('eWAY return page: the payment could not be verified (payment processor {processor_id}): {msg}', [
+          'processor_id' => $paymentProcessorID,
+          'msg' => $e->getMessage(),
+        ]);
       }
 
       // payment success
       if ($response) {
         if ($component == 'event') {
-          $redirectUrl = CRM_Utils_System::url('civicrm/event/register', [
+          return ['redirect' => CRM_Utils_System::url('civicrm/event/register', [
             'qfKey' => $qfKey,
             '_qf_ThankYou_display' => 'true',
-          ]);
+          ])];
         }
-        else {
-          $redirectUrl = CRM_Utils_System::url('civicrm/contact/view', [
-            'cid' => $response['contribution']['contact_id'],
-          ]);
-        }
+        return ['redirect' => CRM_Utils_System::url('civicrm/contact/view', [
+          'cid' => $response['contribution']['contact_id'],
+        ])];
       }
     }
 
     // Neither success nor fail. The payment information is wrong.
-    if (!isset($redirectUrl)) {
-      header("HTTP/1.1 400 Bad Request");
-      die();
-    }
-
-    CRM_Utils_System::redirect($redirectUrl);
+    return ['status' => 400];
   }
 
 }
