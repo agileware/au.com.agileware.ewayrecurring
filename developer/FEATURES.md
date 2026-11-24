@@ -52,6 +52,8 @@ documentation (that lives in `docs/`).
 | [FR-5](#fr-5-search-kit-report-of-payments-eway-approved-but-civicrm-could-not-complete) | Search Kit report of payments eWAY approved but CiviCRM could not complete, with actions and instructions | `idea` | to be decided | Group to be added once decisions A1 to A5 are settled |
 | [FR-6](#fr-6-blocked-recurring-contributions-list-with-reactivate-and-cancel) | Blocked Recurring Contributions list with Reactivate and Cancel, and a status check | `released` | 3.0.0 | PU-P1 to PU-P5, PW-B-blocked-01 to PW-B-blocked-04 |
 | [FR-7](#fr-7-survey-of-backend-users) | Survey of backend users (staff who run the extension day to day) | `idea` | to be decided | Group to be added once decisions S1 to S5 are settled |
+| [FR-8](#fr-8-audit-why-contributions-are-marked-failed-on-sites-using-eway) | Audit why contributions are marked Failed on sites using eWAY, and act on what is found | `idea` | to be decided | Group to be added once decisions R1 to R5 are settled; linked to FR-9 |
+| [FR-9](#fr-9-report-of-the-reasons-contributions-are-marked-failed) | Report with statistics on the reasons contributions are marked Failed | `idea` | to be decided | Group to be added once decisions T1 to T5 are settled; linked to FR-8 |
 
 ---
 
@@ -839,12 +841,148 @@ case for the link.
 
 ---
 
+## FR-8 Audit why contributions are marked Failed on sites using eWAY
+
+| | |
+| --- | --- |
+| Status | `idea` |
+| Raised | 2026-11-24 |
+| Target release | to be decided |
+| Related | FR-9 (the report that gives this audit its numbers: do them together or do FR-9 first), FR-4 (the Failed Recurring Contributions list), DEF-78 and FR-5 (payments eWAY approved but not completed), the end-user guide `docs/README.md` |
+
+### Summary
+
+Look at real sites that use this extension and review the reasons their contributions are marked Failed. The reason is
+recorded as a note on the contribution (the Note field of the contribution): the extension adds a note with the subject
+"Transaction Error" (the error codes in eWAY's answer) or "Contribution Error" (the message of an error the extension
+hit) when it marks a contribution Failed. Use what the audit finds to decide whether the failures can be managed,
+reduced or made easier to see, and what the backend users need to be told to do next.
+
+### Why
+
+A failed payment costs a donor's gift or a member's renewal, and staff are asked about them. Today the reason sits in a
+note that nobody reads in bulk, so we do not know which reasons are common, which are the donor's card (declined,
+expired), which are the site's set-up (a wrong key, a wrong amount format) and which are faults in the extension. Fixes
+and instructions are better chosen from the evidence than from guesses.
+
+### What the audit would do
+
+1. Collect the notes of Failed contributions for a period on each agreed site (read only, through the contribution
+   Note field or a query), keeping only the reason text, the subject and the date. No donor names, amounts, contact ids,
+   transaction ids or site names are kept in the results.
+2. Group the reasons: card declined, card expired or invalid, insufficient funds, eWAY or network error, set-up
+   problems, errors raised inside the extension, and anything unrecognised.
+3. For each group, decide what could be done (the outcomes below) and write it up as a short list of proposals.
+
+Possible outcomes for a group of reasons:
+
+* **Manage**: automatic handling that is not there today (for example a different retry for a temporary error than for an
+  expired card).
+* **Mitigate**: stop it happening (for example checking a card when it is added, which is FR-3).
+* **Better visibility**: show the reason on the Failed Recurring Contributions list or in a system status check, not only
+  in a note.
+* **Follow-up actions for backend users**: say on the page and in the end-user guide what to do for each kind of reason
+  (ask the donor for a new card, check the eWAY account, report a fault).
+
+### Design options
+
+| Option | How | Notes |
+| --- | --- | --- |
+| A | A one-off audit done by hand or by script on a few sites, written up in a document kept outside the repository | No extension code. Gives the first answers quickly. The write-up names no site |
+| B | Do FR-9 first, so the numbers come from the report on any site that installs it, then review them | Needs code first, but repeatable and works for every site |
+| C | A and then B: the first audit shapes what the report groups by | Probably the best order |
+
+### Decisions still open
+
+| ID | Question | Status |
+| --- | --- | --- |
+| R1 | Which sites are audited, and who asks their owners for permission? | Open |
+| R2 | How much is kept: only counts of each reason, or the reason texts as well? Anything that could identify a person stays out | Open |
+| R3 | Where are the results kept? They must stay out of this public repository | Open |
+| R4 | Option A, B or C (the table above)? | Open |
+| R5 | Which proposals from the audit become features, and who decides? | Open |
+
+### Acceptance criteria
+
+To be written once decisions R1 to R5 are settled. At least: a written list of the failure reasons found, grouped, with a
+count for each group and a proposal for each; no site, person or transaction is named anywhere in the repository.
+
+### Test coverage
+
+None. The audit is research. Any feature that comes out of it gets its own entry and tests.
+
+---
+
+## FR-9 Report of the reasons contributions are marked Failed
+
+| | |
+| --- | --- |
+| Status | `idea` |
+| Raised | 2026-11-24 |
+| Target release | to be decided |
+| Related | FR-8 (the audit that uses this report and says what to group by), FR-4 (the Failed Recurring Contributions list), FR-5 and FR-6 (other Search Kit pages of the same kind) |
+
+### Summary
+
+A report that collects statistics on the reasons contributions are marked Failed. The reason is in the Note field of the
+contribution (subject "Transaction Error" or "Contribution Error"). The report counts Failed contributions by reason, over
+a chosen period, so staff and the extension's maintainers can see which reasons are common and whether a change helped.
+
+### Why
+
+FR-8 needs numbers, and so does every later decision about retries, card checks and visibility of failures. A report
+inside CiviCRM gives them on any site, without a database query, and lets a site owner see their own failures. It is the
+repeatable half of the pair: FR-8 asks what the numbers mean and what to do, FR-9 produces them.
+
+### What the report shows
+
+Suggested, to be settled in the decisions below:
+
+* A count of Failed contributions for a date range, grouped by reason, with the share of the total.
+* The same by month, to show a trend.
+* A drill-down from a reason to the contributions behind it (a link to each contribution and its recurring record).
+* The kind of payment (a recurring charge, a once-off form payment, a back-office payment) as a second grouping.
+
+The reason is free text today (an error code list joined with line breaks, or an exception message), so grouping needs a
+step that turns the text into a small set of named reasons (for example by eWAY response code). Contributions that
+failed with no note show as "no reason recorded".
+
+### Design options
+
+| Option | How | Notes |
+| --- | --- | --- |
+| A | A Search Kit saved search and display over contribution notes joined to Failed contributions, grouped on the note text | Matches FR-4, FR-5 and FR-6. No schema change. The free text makes the groups untidy until reasons are normalised |
+| B | As A, plus a calculated field (an APIv4 spec provider like `is_eway_processor`) that gives a normalised reason from the note | Cleaner groups. A little code, and the rules for the groups have to be maintained |
+| C | Record the reason in its own field when the contribution is marked Failed, and report on that | Cleanest, but needs a schema change and an upgrade step. Old failures would have no value |
+
+### Decisions still open
+
+| ID | Question | Status |
+| --- | --- | --- |
+| T1 | Option A, B or C? Is a normalised reason worth the code (option B or C) for the first version? | Open |
+| T2 | Which permission is needed to see it? FR-4 and FR-6 use "edit contributions". The notes can hold card and error detail, so a narrower one may be right | Open |
+| T3 | Which groupings and periods does the first version offer? | Open |
+| T4 | Does it cover only this extension's processors, or every Failed contribution? | Open |
+| T5 | Can a site export it (Search Kit download) to hand to the maintainers for FR-8 without sending donor data? | Open |
+
+### Acceptance criteria
+
+To be written once decisions T1 to T5 are settled. At least: the counts match the Failed contributions in the database for
+the period, a contribution with no note is counted as "no reason recorded", and a user without the permission cannot open it.
+
+### Test coverage
+
+None yet. Expect PHPUnit cases for the grouping and the permission, and a Playwright case for the page, as for FR-6.
+
+---
+
 ## 2. Change log
 
 Newest first. One line per change to this file.
 
 | Date | Change |
 | --- | --- |
+| 2026-11-24 | FR-8 and FR-9 added as `idea` and linked: an audit of why contributions are marked Failed on sites using eWAY (reasons are in the contribution's Note field), and a report with statistics on those reasons. Five open decisions each (R1 to R5, T1 to T5). Not scheduled. |
 | 2026-11-21 | FR-7 added as `idea`: a survey of backend users, with what it could ask, three options and five open decisions (S1 to S5). Not scheduled. |
 | 2026-11-22 | 3.0.0 released. FR-2, FR-4 and FR-6 changed from `in progress` to `released` (3.0.0). |
 | 2026-11-21 | FR-6 added and built (`in progress`): the Blocked Recurring Contributions list with Reactivate and Cancel buttons, its instructions and a status check, for records left blocked by a Cancelled contribution. All five decisions (B1 to B5) taken by the owner. |
